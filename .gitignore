@@ -2,3 +2,4 @@ syntax: glob
 .*.sw[op]
 *~
 .*.py[co]
+*.egg-info
