@@ -12,3 +12,4 @@ version.py
 requirements_development.txt
 .vscode
 .venv-*
+requirements.txt
