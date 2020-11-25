@@ -10,3 +10,5 @@ __pycache__/
 .eggs/
 version.py
 requirements_development.txt
+.vscode
+.venv-*
