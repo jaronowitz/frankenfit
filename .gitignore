@@ -8,8 +8,7 @@ dist/
 .tox/
 __pycache__/
 .eggs/
-version.py
-requirements_development.txt
 .vscode
 .venv-*
 requirements.txt
+*.whl
