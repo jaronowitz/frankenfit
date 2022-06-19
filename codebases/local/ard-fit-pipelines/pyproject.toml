@@ -1,0 +1,6 @@
+
+[build-system]
+requires = ["ard-srctool"]
+
+[tool.setuptools_scm]
+root = '../../../'
