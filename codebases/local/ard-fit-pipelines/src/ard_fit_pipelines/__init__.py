@@ -15,6 +15,8 @@ except _PNFE:
 #import .core
 #import .transforms
 
-from .core import Transform
+from .core import (
+    Transform,
+)
 from . import transforms
 from . import core
