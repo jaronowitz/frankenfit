@@ -23,12 +23,13 @@ class Identity(StatelessTransform):
         return X_apply
 
 class DeMean(ColumnsTransform):
-    "Docstr for MyDeMean"
-    
-    def _fit(self, X_fit):
+    """
+    De-mean some columns.
+    """
+    def _fit(self, X_fit: pd.DataFrame) -> object:
         return X_fit[self.cols].mean()
     
-    def _apply(self, X_apply, state):
+    def _apply(self, X_apply: pd.DataFrame, state: object):
         means = state
         return X_apply.assign(**{
             c: X_apply[c] - means[c]
@@ -42,8 +43,10 @@ class CopyColumns(StatelessTransform, ColumnsTransform):
     into corresponding destination columns, either creating them or overwriting
     their contents.
     """
-    dest_cols: str[str | hp] = field() # TODO: converter/validator
+    dest_cols: list[str | hp] = field() # TODO: converter/validator
 
+    # FIXME: we actually may not be able to validate this invariant until after
+    # hyperparams are bound
     @dest_cols.validator
     def _check_dest_cols(self, attribute, value):
         lc = len(self.cols)
@@ -74,8 +77,10 @@ class CopyColumns(StatelessTransform, ColumnsTransform):
 # class RenameColumns(core.ColumnsTransform):
 #     how: hp | Callable | dict[str | hp, str | hp]
 # 
-# class KeepColumns(core.ColumnsTransform):
-#     pass
+class KeepColumns(StatelessTransform, ColumnsTransform):
+    def _apply(self, X_apply: pd.DataFrame, state: object=None) -> pd.DataFrame:
+        return X_apply[self.cols]
+    
 # 
 # class DropColumns(core.ColumnsTransform):
 #     pass
@@ -85,3 +90,29 @@ class CopyColumns(StatelessTransform, ColumnsTransform):
 # 
 # #class Pipeline(Transform):
 # #    pass
+
+# Clip, Impute, Winsorize, DeMean, ZScore, Rank, MapQuantiles
+# Inliners: StatelessLambda, StatefulLambda
+
+class DropColumns:
+    pass
+
+class Filter:
+    pass
+
+@define
+class Message(StatelessTransform):
+    fit_msg: str = None
+    apply_msg: str = None
+
+class Read:
+    pass
+
+class Write:
+    pass
+
+# Timeseries?
+# Graph-making transforms:
+# Pipeline, Join, JoinAsOf (time series), IfHyperparamTrue, IfTrainingDataHasProperty,
+# GroupedBy, Longitudinally (time series), CrossSectionally (time seires),
+# Sequentially (time series), AcrossHyperParamGrid
