@@ -46,6 +46,10 @@ def test_Transform(diamonds_df):
     result = fit.apply(diamonds_df)
     assert result[cols].equals(diamonds_df[cols] - diamonds_df[cols].mean())
 
+    assert isinstance(t, fpc.Transform)
+    assert not isinstance(fit, fpc.Transform)
+    assert isinstance(fit, fpc.FitTransform)
+
     with pytest.raises(AttributeError):
         class Bad(fpc.Transform):
             # not allowed to have an attribute named "state"

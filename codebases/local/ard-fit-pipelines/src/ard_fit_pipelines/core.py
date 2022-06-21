@@ -73,6 +73,10 @@ class Transform(ABC):
     `_fit()` implementation), whose `apply()` methods (i.e., `C.FitC.apply()`)
     employ the subclasser's `_apply()` implementation.
 
+    Subclasses must not keep parameters in fields named `fit`, `apply`, `state`,
+    or `params`, as these would break functionality by overriding expected
+    method names.
+
     Examples of writing Transforms:
 
     ```
@@ -128,6 +132,10 @@ class Transform(ABC):
         fit_class = getattr(self, self._fit_class_name)
         return fit_class(self, X_fit, bindings)
 
+    def params(self) -> list[str]:
+        field_names = list(fields_dict(self.__class__).keys())
+        return field_names
+
     def __init_subclass__(cls, /, no_magic=False, **kwargs):
         """
         Implements black magic to help with writing Transform subclasses.
@@ -176,6 +184,7 @@ class FitTransform(ABC):
             bound_val = hp.resolve_maybe(unbound_val, bindings)
             print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
             setattr(self, name, bound_val)
+        # TODO: freak out if any hyperparameters failed to bind
         self.__nrows = len(X_fit)
         self.__state = transform._fit.__func__(self, X_fit)
 
@@ -240,14 +249,19 @@ class hp:
             return v.resolve(bindings)
         return v
 
+class hp_fmtstr(hp):
+    def resolve(self, bindings):
+        # treate name as format string to be formatted against bindings
+        return self.name.format(**bindings)
+
 class StatelessTransform(Transform):
     def _fit(self, X_fit: pd.DataFrame):
         return None
 
     def apply(self, X_apply: pd.DataFrame) -> pd.DataFrame:
         """
-        Convenience function to directly apply a StatelessTransform without a
-        preceding call to fit, as long as the StatelessTransform has no
+        Convenience function allowing one to apply a StatelessTransform without
+        a preceding call to fit, as long as the StatelessTransform has no
         hyperparameters that need to be bound.
         """
         return self.fit(None, bindings=None).apply(X_apply)

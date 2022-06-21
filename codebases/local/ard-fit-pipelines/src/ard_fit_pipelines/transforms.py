@@ -1,6 +1,8 @@
 from __future__ import annotations
+import logging
+from logging import Logger
 
-from typing import Callable
+from typing import Callable, TextIO
 from attrs import define, field
 import pandas as pd
 
@@ -13,6 +15,8 @@ from .core import (
     not_empty,
     #columns_tuple_converter
 )
+
+LOG = logging.getLogger(__name__)
 
 class Identity(StatelessTransform):
     """
@@ -101,9 +105,67 @@ class Filter:
     pass
 
 @define
-class Message(StatelessTransform):
+class Print(Identity):
+    """
+    An Identity transform that has the side-effect of printing a message at fit-
+    and/or apply-time.
+    """
     fit_msg: str = None
+    "Message to print at fit-time."
+
     apply_msg: str = None
+    "Message to print at apply-time."
+
+    dest: TextIO | str = None # if str, will be opened in append mode
+    """File object to which to print, or the name of a file to open in append
+    mode. If None (default), print to stdout."""
+
+    def _fit(self, X_fit: pd.DataFrame):
+        if type(self.dest) is str:
+            with open(self.dest, 'a') as dest:
+                print(self.fit_msg, dest=dest)
+        else:
+            print(self.fit_msg, dest=self.dest)
+        return super()._fit(X_fit)
+
+    def _apply(self, X_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        if type(self.dest) is str:
+            with open(self.dest, 'a') as dest:
+                print(self.apply_msg, dest=dest)
+        else:
+            print(self.apply_msg, dest=self.dest)
+        return super()._apply(X_apply)
+
+@define
+class LogMessage(Identity):
+    """
+    An Identity transform that has the side-effect of logging a message at fit-
+    and/or apply-time.
+    """
+    fit_msg: str = None
+    "Message to log at fit-time."
+
+    apply_msg: str = None
+    "Message to log at apply-time."
+
+    logger: Logger = None
+    "Logger instance to which to log. If None (default), use transforms.LOG"
+
+    level: int = logging.INFO   
+    "Level at which to log, default INFO."
+
+    def _fit(self, X_fit: pd.DataFrame):
+        if self.fit_msg is not None:
+            logger = self.logger or LOG
+            logger.log(self.level, self.fit_msg)
+        return super()._fit(X_fit)
+
+    def _apply(self, X_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        if self.apply_msg is not None:
+            logger = self.logger or LOG
+            logger.log(self.level, self.apply_msg)
+        return super()._apply(X_apply)
+
 
 class Read:
     pass
