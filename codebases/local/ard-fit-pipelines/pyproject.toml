@@ -1,6 +1,6 @@
 
 [build-system]
-requires = ["ard-srctool"]
+requires = ["ard-srctool", "pydataset"]
 
 [tool.setuptools_scm]
 root = '../../../'
