@@ -6,12 +6,11 @@ from functools import wraps, partial, update_wrapper
 import logging
 from typing import Any, Optional, TypeVar
 
-T = TypeVar("T", bound="Transform")
-
 from attrs import define, field, fields_dict, mutable
 import pandas as pd
 
 LOG = logging.getLogger(__name__)
+T = TypeVar("T", bound="Transform")
 
 # DAG of transforms should be lightweight, immutable, unbound.
 # Fitting process then binds parameters, concretizes nodes into "fit nodes" with
@@ -89,13 +88,13 @@ class Transform(ABC):
 
         cols: list[str] # Or, get this for free by subclassing ColumnsTransform
 
-        def _fit(self, X_fit: pd.DataFrame) -> object:
-            return X_fit[self.cols].mean()
+        def _fit(self, df_fit: pd.DataFrame) -> object:
+            return df_fit[self.cols].mean()
 
-        def _apply(self, X_apply: pd.DataFrame, state: object):
+        def _apply(self, df_apply: pd.DataFrame, state: object):
             means = state
-            return X_apply.assign(**{
-                c: X_apply[c] - means[c]
+            return df_apply.assign(**{
+                c: df_apply[c] - means[c]
                 for c in self.cols
             })
 
@@ -108,30 +107,30 @@ class Transform(ABC):
     # (@define is not necessary because we are not introducing any fields in our
     # sublcass.)
     class KeepColumns(StatelessTransform, ColumnsTransform):
-        def _apply(self, X_apply: pd.DataFrame, state: object=None) -> pd.DataFrame:
-            return X_apply[self.cols]
+        def _apply(self, df_apply: pd.DataFrame, state: object=None) -> pd.DataFrame:
+            return df_apply[self.cols]
     ```
 
     """
 
     @abstractmethod
-    def _fit(self, X_fit: pd.DataFrame) -> object:
+    def _fit(self, df_fit: pd.DataFrame) -> object:
         raise NotImplementedError
 
     @abstractmethod
-    def _apply(self, X_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         raise NotImplementedError
 
     def fit(
-        self, X_fit: pd.DataFrame, bindings: Optional[dict[str, object]] = None
+        self, df_fit: pd.DataFrame, bindings: Optional[dict[str, object]] = None
     ) -> FitTransform:
-        if X_fit is None:
-            X_fit = pd.DataFrame()
+        if df_fit is None:
+            df_fit = pd.DataFrame()
         LOG.debug(
-            "Fitting %s on %d rows: %r", self.__class__.__name__, len(X_fit), self
+            "Fitting %s on %d rows: %r", self.__class__.__name__, len(df_fit), self
         )
         fit_class = getattr(self, self._fit_class_name)
-        return fit_class(self, X_fit, bindings)
+        return fit_class(self, df_fit, bindings)
 
     def params(self) -> list[str]:
         field_names = list(fields_dict(self.__class__).keys())
@@ -180,7 +179,7 @@ class FitTransform(ABC):
     state that will be used at apply-time.
     """
 
-    def __init__(self, transform: Transform, X_fit: pd.DataFrame, bindings=None):
+    def __init__(self, transform: Transform, df_fit: pd.DataFrame, bindings=None):
         "Docstr for FitTransform.__init__"
         bindings = bindings or {}
         for name in self._field_names:
@@ -189,8 +188,8 @@ class FitTransform(ABC):
             print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
             setattr(self, name, bound_val)
         # TODO: freak out if any hyperparameters failed to bind
-        self.__nrows = len(X_fit)
-        self.__state = transform._fit.__func__(self, X_fit)
+        self.__nrows = len(df_fit)
+        self.__state = transform._fit.__func__(self, df_fit)
 
     def __repr__(self):
         fields_str = ", ".join(
@@ -199,25 +198,24 @@ class FitTransform(ABC):
         data_str = f"<{self.__nrows} rows of fitting data>"
         if fields_str:
             return f'{self.__class__.__name__}({", ".join([fields_str, data_str])})'
-        else:
-            return f"{self.__class__.__name__}({data_str})"
+        return f"{self.__class__.__name__}({data_str})"
 
     @abstractmethod
-    def _apply(self, X_apply: pd.DataFrame, state=None) -> pd.DataFrame:
+    def _apply(self, df_apply: pd.DataFrame, state=None) -> pd.DataFrame:
         raise NotImplementedError
 
-    def apply(self, X_apply: pd.DataFrame) -> pd.DataFrame:
+    def apply(self, df_apply: pd.DataFrame) -> pd.DataFrame:
         """
         Return the result of applying this fit Transform to the given DataFrame.
         """
         LOG.debug(
             "Applying %s to %d rows: %r",
             self.__class__.__qualname__,
-            len(X_apply),
+            len(df_apply),
             self,
         )
         # TODO: raise exception here if any fields are unbound hyperparameters
-        return self._apply(X_apply, state=self.__state)
+        return self._apply(df_apply, state=self.__state)
 
     # TODO: refit()
 
@@ -265,16 +263,16 @@ class hp_fmtstr(hp):
 
 
 class StatelessTransform(Transform):
-    def _fit(self, X_fit: pd.DataFrame):
+    def _fit(self, df_fit: pd.DataFrame):
         return None
 
-    def apply(self, X_apply: pd.DataFrame) -> pd.DataFrame:
+    def apply(self, df_apply: pd.DataFrame) -> pd.DataFrame:
         """
         Convenience function allowing one to apply a StatelessTransform without
         a preceding call to fit, as long as the StatelessTransform has no
         hyperparameters that need to be bound.
         """
-        return self.fit(None, bindings=None).apply(X_apply)
+        return self.fit(None, bindings=None).apply(df_apply)
 
 
 # Valid column list specs (routed by field converter):

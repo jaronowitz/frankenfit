@@ -25,8 +25,8 @@ class Identity(StatelessTransform):
     data unaltered.
     """
 
-    def _apply(self, X_apply: pd.DataFrame, state: object = None):
-        return X_apply
+    def _apply(self, df_apply: pd.DataFrame, state: object = None):
+        return df_apply
 
 
 class DeMean(ColumnsTransform):
@@ -34,12 +34,12 @@ class DeMean(ColumnsTransform):
     De-mean some columns.
     """
 
-    def _fit(self, X_fit: pd.DataFrame) -> object:
-        return X_fit[self.cols].mean()
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        return df_fit[self.cols].mean()
 
-    def _apply(self, X_apply: pd.DataFrame, state: object):
+    def _apply(self, df_apply: pd.DataFrame, state: object):
         means = state
-        return X_apply.assign(**{c: X_apply[c] - means[c] for c in self.cols})
+        return df_apply.assign(**{c: df_apply[c] - means[c] for c in self.cols})
 
 
 @define
@@ -68,16 +68,16 @@ class CopyColumns(StatelessTransform, ColumnsTransform):
                 "length."
             )
 
-    def _apply(self, X_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         if len(self.cols) == 1:
             src_col = self.cols[0]
-            return X_apply.assign(
-                **{dest_col: X_apply[src_col] for dest_col in self.dest_cols}
+            return df_apply.assign(
+                **{dest_col: df_apply[src_col] for dest_col in self.dest_cols}
             )
 
-        return X_apply.assign(
+        return df_apply.assign(
             **{
-                dest_col: X_apply[src_col]
+                dest_col: df_apply[src_col]
                 for src_col, dest_col in zip(self.cols, self.dest_cols)
             }
         )
@@ -88,8 +88,8 @@ class CopyColumns(StatelessTransform, ColumnsTransform):
 #     how: hp | Callable | dict[str | hp, str | hp]
 #
 class KeepColumns(StatelessTransform, ColumnsTransform):
-    def _apply(self, X_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return X_apply[self.cols]
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return df_apply[self.cols]
 
 
 #
@@ -131,21 +131,21 @@ class Print(Identity):
     """File object to which to print, or the name of a file to open in append
     mode. If None (default), print to stdout."""
 
-    def _fit(self, X_fit: pd.DataFrame):
-        if type(self.dest) is str:
+    def _fit(self, df_fit: pd.DataFrame):
+        if isinstance(self.dest, str):
             with open(self.dest, "a") as dest:
                 print(self.fit_msg, dest=dest)
         else:
             print(self.fit_msg, dest=self.dest)
-        return super()._fit(X_fit)
+        return super()._fit(df_fit)
 
-    def _apply(self, X_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        if type(self.dest) is str:
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        if isinstance(self.dest, str):
             with open(self.dest, "a") as dest:
                 print(self.apply_msg, dest=dest)
         else:
             print(self.apply_msg, dest=self.dest)
-        return super()._apply(X_apply)
+        return super()._apply(df_apply)
 
 
 @define
@@ -167,17 +167,17 @@ class LogMessage(Identity):
     level: int = logging.INFO
     "Level at which to log, default INFO."
 
-    def _fit(self, X_fit: pd.DataFrame):
+    def _fit(self, df_fit: pd.DataFrame):
         if self.fit_msg is not None:
             logger = self.logger or LOG
             logger.log(self.level, self.fit_msg)
-        return super()._fit(X_fit)
+        return super()._fit(df_fit)
 
-    def _apply(self, X_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         if self.apply_msg is not None:
             logger = self.logger or LOG
             logger.log(self.level, self.apply_msg)
-        return super()._apply(X_apply)
+        return super()._apply(df_apply)
 
 
 class Read:
