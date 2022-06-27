@@ -22,4 +22,3 @@ per-file-ignores =
 	# function name should be lower case. Our convention can include class
 	# names (which are upper case) in test function names.
 	*/tests/*.py: N802
-
