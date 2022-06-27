@@ -204,7 +204,7 @@ class FitTransform(ABC):
             )
     
     @abstractmethod
-    def _apply(self, X_apply, state=None):
+    def _apply(self, X_apply: pd.DataFrame, state=None) -> pd.DataFrame:
         raise NotImplementedError
         
     def apply(self, X_apply: pd.DataFrame) -> pd.DataFrame:
@@ -218,11 +218,14 @@ class FitTransform(ABC):
     
     # TODO: refit()
     
-    def state(self):
+    def state(self) -> object:
+        """
+        The fit state of the transformation.
+        """
         # what if there's a field named 'state'?
         return self.__state
 
-    def __init_subclass__(cls, /, transform_class=None, **kwargs):
+    def __init_subclass__(cls, /, transform_class: type=None, **kwargs):
         super().__init_subclass__(**kwargs)
         if transform_class is None:
             return
@@ -239,18 +242,18 @@ class FitTransform(ABC):
 class hp:
     name: str
 
-    def resolve(self, bindings):
+    def resolve(self, bindings: dict[str, object]) -> object:
         # default: treat hp name as key into bindings
         return bindings.get(self.name, self)
     
     @staticmethod
-    def resolve_maybe(v, bindings):
+    def resolve_maybe(v, bindings: dict[str, object]) -> object:
         if isinstance(v, hp):
             return v.resolve(bindings)
         return v
 
 class hp_fmtstr(hp):
-    def resolve(self, bindings):
+    def resolve(self, bindings: dict[str, object]) -> object:
         # treate name as format string to be formatted against bindings
         return self.name.format(**bindings)
 
@@ -282,7 +285,7 @@ class hp_cols(hp):
     name: str = None
 
     @classmethod
-    def maybe_from_value(cls, x: str | hp | Iterable[str | hp]):
+    def maybe_from_value(cls, x: str | hp | Iterable[str | hp]) -> hp_cols | hp:
         if isinstance(x, hp):
             return x
         if isinstance(x, str):
