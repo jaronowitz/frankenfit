@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from functools import wraps, partial, update_wrapper
 import logging
-from typing import Any, Optional, TypeVar
+from typing import Optional, TypeVar
 
-from attrs import define, field, fields_dict, mutable
+from attrs import define, field, fields_dict
 import pandas as pd
 
 LOG = logging.getLogger(__name__)
@@ -178,7 +177,7 @@ class FitTransform(ABC):
         bindings = bindings or {}
         for name in self._field_names:
             unbound_val = getattr(transform, name)
-            bound_val = hp.resolve_maybe(unbound_val, bindings)
+            bound_val = HP.resolve_maybe(unbound_val, bindings)
             print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
             setattr(self, name, bound_val)
         # TODO: freak out if any hyperparameters failed to bind
@@ -236,7 +235,7 @@ class FitTransform(ABC):
 
 
 @define
-class hp:
+class HP:
     name: str
 
     def resolve(self, bindings: dict[str, object]) -> object:
@@ -245,12 +244,12 @@ class hp:
 
     @staticmethod
     def resolve_maybe(v, bindings: dict[str, object]) -> object:
-        if isinstance(v, hp):
+        if isinstance(v, HP):
             return v.resolve(bindings)
         return v
 
 
-class hp_fmtstr(hp):
+class HPFmtStr(HP):
     def resolve(self, bindings: dict[str, object]) -> object:
         # treate name as format string to be formatted against bindings
         return self.name.format(**bindings)
@@ -280,13 +279,13 @@ class StatelessTransform(Transform):
 
 
 @define
-class hp_cols(hp):
-    cols: list[str | hp]
+class HPCols(HP):
+    cols: list[str | HP]
     name: str = None
 
     @classmethod
-    def maybe_from_value(cls, x: str | hp | Iterable[str | hp]) -> hp_cols | hp:
-        if isinstance(x, hp):
+    def maybe_from_value(cls, x: str | HP | Iterable[str | HP]) -> HPCols | HP:
+        if isinstance(x, HP):
             return x
         if isinstance(x, str):
             return cls([x])
@@ -295,7 +294,7 @@ class hp_cols(hp):
     def resolve(self, bindings):
         return [
             c.resolve(bindings)
-            if isinstance(c, hp)
+            if isinstance(c, HP)
             else c.format(**bindings)
             if isinstance(c, str)
             else c
@@ -319,7 +318,7 @@ def not_empty(instance, attribute, value):
     if hasattr(value, "__len__"):
         if len(value) < 1:
             raise ValueError(f"{attribute.name} must not be empty but got {value}")
-    elif isinstance(value, hp):
+    elif isinstance(value, HP):
         return
     else:
         raise TypeError(f"{attribute.name} value has no length: {value}")
@@ -333,9 +332,7 @@ class ColumnsTransform(Transform):
     ...
     """
 
-    cols: list[str | hp] = field(
-        validator=not_empty, converter=hp_cols.maybe_from_value
-    )
+    cols: list[str | HP] = field(validator=not_empty, converter=HPCols.maybe_from_value)
 
 
 @define

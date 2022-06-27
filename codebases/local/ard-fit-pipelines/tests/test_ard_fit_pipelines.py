@@ -1,11 +1,9 @@
-from re import A
 import pytest
 
 # TODO: how to encode the fact that we have a TEST-time requirement for
 # pydataset (but not build-time or runtime)
 from pydataset import data
 
-import ard_fit_pipelines as fp
 import ard_fit_pipelines.core as fpc
 import ard_fit_pipelines.transforms as fpt
 
@@ -67,7 +65,7 @@ def test_ColumnsTransform(diamonds_df):
     assert t.apply(df).equals(df[["x", "y", "z"]])
     t = fpt.KeepColumns("z")
     assert t.apply(df).equals(df[["z"]])
-    t = fpt.KeepColumns(fpc.hp("which_cols"))
+    t = fpt.KeepColumns(fpc.HP("which_cols"))
     assert (
         t.fit(df, bindings={"which_cols": ["x", "y", "z"]})
         .apply(df)
@@ -75,19 +73,19 @@ def test_ColumnsTransform(diamonds_df):
     )
 
     bindings = {"some_col": "y"}
-    assert fpc.hp_cols(cols=["x", "y", "z"]).resolve(bindings) == ["x", "y", "z"]
-    assert fpc.hp_cols(cols=["x", fpc.hp("some_col"), "z"]).resolve(bindings) == [
+    assert fpc.HPCols(cols=["x", "y", "z"]).resolve(bindings) == ["x", "y", "z"]
+    assert fpc.HPCols(cols=["x", fpc.HP("some_col"), "z"]).resolve(bindings) == [
         "x",
         "y",
         "z",
     ]
-    assert fpc.hp_cols(cols=["x", "{some_col}", "z"]).resolve(bindings) == [
+    assert fpc.HPCols(cols=["x", "{some_col}", "z"]).resolve(bindings) == [
         "x",
         "y",
         "z",
     ]
 
-    t = fpt.KeepColumns(["x", fpc.hp("some_col"), "z"])
+    t = fpt.KeepColumns(["x", fpc.HP("some_col"), "z"])
     assert t.fit(df, bindings=bindings).apply(df).equals(df[["x", "y", "z"]])
     t = fpt.KeepColumns(["x", "{some_col}", "z"])
     assert t.fit(df, bindings=bindings).apply(df).equals(df[["x", "y", "z"]])

@@ -1,4 +1,4 @@
-from importlib.metadata import (
+from importlib.metadata import (  # noqa: N814
     # import-as with leading _ so that we don't pollute the globals of anyone
     # daring enough to *-import us.
     version as _version,

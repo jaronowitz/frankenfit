@@ -2,17 +2,16 @@ from __future__ import annotations
 import logging
 from logging import Logger
 
-from typing import Callable, TextIO
+from typing import TextIO
 from attrs import define, field
 import pandas as pd
 
-from . import core
 from .core import (
-    Transform,
+    # Transform,
     StatelessTransform,
     ColumnsTransform,
-    hp,
-    not_empty,
+    HP,
+    # not_empty,
     # columns_tuple_converter
 )
 
@@ -50,7 +49,7 @@ class CopyColumns(StatelessTransform, ColumnsTransform):
     contents.
     """
 
-    dest_cols: list[str | hp] = field()  # TODO: converter/validator
+    dest_cols: list[str | HP] = field()  # TODO: converter/validator
 
     # FIXME: we actually may not be able to validate this invariant until after
     # hyperparams are bound
