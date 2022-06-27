@@ -21,8 +21,8 @@ LOG = logging.getLogger(__name__)
 
 class Identity(StatelessTransform):
     """
-    The stateless Transform that, at apply-time, simply returns the input
-    data unaltered.
+    The stateless Transform that, at apply-time, simply returns the input data
+    unaltered.
     """
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None):
@@ -45,9 +45,9 @@ class DeMean(ColumnsTransform):
 @define
 class CopyColumns(StatelessTransform, ColumnsTransform):
     """
-    A stateless Transform that copies values from one or more source columns
-    into corresponding destination columns, either creating them or overwriting
-    their contents.
+    A stateless Transform that copies values from one or more source columns into
+    corresponding destination columns, either creating them or overwriting their
+    contents.
     """
 
     dest_cols: list[str | hp] = field()  # TODO: converter/validator
@@ -117,19 +117,21 @@ class Filter:
 @define
 class Print(Identity):
     """
-    An Identity transform that has the side-effect of printing a message at fit-
-    and/or apply-time.
+    An Identity transform that has the side-effect of printing a message at fit- and/or
+    apply-time.
     """
 
     fit_msg: str = None
-    "Message to print at fit-time."
+    """Message to print at fit-time."""
 
     apply_msg: str = None
-    "Message to print at apply-time."
+    """Message to print at apply-time."""
 
     dest: TextIO | str = None  # if str, will be opened in append mode
-    """File object to which to print, or the name of a file to open in append
-    mode. If None (default), print to stdout."""
+    """
+    File object to which to print, or the name of a file to open in append mode. If
+    None (default), print to stdout.
+    """
 
     def _fit(self, df_fit: pd.DataFrame):
         if isinstance(self.dest, str):
@@ -151,21 +153,21 @@ class Print(Identity):
 @define
 class LogMessage(Identity):
     """
-    An Identity transform that has the side-effect of logging a message at fit-
-    and/or apply-time.
+    An Identity transform that has the side-effect of logging a message at fit- and/or
+    apply-time.
     """
 
     fit_msg: str = None
-    "Message to log at fit-time."
+    """Message to log at fit-time."""
 
     apply_msg: str = None
-    "Message to log at apply-time."
+    """Message to log at apply-time."""
 
     logger: Logger = None
-    "Logger instance to which to log. If None (default), use transforms.LOG"
+    """Logger instance to which to log. If None (default), use transforms.LOG"""
 
     level: int = logging.INFO
-    "Level at which to log, default INFO."
+    """Level at which to log, default INFO."""
 
     def _fit(self, df_fit: pd.DataFrame):
         if self.fit_msg is not None:
