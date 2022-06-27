@@ -39,7 +39,7 @@ class Transform(ABC):
     The abstract base class of all (unfit) Transforms. Subclasses must implement the
     `_fit()` and `_apply()` methods (but see StatelessTransform, which removes the
     requirement to implement `_fit()`).
-    
+
     Subclasses should use `attrs` field variables to hold parameters (but not fit state)
     of the transformation being implemented, with the expectation that these parameters
     will be provided by the user of the subclass as constructor arguments. Thanks to
@@ -53,24 +53,24 @@ class Transform(ABC):
     variables on `self`. If any fields were given as hyperparameters at construction
     time, they are resolved to concrete bindings before `_fit()` and `_apply()` are
     invoked.
-    
+
     _fit() should accept some training data and return an arbitrary object representing
     fit state, and which will be passed to `_apply()` at apply-time. Generally speaking,
     `_fit()` should *not* mutate anything about `self`.
-    
+
     `_apply()` should then accept a state object as returned by `_fit()` and return the
     result of applying the transformation to some given apply-time data.
-    
+
     Once implemented, the subclass is used like any Transform, which is to say by
     constructing an instance with some parameters (which may be hypeparameters), and
     then calling its `fit()` and `apply()` methods (note no leading underscores).
-    
+
     A subclass `C` will automatically find itself in possession of an inner class
     `FitC`, which derives from `FitTransform`.  `C.fit()` will then return `C.FitC`
     instances (encapsulating the state returned by the subclasser's `_fit()`
     implementation), whose `apply()` methods (i.e., `C.FitC.apply()`) employ the
     subclasser's `_apply()` implementation.
-    
+
     Subclasses must not keep parameters in fields named `fit`, `apply`, `state`, or
     `params`, as these would break functionality by overriding expected method names.
 
@@ -163,11 +163,11 @@ class FitTransform(ABC):
     The result of fitting a {transform_class_name} Transform. Call this object's
     `apply()` method on some data to get the result of applying the now-fit
     transformation.
-    
+
     All parameters of the fit {transform_class_name} are available as instance
     variables, with any hyperparameters fully resolved against whatever bindings were
     provided at fit-time.
-    
+
     The fit state of the transformation, as returned by {transform_class_name}'s
     `_fit()` method at fit-time, is available from `state()`, and this is the state that
     will be used at apply-time.
