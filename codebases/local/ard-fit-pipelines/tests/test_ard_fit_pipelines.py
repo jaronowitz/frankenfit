@@ -27,12 +27,12 @@ def test_Identity(diamonds_df):
 
 def test_Transform(diamonds_df):
     class DeMean(fpc.ColumnsTransform):
-        def _fit(self, X_fit):
-            return X_fit[self.cols].mean()
+        def _fit(self, df_fit):
+            return df_fit[self.cols].mean()
 
-        def _apply(self, X_apply, state):
+        def _apply(self, df_apply, state):
             means = state
-            return X_apply.assign(**{c: X_apply[c] - means[c] for c in self.cols})
+            return df_apply.assign(**{c: df_apply[c] - means[c] for c in self.cols})
 
     assert isinstance(DeMean.FitDeMean, type)
     assert DeMean.FitDeMean.__name__ == "FitDeMean"
