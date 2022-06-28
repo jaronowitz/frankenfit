@@ -9,14 +9,12 @@ import pandas as pd
 
 from .core import (
     Transform,
-    WeightedTransform,
     columns_field,
     StatelessTransform,
-    ColumnsTransform,
     HP,
 )
 
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 
 class Identity(StatelessTransform):
@@ -27,6 +25,38 @@ class Identity(StatelessTransform):
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None):
         return df_apply
+
+
+@define(slots=False)
+class ColumnsTransform(Transform):
+    """
+    Abstract base clase of all Transforms that require a list of columns as a parameter
+    (cols).  Subclasses acquire a mandatory `cols` argument to their constructors, which
+    can be supplied as a list of any combination of:
+
+    - string column names,
+    - hyperparameters exepcted to resolve to column names,
+    - format strings that will be evaluated as hyperparameters formatted on the bindings
+      dict.
+
+    A scalar value for cols (e.g. a single string) will be converted automatically to a
+    list of one element at construction time.
+
+    Subclasses may define additional parameters with the same behavior as cols by using
+    columns_field().
+    """
+
+    cols: list[str | HP] = columns_field()
+
+
+@define(slots=False)
+class WeightedTransform(Transform):
+    """
+    Abstract base class of Transforms that accept an optional weight column as a
+    parameter (w_col).
+    """
+
+    w_col: Optional[str] = None
 
 
 @define
@@ -132,6 +162,15 @@ class StatefulLambda(Transform):
             raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
 
 
+@define
+class Pipe(StatelessTransform, ColumnsTransform):
+    apply_fun: Callable  # df[, bindings] -> df
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        result = self.apply_fun(df_apply[self.cols])
+        return df_apply.assign(**{c: result[c] for c in self.cols})
+
+
 # TODO Rank, MapQuantiles
 
 
@@ -192,7 +231,7 @@ class ImputeConstant(StatelessTransform, ColumnsTransform):
         )
 
 
-def weighted_means(df, cols, w_col):
+def _weighted_means(df, cols, w_col):
     return df[cols].multiply(df[w_col], axis="index").sum() / df[w_col].sum()
 
 
@@ -204,7 +243,7 @@ class DeMean(WeightedTransform, ColumnsTransform):
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if self.w_col is not None:
-            return weighted_means(df_fit, self.cols, self.w_col)
+            return _weighted_means(df_fit, self.cols, self.w_col)
         return df_fit[self.cols].mean()
 
     def _apply(self, df_apply: pd.DataFrame, state: pd.DataFrame):
@@ -216,7 +255,7 @@ class DeMean(WeightedTransform, ColumnsTransform):
 class ImputeMean(WeightedTransform, ColumnsTransform):
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if self.w_col is not None:
-            return weighted_means(df_fit, self.cols, self.w_col)
+            return _weighted_means(df_fit, self.cols, self.w_col)
         return df_fit[self.cols].mean()
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
@@ -228,7 +267,7 @@ class ImputeMean(WeightedTransform, ColumnsTransform):
 class ZScore(WeightedTransform, ColumnsTransform):
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if self.w_col is not None:
-            means = weighted_means(df_fit, self.cols, self.w_col)
+            means = _weighted_means(df_fit, self.cols, self.w_col)
         else:
             means = df_fit[self.cols].mean()
         return {"means": means, "stddevs": df_fit[self.cols].std()}
@@ -305,14 +344,14 @@ class LogMessage(Identity):
 
     def _fit(self, df_fit: pd.DataFrame):
         if self.fit_msg is not None:
-            logger = self.logger or LOG
+            logger = self.logger or _LOG
             logger.log(self.level, self.fit_msg)
         return Identity._fit(self, df_fit)
         # return super()._fit(df_fit)
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         if self.apply_msg is not None:
-            logger = self.logger or LOG
+            logger = self.logger or _LOG
             logger.log(self.level, self.apply_msg)
         return Identity._apply(self, df_apply, state=state)
         # return super()._apply(df_apply)
