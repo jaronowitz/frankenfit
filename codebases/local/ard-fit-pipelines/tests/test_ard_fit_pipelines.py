@@ -1,5 +1,8 @@
 from io import StringIO
+
+from attrs import define
 import pytest
+import pandas as pd
 
 from pydataset import data
 
@@ -52,8 +55,38 @@ def test_Transform(diamonds_df):
             state: int = 1
 
 
-# def test_hyperparams(diamonds_df):
-#     pass
+def test_hyperparams(diamonds_df):
+    bindings = {
+        "bool_param": True,
+        "int_param": 42,
+        "response_col": "price",
+    }
+    assert fpc.HP.resolve_maybe("foo", bindings) == "foo"
+    assert fpc.HP.resolve_maybe(21, bindings) == 21
+    assert fpc.HP.resolve_maybe(fpc.HP("int_param"), bindings) == 42
+
+    assert (
+        fpc.HP.resolve_maybe(fpc.HPFmtStr("{response_col}_train"), bindings)
+        == "price_train"
+    )
+
+    @define
+    class TestTransform(fpc.Transform):
+        some_param: str
+
+        def _fit(self, df_fit: pd.DataFrame) -> object:
+            return None
+
+        def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+            return df_apply
+
+    t = TestTransform(some_param=fpc.HP("response_col"))
+    tfit = t.fit(diamonds_df, bindings=bindings)
+    assert tfit.some_param == "price"
+
+    t = TestTransform(some_param=fpc.HP("undefined_hyperparam"))
+    with pytest.raises(fpc.UnresolvedHyperparameterError):
+        tfit = t.fit(diamonds_df, bindings=bindings)
 
 
 def test_ColumnsTransform(diamonds_df):
@@ -170,5 +203,8 @@ def test_Pipeline(diamonds_df):
     assert len(p2) == len(p)
     assert p2 == p
 
+    # TypeError for a non-Transform in the pipeline
+    with pytest.raises(TypeError):
+        fpc.Pipeline(42)
     with pytest.raises(TypeError):
         fpc.Pipeline([fpt.DeMean(["price"]), 42])

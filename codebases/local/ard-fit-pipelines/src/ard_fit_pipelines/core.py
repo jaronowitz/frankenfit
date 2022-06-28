@@ -187,10 +187,24 @@ class FitTransform(ABC):
             bound_val = HP.resolve_maybe(unbound_val, bindings)
             # print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
             setattr(self, name, bound_val)
-        # TODO: freak out if any hyperparameters failed to bind
         self.__bindings = bindings
         self.__nrows = len(df_fit)
+        # freak out if any hyperparameters failed to bind
+        self._check_hyperparams()
         self.__state = transform._fit.__func__(self, df_fit)
+
+    def _check_hyperparams(self):
+        unresolved = []
+        for name in self._field_names:
+            val = getattr(self, name)
+            if isinstance(val, HP):
+                unresolved.append(val)
+        if unresolved:
+            raise UnresolvedHyperparameterError(
+                f"One or more hyperparameters of {self.__class__.__qualname__} were "
+                f"not resolved at fit-time: {unresolved}. Bindings were: "
+                f"{self.__bindings}"
+            )
 
     def __repr__(self):
         fields_str = ", ".join(
@@ -222,24 +236,30 @@ class FitTransform(ABC):
 
     def bindings(self) -> dict[str, object]:
         """
-        The bindings dict according to which the transformation's hyperparameters were
-        resolved.
+        Return the bindings dict according to which the transformation's hyperparameters
+        were resolved.
         """
         return self.__bindings
 
     def state(self) -> object:
         """
-        The fit state of the transformation.
+        Return the fit state of the transformation, which is an arbitrary object
+        determined by the implementation of {transform_class_name}._fit().
         """
         return self.__state
 
     def __init_subclass__(cls, /, transform_class: type = None, **kwargs):
+        # TODO: futz with base classes so that super() works like normal in the user's
+        # _fit() and _apply() methods when subclassing another Transform.
         super().__init_subclass__(**kwargs)
         if transform_class is None:
             return
         cls._apply = transform_class._apply
         cls.__name__ = f"Fit{transform_class.__name__}"
         cls.__doc__ = FitTransform.__doc__.format(
+            transform_class_name=transform_class.__name__
+        )
+        cls.state.__doc__ = FitTransform.state.__doc__.format(
             transform_class_name=transform_class.__name__
         )
         cls.__init__.__annotations__["transform"] = transform_class.__name__
@@ -259,6 +279,10 @@ class StatelessTransform(Transform):
         that need to be bound.
         """
         return self.fit(None, bindings=None).apply(df_apply)
+
+
+class UnresolvedHyperparameterError(NameError):
+    pass
 
 
 @define
