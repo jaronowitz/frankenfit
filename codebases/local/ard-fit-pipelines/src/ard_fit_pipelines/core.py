@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 import logging
-from typing import Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 
 from attrs import define, field, fields_dict
 import pandas as pd
@@ -272,13 +272,16 @@ class StatelessTransform(Transform):
     def _fit(self, df_fit: pd.DataFrame):
         return None
 
-    def apply(self, df_apply: pd.DataFrame) -> pd.DataFrame:
+    def apply(
+        self, df_apply: pd.DataFrame, bindings: dict[str, object] = None
+    ) -> pd.DataFrame:
         """
-        Convenience function allowing one to apply a StatelessTransform without a
-        preceding call to fit, as long as the StatelessTransform has no hyperparameters
-        that need to be bound.
+        Convenience function allowing one to apply a StatelessTransform without an
+        explicit preceding call to fit. Implemented by calling fit() on no data (but
+        with optional hyperparameter bindings as provided) and then returning the result
+        of applying the resulting FitTransform to the given DataFrame.
         """
-        return self.fit(None, bindings=None).apply(df_apply)
+        return self.fit(None, bindings=bindings).apply(df_apply)
 
 
 class UnresolvedHyperparameterError(NameError):
@@ -320,6 +323,15 @@ class HPFmtStr(HP):
 # Scalars rewritten to lists of one:
 #   'z' -> ['z'] -> hp_cols
 #   '{some_col}' - ['{som_col}'] -> hp_cols
+
+
+@define
+class HPLambda(HP):
+    resolve_fun: Callable
+    name: str = None
+
+    def resolve(self, bindings: dict[str, object]) -> object:
+        return self.resolve_fun(bindings)
 
 
 @define
@@ -368,6 +380,12 @@ def validate_not_empty(instance, attribute, value):
         raise TypeError(f"{attribute.name} value has no length: {value}")
 
 
+def columns_field(**kwargs):
+    return field(
+        validator=validate_not_empty, converter=HPCols.maybe_from_value, **kwargs
+    )
+
+
 @define
 class ColumnsTransform(Transform):
     """
@@ -376,9 +394,7 @@ class ColumnsTransform(Transform):
     ...
     """
 
-    cols: list[str | HP] = field(
-        validator=validate_not_empty, converter=HPCols.maybe_from_value
-    )
+    cols: list[str | HP] = columns_field()
 
 
 @define

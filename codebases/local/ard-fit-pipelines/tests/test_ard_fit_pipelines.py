@@ -88,6 +88,14 @@ def test_hyperparams(diamonds_df):
     with pytest.raises(fpc.UnresolvedHyperparameterError):
         tfit = t.fit(diamonds_df, bindings=bindings)
 
+    t = TestTransform(
+        some_param=fpc.HPLambda(
+            lambda b: {b["response_col"]: b["response_col"] + "_orig"}
+        )
+    )
+    tfit = t.fit(diamonds_df, bindings=bindings)
+    assert tfit.some_param == {"price": "price_orig"}
+
 
 def test_ColumnsTransform(diamonds_df):
     df = diamonds_df
@@ -135,8 +143,15 @@ def test_CopyColumns(diamonds_df):
     df = diamonds_df[cols]
     result = fpt.CopyColumns(["price"], ["price_copy"]).apply(df)
     assert result["price_copy"].equals(df["price"])
+    # optional list literals for lists of 1
+    result = fpt.CopyColumns("price", "price_copy").apply(df)
+    assert result["price_copy"].equals(df["price"])
 
     result = fpt.CopyColumns(["price"], ["price_copy1", "price_copy2"]).apply(df)
+    assert result["price_copy1"].equals(df["price"])
+    assert result["price_copy2"].equals(df["price"])
+    # optional list literals for lists of 1
+    result = fpt.CopyColumns("price", ["price_copy1", "price_copy2"]).apply(df)
     assert result["price_copy1"].equals(df["price"])
     assert result["price_copy2"].equals(df["price"])
 
@@ -152,11 +167,87 @@ def test_CopyColumns(diamonds_df):
             ],
         ).apply(df)
 
+    # with hyperparams
+    bindings = {"response": "price"}
+    result = fpt.CopyColumns(["{response}"], ["{response}_copy"]).apply(
+        df, bindings=bindings
+    )
+    assert result["price_copy"].equals(df["price"])
+
+    result = fpt.CopyColumns("{response}", "{response}_copy").apply(
+        df, bindings=bindings
+    )
+    assert result["price_copy"].equals(df["price"])
+
+    result = (
+        fpt.CopyColumns([fpc.HP("response")], "{response}_copy")
+        .fit(None, bindings=bindings)
+        .apply(df)
+    )
+    assert result["price_copy"].equals(df["price"])
+
+    with pytest.raises(TypeError):
+        # HP("response") resolves to a str, not a list of str
+        result = fpt.CopyColumns(fpc.HP("response"), "{response}_copy").fit(
+            None, bindings=bindings
+        )
+
 
 def test_KeepColumns(diamonds_df):
     kept = ["price", "x", "y", "z"]
     result = fpt.KeepColumns(kept).apply(diamonds_df)
     assert result.equals(diamonds_df[kept])
+
+
+def test_RenameColumns(diamonds_df):
+    result = fpt.RenameColumns({"price": "price_orig"}).apply(diamonds_df)
+    assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
+    result = fpt.RenameColumns(lambda c: c + "_orig" if c == "price" else c).apply(
+        diamonds_df
+    )
+    assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
+
+    result = fpt.RenameColumns(
+        fpc.HPLambda(lambda b: {b["response"]: b["response"] + "_orig"})
+    ).apply(diamonds_df, bindings={"response": "price"})
+    assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
+
+
+def test_StatelessLambda(diamonds_df):
+    df = diamonds_df
+    result = fpt.StatelessLambda(
+        lambda df: df.rename(columns={"price": "price_orig"})
+    ).apply(df)
+    assert result.equals(df.rename(columns={"price": "price_orig"}))
+
+    result = fpt.StatelessLambda(
+        lambda df, bindings: df.rename(columns={bindings["response"]: "foo"})
+    ).apply(df, bindings={"response": "price"})
+    assert result.equals(df.rename(columns={"price": "foo"}))
+
+    with pytest.raises(TypeError):
+        fpt.StatelessLambda(
+            lambda df, bindings, _: df.rename(columns={bindings["response"]: "foo"})
+        ).apply(df, bindings={"response": "price"})
+
+
+def test_StatefulLambda(diamonds_df):
+    df = diamonds_df
+    lambda_demean = fpt.StatefulLambda(
+        fit_fun=lambda df: df["price"].mean(),
+        apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
+    )
+    result = lambda_demean.fit(df).apply(df)
+
+    # with bindings
+    lambda_demean = fpt.StatefulLambda(
+        fit_fun=lambda df, bindings: df[bindings["col"]].mean(),
+        apply_fun=lambda df, mean, bindings: df.assign(
+            **{bindings["col"]: df[bindings["col"]] - mean}
+        ),
+    )
+    result = lambda_demean.fit(df, bindings={"col": "price"}).apply(df)
+    assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
 
 
 def test_Print(diamonds_df):
