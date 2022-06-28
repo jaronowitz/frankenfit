@@ -327,3 +327,117 @@ def test_Pipeline(diamonds_df):
         fpc.Pipeline(42)
     with pytest.raises(TypeError):
         fpc.Pipeline([fpt.DeMean(["price"]), 42])
+
+
+def test_IfHyperparamIsTrue(diamonds_df):
+    df = diamonds_df
+    lambda_demean = fpt.StatefulLambda(
+        fit_fun=lambda df: df["price"].mean(),
+        apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
+    )
+    target_demean = df.assign(price=df["price"] - df["price"].mean())
+    lambda_add_ones = fpt.StatelessLambda(apply_fun=lambda df: df.assign(ones=1.0))
+    target_add_ones = df.assign(ones=1.0)
+
+    result = (
+        fpc.IfHyperparamIsTrue("do_it", then=lambda_demean)
+        .fit(df, bindings={"do_it": False})
+        .apply(df)
+    )
+    assert result.equals(df)  # identity
+    result = (
+        fpc.IfHyperparamIsTrue("do_it", then=lambda_demean)
+        .fit(df, bindings={"do_it": True})
+        .apply(df)
+    )
+    assert result.equals(target_demean)
+    result = (
+        fpc.IfHyperparamIsTrue("do_it", then=lambda_demean, otherwise=lambda_add_ones)
+        .fit(df, bindings={"do_it": False})
+        .apply(df)
+    )
+    assert result.equals(target_add_ones)
+    result = (
+        fpc.IfHyperparamIsTrue("do_it", then=lambda_add_ones, otherwise=lambda_demean)
+        .fit(df, bindings={"do_it": False})
+        .apply(df)
+    )
+    assert result.equals(target_demean)
+
+
+def test_IfHyperparamLambda(diamonds_df):
+    df = diamonds_df
+    lambda_demean = fpt.StatefulLambda(
+        fit_fun=lambda df: df["price"].mean(),
+        apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
+    )
+    target_demean = df.assign(price=df["price"] - df["price"].mean())
+    lambda_add_ones = fpt.StatelessLambda(apply_fun=lambda df: df.assign(ones=1.0))
+    target_add_ones = df.assign(ones=1.0)
+
+    condition = lambda bindings: bindings["x"] > 0 and bindings["y"] > 0  # noqa: E731
+
+    result = (
+        fpc.IfHyperparamLambda(condition, then=lambda_demean)
+        .fit(df, bindings={"x": -1, "y": 1})
+        .apply(df)
+    )
+    assert result.equals(df)
+    result = (
+        fpc.IfHyperparamLambda(condition, then=lambda_demean)
+        .fit(df, bindings={"x": 1, "y": 1})
+        .apply(df)
+    )
+    assert result.equals(target_demean)
+    result = (
+        fpc.IfHyperparamLambda(condition, then=lambda_demean, otherwise=lambda_add_ones)
+        .fit(df, bindings={"x": -1, "y": 1})
+        .apply(df)
+    )
+    assert result.equals(target_add_ones)
+    result = (
+        fpc.IfHyperparamLambda(condition, then=lambda_add_ones, otherwise=lambda_demean)
+        .fit(df, bindings={"x": -1, "y": 1})
+        .apply(df)
+    )
+    assert result.equals(target_demean)
+
+
+def test_IfTrainingDataHasProperty(diamonds_df):
+    df = diamonds_df
+    lambda_demean = fpt.StatefulLambda(
+        fit_fun=lambda df: df["price"].mean(),
+        apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
+    )
+    target_demean = df.assign(price=df["price"] - df["price"].mean())
+    lambda_add_ones = fpt.StatelessLambda(apply_fun=lambda df: df.assign(ones=1.0))
+    target_add_ones = df.assign(ones=1.0)
+
+    property = lambda df: len(df.columns) > 1  # noqa: E731
+
+    result = (
+        fpc.IfTrainingDataHasProperty(property, then=lambda_demean)
+        .fit(df[["price"]])
+        .apply(df)
+    )
+    assert result.equals(df)
+    result = (
+        fpc.IfTrainingDataHasProperty(property, then=lambda_demean).fit(df).apply(df)
+    )
+    assert result.equals(target_demean)
+    result = (
+        fpc.IfTrainingDataHasProperty(
+            property, then=lambda_demean, otherwise=lambda_add_ones
+        )
+        .fit(df[["price"]])
+        .apply(df)
+    )
+    assert result.equals(target_add_ones)
+    result = (
+        fpc.IfTrainingDataHasProperty(
+            property, then=lambda_add_ones, otherwise=lambda_demean
+        )
+        .fit(df[["price"]])
+        .apply(df)
+    )
+    assert result.equals(target_demean)

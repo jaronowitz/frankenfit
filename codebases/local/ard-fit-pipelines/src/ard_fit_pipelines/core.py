@@ -479,3 +479,62 @@ class Pipeline(Transform):
 
     def __len__(self):
         return len(self.transforms)
+
+
+@define
+class IfHyperparamIsTrue(Transform):
+    name: str
+    then: Transform
+    otherwise: Optional[Transform] = None
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        bindings = self.bindings()
+        if bindings.get(self.name):
+            return self.then.fit(df_fit, bindings=bindings)
+        elif self.otherwise is not None:
+            return self.otherwise.fit(df_fit, bindings=bindings)
+        return None  # act like Identity
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        if state is not None:
+            return state.apply(df_apply)
+        return df_apply  # act like Identity
+
+
+@define
+class IfHyperparamLambda(Transform):
+    fun: Callable  # dict[str, object] -> bool
+    then: Transform
+    otherwise: Optional[Transform] = None
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        bindings = self.bindings()
+        if self.fun(bindings):
+            return self.then.fit(df_fit, bindings=bindings)
+        elif self.otherwise is not None:
+            return self.otherwise.fit(df_fit, bindings=bindings)
+        return None  # act like Identity
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        if state is not None:
+            return state.apply(df_apply)
+        return df_apply  # act like Identity
+
+
+@define
+class IfTrainingDataHasProperty(Transform):
+    fun: Callable  # dict[str, object] -> bool
+    then: Transform
+    otherwise: Optional[Transform] = None
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        if self.fun(df_fit):
+            return self.then.fit(df_fit, bindings=self.bindings())
+        elif self.otherwise is not None:
+            return self.otherwise.fit(df_fit, bindings=self.bindings())
+        return None  # act like Identity
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        if state is not None:
+            return state.apply(df_apply)
+        return df_apply  # act like Identity
