@@ -100,7 +100,6 @@ class DropColumns(StatelessTransform, ColumnsTransform):
         return df_apply.drop(columns=self.cols)
 
 
-# Clip, Impute, Winsorize, DeMean, ZScore, Rank, MapQuantiles
 # Inliners: StatelessLambda, StatefulLambda
 
 
@@ -143,6 +142,66 @@ class StatefulLambda(Transform):
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
+
+
+# ImputeMean, Winsorize, DeMean, ZScore, Rank, MapQuantiles
+
+
+@define
+class Clip(StatelessTransform, ColumnsTransform):
+    upper: Optional[float] = None
+    lower: Optional[float] = None
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return df_apply.assign(
+            **{
+                col: df_apply[col].clip(upper=self.upper, lower=self.lower)
+                for col in self.cols
+            }
+        )
+
+
+@define
+class Winsorize(ColumnsTransform):
+    # assume symmetric, i.e. trim the upper and lower `limit` percent of observations
+    limit: float
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        if not isinstance(self.limit, float):
+            raise TypeError(
+                f"Winsorize.limit must be a float between 0 and 1. Got: {self.limit}"
+            )
+        if self.limit < 0 or self.limit > 1:
+            raise ValueError(
+                f"Winsorize.limit must be a float between 0 and 1. Got: {self.limit}"
+            )
+
+        return {
+            "lower": df_fit[self.cols].quantile(self.limit, interpolation="nearest"),
+            "upper": df_fit[self.cols].quantile(
+                1.0 - self.limit, interpolation="nearest"
+            ),
+        }
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return df_apply.assign(
+            **{
+                col: df_apply[col].clip(
+                    upper=state["upper"][col], lower=state["lower"][col]
+                )
+                for col in self.cols
+            }
+        )
+
+
+@define
+class ImputeConstant(StatelessTransform, ColumnsTransform):
+    value: object
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return df_apply.assign(
+            **{col: df_apply[col].fillna(self.value) for col in self.cols}
+        )
 
 
 # class Filter:

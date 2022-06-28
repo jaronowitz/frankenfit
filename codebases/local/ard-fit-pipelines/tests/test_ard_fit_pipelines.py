@@ -2,6 +2,7 @@ from io import StringIO
 
 from attrs import define
 import pytest
+import numpy as np
 import pandas as pd
 
 from pydataset import data
@@ -250,6 +251,31 @@ def test_StatefulLambda(diamonds_df):
     )
     result = lambda_demean.fit(df, bindings={"col": "price"}).apply(df)
     assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
+
+
+def test_Clip(diamonds_df):
+    df = diamonds_df
+    result = fpt.Clip(["price"], upper=150, lower=100).apply(df)
+    assert (result["price"] <= 150).all() & (result["price"] >= 100).all()
+    clip_price = fpt.Clip(["price"], upper=fpc.HP("upper"))
+    for upper in (100, 200, 300):
+        result = clip_price.apply(df, bindings={"upper": upper})
+        assert (result["price"] <= upper).all()
+    clip_price = fpt.Clip(["price"], lower=fpc.HP("lower"))
+    for lower in (100, 200, 300):
+        result = clip_price.apply(df, bindings={"lower": lower})
+        assert (result["price"] >= lower).all()
+
+
+def test_ImputeConstant():
+    df = pd.DataFrame({"col1": pd.Series([1.0, np.nan, 2.0])})
+    assert fpt.ImputeConstant(["col1"], 0.0).apply(df).equals(df.fillna(0.0))
+
+
+def test_Winsorize():
+    df = pd.DataFrame({"col1": [float(x) for x in range(1, 101)]})
+    result = fpt.Winsorize(["col1"], 0.2).fit(df).apply(df)
+    assert (result["col1"] > 20).all() and (result["col1"] < 81).all()
 
 
 def test_Print(diamonds_df):
