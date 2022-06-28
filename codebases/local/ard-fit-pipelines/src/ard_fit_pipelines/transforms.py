@@ -132,7 +132,7 @@ class StatefulLambda(Transform):
             raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
 
 
-# TODO ImputeMean, DeMean, ZScore, Rank, MapQuantiles
+# TODO Rank, MapQuantiles
 
 
 @define
