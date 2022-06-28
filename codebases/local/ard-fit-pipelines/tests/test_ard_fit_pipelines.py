@@ -288,6 +288,14 @@ def test_ImputeMean():
     )
 
 
+def test_ZScore(diamonds_df):
+    result = fpt.ZScore(["price"]).fit(diamonds_df).apply(diamonds_df)
+    assert result["price"].equals(
+        (diamonds_df["price"] - diamonds_df["price"].mean())
+        / diamonds_df["price"].std()
+    )
+
+
 def test_Print(diamonds_df):
     fit_msg = "Fitting!"
     apply_msg = "Applying!"

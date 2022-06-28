@@ -224,8 +224,20 @@ class ImputeMean(WeightedTransform, ColumnsTransform):
         return df_apply.assign(**{c: df_apply[c].fillna(means[c]) for c in self.cols})
 
 
-# class Filter:
-#     pass
+@define
+class ZScore(WeightedTransform, ColumnsTransform):
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        if self.w_col is not None:
+            means = weighted_means(df_fit, self.cols, self.w_col)
+        else:
+            means = df_fit[self.cols].mean()
+        return {"means": means, "stddevs": df_fit[self.cols].std()}
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        means, stddevs = state["means"], state["stddevs"]
+        return df_apply.assign(
+            **{c: (df_apply[c] - means[c]) / stddevs[c] for c in self.cols}
+        )
 
 
 @define
