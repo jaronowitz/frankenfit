@@ -1,7 +1,6 @@
+from io import StringIO
 import pytest
 
-# TODO: how to encode the fact that we have a TEST-time requirement for
-# pydataset (but not build-time or runtime)
 from pydataset import data
 
 import ard_fit_pipelines.core as fpc
@@ -125,3 +124,51 @@ def test_KeepColumns(diamonds_df):
     kept = ["price", "x", "y", "z"]
     result = fpt.KeepColumns(kept).apply(diamonds_df)
     assert result.equals(diamonds_df[kept])
+
+
+def test_Print(diamonds_df):
+    fit_msg = "Fitting!"
+    apply_msg = "Applying!"
+    buf = StringIO()
+    t = fpt.Print(fit_msg=fit_msg, apply_msg=apply_msg, dest=buf)
+    assert isinstance(t, fpt.Identity)
+    df = t.fit(diamonds_df).apply(diamonds_df)
+    assert buf.getvalue() == fit_msg + "\n" + apply_msg + "\n"
+    assert df.equals(diamonds_df)
+
+
+def test_Pipeline(diamonds_df):
+    p = fpc.Pipeline()
+    assert len(p) == 0
+    # empty pipeline equiv to identity
+    assert diamonds_df.equals(p.fit(diamonds_df).apply(diamonds_df))
+
+    # bare transform, automatically becomes list of 1
+    p = fpc.Pipeline(fpt.KeepColumns(["x"]))
+    assert len(p) == 1
+    assert p.fit(diamonds_df).apply(diamonds_df).equals(diamonds_df[["x"]])
+
+    p = fpc.Pipeline(
+        [
+            fpt.CopyColumns(["price"], ["price_train"]),
+            fpt.DeMean(["price_train"]),
+            fpt.KeepColumns(["x", "y", "z", "price", "price_train"]),
+        ]
+    )
+    assert len(p) == 3
+    target_df = diamonds_df.assign(price_train=lambda df: df["price"]).assign(
+        price_train=lambda df: df["price_train"] - df["price_train"].mean()
+    )[["x", "y", "z", "price", "price_train"]]
+    df = p.fit(diamonds_df).apply(diamonds_df)
+    assert df.equals(target_df)
+
+    # pipeline of pipeline is coalesced
+    p2 = fpc.Pipeline(p)
+    assert len(p2) == len(p)
+    assert p2 == p
+    p2 = fpc.Pipeline([p])
+    assert len(p2) == len(p)
+    assert p2 == p
+
+    with pytest.raises(TypeError):
+        fpc.Pipeline([fpt.DeMean(["price"]), 42])

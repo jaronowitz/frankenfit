@@ -135,18 +135,26 @@ class Print(Identity):
     def _fit(self, df_fit: pd.DataFrame):
         if isinstance(self.dest, str):
             with open(self.dest, "a") as dest:
-                print(self.fit_msg, dest=dest)
+                print(self.fit_msg, file=dest)
         else:
-            print(self.fit_msg, dest=self.dest)
-        return super()._fit(df_fit)
+            print(self.fit_msg, file=self.dest)
+        return Identity._fit(self, df_fit)
+
+        # Idiomatic super() doesn't work because at call time self is a FitPrint
+        # instance, which inherits directly from FitTransform, and not from Print. Could
+        # maybe FIXME by futzing with base classes in the metaprogramming that goes on
+        # in core.py
+        # return super()._fit(df_fit)
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         if isinstance(self.dest, str):
             with open(self.dest, "a") as dest:
-                print(self.apply_msg, dest=dest)
+                print(self.apply_msg, file=dest)
         else:
-            print(self.apply_msg, dest=self.dest)
-        return super()._apply(df_apply)
+            print(self.apply_msg, file=self.dest)
+        return Identity._apply(self, df_apply, state=state)
+        # Same issue with super() as in _fit().
+        # return super()._apply(df_apply)
 
 
 @define
@@ -172,21 +180,15 @@ class LogMessage(Identity):
         if self.fit_msg is not None:
             logger = self.logger or LOG
             logger.log(self.level, self.fit_msg)
-        return super()._fit(df_fit)
+        return Identity._fit(self, df_fit)
+        # return super()._fit(df_fit)
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         if self.apply_msg is not None:
             logger = self.logger or LOG
             logger.log(self.level, self.apply_msg)
-        return super()._apply(df_apply)
-
-
-class Read:
-    pass
-
-
-class Write:
-    pass
+        return Identity._apply(self, df_apply, state=state)
+        # return super()._apply(df_apply)
 
 
 # Timeseries?

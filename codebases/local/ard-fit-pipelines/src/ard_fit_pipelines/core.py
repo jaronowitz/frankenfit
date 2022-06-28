@@ -129,6 +129,8 @@ class Transform(ABC):
         field_names = list(fields_dict(self.__class__).keys())
         return field_names
 
+    # TODO: hyperparams() ?
+
     def __init_subclass__(cls, /, no_magic=False, **kwargs):
         """
         Implements black magic to help with writing Transform subclasses.
@@ -140,13 +142,18 @@ class Transform(ABC):
         class DerivedFitTransform(FitTransform, transform_class=cls):
             pass
 
-        # we should freak out if the subclass has any attribute named
-        # 'state', because that will collide at apply-time with
-        # fit_class.state().
+        # we should freak out if the subclass has any attribute named 'state' or
+        # 'bindings', because those will collide at apply-time with fit_class method
+        # names.
         if hasattr(cls, "state"):
             raise AttributeError(
                 "Subclasses of Transform are not allowed to have an attribute "
                 'named "state". Deal with it.'
+            )
+        if hasattr(cls, "bindings"):
+            raise AttributeError(
+                "Subclasses of Transform are not allowed to have an attribute "
+                'named "bindings". Deal with it.'
             )
 
         fit_class = DerivedFitTransform
@@ -178,9 +185,10 @@ class FitTransform(ABC):
         for name in self._field_names:
             unbound_val = getattr(transform, name)
             bound_val = HP.resolve_maybe(unbound_val, bindings)
-            print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
+            # print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
             setattr(self, name, bound_val)
         # TODO: freak out if any hyperparameters failed to bind
+        self.__bindings = bindings
         self.__nrows = len(df_fit)
         self.__state = transform._fit.__func__(self, df_fit)
 
@@ -212,11 +220,17 @@ class FitTransform(ABC):
 
     # TODO: refit()
 
+    def bindings(self) -> dict[str, object]:
+        """
+        The bindings dict according to which the transformation's hyperparameters were
+        resolved.
+        """
+        return self.__bindings
+
     def state(self) -> object:
         """
         The fit state of the transformation.
         """
-        # what if there's a field named 'state'?
         return self.__state
 
     def __init_subclass__(cls, /, transform_class: type = None, **kwargs):
@@ -234,8 +248,27 @@ class FitTransform(ABC):
         cls._field_names = field_names
 
 
+class StatelessTransform(Transform):
+    def _fit(self, df_fit: pd.DataFrame):
+        return None
+
+    def apply(self, df_apply: pd.DataFrame) -> pd.DataFrame:
+        """
+        Convenience function allowing one to apply a StatelessTransform without a
+        preceding call to fit, as long as the StatelessTransform has no hyperparameters
+        that need to be bound.
+        """
+        return self.fit(None, bindings=None).apply(df_apply)
+
+
 @define
 class HP:
+    """
+    A transformation parameter whose concrete value is deferred until fit-time, at which
+    point its value is "resolved" by a dict of "bindings" provided to the fit() call.
+    ...
+    """
+
     name: str
 
     def resolve(self, bindings: dict[str, object]) -> object:
@@ -253,19 +286,6 @@ class HPFmtStr(HP):
     def resolve(self, bindings: dict[str, object]) -> object:
         # treate name as format string to be formatted against bindings
         return self.name.format(**bindings)
-
-
-class StatelessTransform(Transform):
-    def _fit(self, df_fit: pd.DataFrame):
-        return None
-
-    def apply(self, df_apply: pd.DataFrame) -> pd.DataFrame:
-        """
-        Convenience function allowing one to apply a StatelessTransform without a
-        preceding call to fit, as long as the StatelessTransform has no hyperparameters
-        that need to be bound.
-        """
-        return self.fit(None, bindings=None).apply(df_apply)
 
 
 # Valid column list specs (routed by field converter):
@@ -311,7 +331,7 @@ class HPCols(HP):
         return iter(self.cols)
 
 
-def not_empty(instance, attribute, value):
+def validate_not_empty(instance, attribute, value):
     """
     attrs field validator that throws a ValueError if the field value is empty.
     """
@@ -332,9 +352,66 @@ class ColumnsTransform(Transform):
     ...
     """
 
-    cols: list[str | HP] = field(validator=not_empty, converter=HPCols.maybe_from_value)
+    cols: list[str | HP] = field(
+        validator=validate_not_empty, converter=HPCols.maybe_from_value
+    )
 
 
 @define
 class WeightedTransform(Transform):
     w_col: str = None
+
+
+# TODO:
+# - graph-making transforms (pipeline, joins, ifs)
+# - the notion that a pipeline may fit and apply on a collection of datasets, not just
+# one. graph "branches" may begin with a Dataset node, whose fit/apply methods take a
+# DataSpec rather than DFs and produce a DF. User can then fit/apply the whole pipeline
+# ona DataSpec to employ a collection of datasets at fit/apply-time.
+# ... kinda neat, then you could imagine a Timeseries subclass of Dataset which allows
+# users to call fit/apply just on time-ranges (like context)
+
+
+def _convert_pipeline_transforms(value):
+    if isinstance(value, Pipeline):
+        return list(value.transforms)
+    if isinstance(value, list) and len(value) == 1 and isinstance(value[0], Pipeline):
+        return list(value[0].transforms)
+    if isinstance(value, Transform):
+        return [value]
+    return list(value)
+
+
+@define
+class Pipeline(Transform):
+    transforms: list[Transform] = field(
+        factory=list, converter=_convert_pipeline_transforms
+    )
+
+    @transforms.validator
+    def _check_transforms(self, attribute, value):
+        for t in value:
+            if not isinstance(t, Transform):
+                raise TypeError(
+                    "Pipeline sequence must comprise Transform instances; found "
+                    f"non-Transform {t} (type {type(t)})"
+                )
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        df = df_fit
+        fit_transforms = []
+        bindings = self.bindings()
+        for t in self.transforms:
+            ft = t.fit(df, bindings=bindings)
+            df = ft.apply(df)
+            fit_transforms.append(ft)
+        return fit_transforms
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        df = df_apply
+        for fit_transform in state:
+            df = fit_transform.apply(df)
+        return df
+
+    def __len__(self):
+        return len(self.transforms)
