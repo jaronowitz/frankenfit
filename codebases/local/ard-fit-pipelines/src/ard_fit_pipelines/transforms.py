@@ -9,6 +9,7 @@ import pandas as pd
 
 from .core import (
     Transform,
+    WeightedTransform,
     columns_field,
     StatelessTransform,
     ColumnsTransform,
@@ -26,19 +27,6 @@ class Identity(StatelessTransform):
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None):
         return df_apply
-
-
-class DeMean(ColumnsTransform):
-    """
-    De-mean some columns.
-    """
-
-    def _fit(self, df_fit: pd.DataFrame) -> object:
-        return df_fit[self.cols].mean()
-
-    def _apply(self, df_apply: pd.DataFrame, state: pd.DataFrame):
-        means = state
-        return df_apply.assign(**{c: df_apply[c] - means[c] for c in self.cols})
 
 
 @define
@@ -202,6 +190,38 @@ class ImputeConstant(StatelessTransform, ColumnsTransform):
         return df_apply.assign(
             **{col: df_apply[col].fillna(self.value) for col in self.cols}
         )
+
+
+def weighted_means(df, cols, w_col):
+    return df[cols].multiply(df[w_col], axis="index").sum() / df[w_col].sum()
+
+
+@define
+class DeMean(WeightedTransform, ColumnsTransform):
+    """
+    De-mean some columns.
+    """
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        if self.w_col is not None:
+            return weighted_means(df_fit, self.cols, self.w_col)
+        return df_fit[self.cols].mean()
+
+    def _apply(self, df_apply: pd.DataFrame, state: pd.DataFrame):
+        means = state
+        return df_apply.assign(**{c: df_apply[c] - means[c] for c in self.cols})
+
+
+@define
+class ImputeMean(WeightedTransform, ColumnsTransform):
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        if self.w_col is not None:
+            return weighted_means(df_fit, self.cols, self.w_col)
+        return df_fit[self.cols].mean()
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        means = state
+        return df_apply.assign(**{c: df_apply[c].fillna(means[c]) for c in self.cols})
 
 
 # class Filter:

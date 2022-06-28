@@ -32,6 +32,7 @@ T = TypeVar("T", bound="Transform")
 # StatelessPipeline
 
 
+# TODO: remove need for Transform subclasses to write @define
 @define(slots=False)
 class Transform(ABC):
     """
@@ -391,7 +392,7 @@ def columns_field(**kwargs):
     )
 
 
-@define
+@define(slots=False)
 class ColumnsTransform(Transform):
     """
     Abstract base clase of all Transforms that require a list of columns as a parameter
@@ -413,7 +414,7 @@ class ColumnsTransform(Transform):
     cols: list[str | HP] = columns_field()
 
 
-@define
+@define(slots=False)
 class WeightedTransform(Transform):
     """
     Abstract base class of Transforms that accept an optional weight column as a

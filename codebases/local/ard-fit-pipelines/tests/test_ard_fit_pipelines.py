@@ -278,6 +278,16 @@ def test_Winsorize():
     assert (result["col1"] > 20).all() and (result["col1"] < 81).all()
 
 
+def test_ImputeMean():
+    df = pd.DataFrame({"col1": pd.Series([1.0, np.nan, 2.0])})
+    assert (
+        fpt.ImputeMean(["col1"])
+        .fit(df)
+        .apply(df)
+        .equals(pd.DataFrame({"col1": pd.Series([1.0, 1.5, 2.0])}))
+    )
+
+
 def test_Print(diamonds_df):
     fit_msg = "Fitting!"
     apply_msg = "Applying!"
