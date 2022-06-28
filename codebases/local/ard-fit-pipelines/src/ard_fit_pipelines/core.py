@@ -129,7 +129,12 @@ class Transform(ABC):
         field_names = list(fields_dict(self.__class__).keys())
         return field_names
 
-    # TODO: hyperparams() ?
+    def hyperparams(self) -> dict[str, HP]:
+        return {
+            name: hp_obj
+            for name in self.params()
+            if isinstance(hp_obj := getattr(self, name), HP)
+        }
 
     def __init_subclass__(cls, /, no_magic=False, **kwargs):
         """
@@ -389,9 +394,20 @@ def columns_field(**kwargs):
 @define
 class ColumnsTransform(Transform):
     """
-    Abstract base clase of all Transforms that operate on a parameterized list of
-    columns. Subclasses acquire a mandatory `cols` argument to their constructors, which
-    ...
+    Abstract base clase of all Transforms that require a list of columns as a parameter
+    (cols).  Subclasses acquire a mandatory `cols` argument to their constructors, which
+    can be supplied as a list of any combination of:
+
+    - string column names,
+    - hyperparameters exepcted to resolve to column names,
+    - format strings that will be evaluated as hyperparameters formatted on the bindings
+      dict.
+
+    A scalar value for cols (e.g. a single string) will be converted automatically to a
+    list of one element at construction time.
+
+    Subclasses may define additional parameters with the same behavior as cols by using
+    columns_field().
     """
 
     cols: list[str | HP] = columns_field()
@@ -399,7 +415,12 @@ class ColumnsTransform(Transform):
 
 @define
 class WeightedTransform(Transform):
-    w_col: str = None
+    """
+    Abstract base class of Transforms that accept an optional weight column as a
+    parameter (w_col).
+    """
+
+    w_col: Optional[str] = None
 
 
 # TODO:
@@ -436,6 +457,9 @@ class Pipeline(Transform):
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t} (type {type(t)})"
                 )
+
+    # TODO: should we override hyperparams() to return some kind of collection across
+    # transforms?
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         df = df_fit

@@ -39,6 +39,7 @@ def test_Transform(diamonds_df):
     cols = ["price", "x", "y", "z"]
     t = DeMean(cols)
     assert repr(t) == ("DeMean(cols=%r)" % cols)
+    assert t.params() == ["cols"]
     fit = t.fit(diamonds_df)
     assert fit.state().equals(diamonds_df[cols].mean())
     result = fit.apply(diamonds_df)
@@ -81,6 +82,7 @@ def test_hyperparams(diamonds_df):
             return df_apply
 
     t = TestTransform(some_param=fpc.HP("response_col"))
+    assert t.hyperparams() == {"some_param": fpc.HP("response_col")}
     tfit = t.fit(diamonds_df, bindings=bindings)
     assert tfit.some_param == "price"
 

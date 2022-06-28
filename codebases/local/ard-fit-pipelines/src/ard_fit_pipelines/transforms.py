@@ -177,9 +177,9 @@ class Print(Identity):
         return Identity._fit(self, df_fit)
 
         # Idiomatic super() doesn't work because at call time self is a FitPrint
-        # instance, which inherits directly from FitTransform, and not from Print. Could
-        # maybe FIXME by futzing with base classes in the metaprogramming that goes on
-        # in core.py
+        # instance, which inherits directly from FitTransform, and not from
+        # Print/Identity. Could maybe FIXME by futzing with base classes in the
+        # metaprogramming that goes on in core.py
         # return super()._fit(df_fit)
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
