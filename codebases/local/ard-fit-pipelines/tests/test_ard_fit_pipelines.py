@@ -458,3 +458,30 @@ def test_IfTrainingDataHasProperty(diamonds_df):
         .apply(df)
     )
     assert result.equals(target_demean)
+
+
+def test_Pipeline_callchaining(diamonds_df):
+    # call-chaining should give the same result as list of transform instances
+    cols = ["carat", "x", "y", "z", "depth", "table"]
+    pipeline_con = fp.Pipeline(
+        [
+            fp.Pipe(["carat"], np.log1p),
+            fp.Winsorize(cols, limit=0.05),
+            fp.ZScore(cols),
+            fp.ImputeConstant(cols, 0.0),
+            fp.Clip(cols, upper=2, lower=-2),
+        ]
+    )
+    pipeline_chain = (
+        fp.Pipeline()
+        .pipe(["carat"], np.log1p)
+        .winsorize(cols, limit=0.05)
+        .z_score(cols)
+        .impute_constant(cols, 0.0)
+        .clip(cols, upper=2, lower=-2)
+    )
+    assert (
+        pipeline_con.fit(diamonds_df)
+        .apply(diamonds_df)
+        .equals(pipeline_chain.fit(diamonds_df).apply(diamonds_df))
+    )
