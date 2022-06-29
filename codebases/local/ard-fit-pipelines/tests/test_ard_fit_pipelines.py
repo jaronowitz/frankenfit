@@ -87,7 +87,7 @@ def test_hyperparams(diamonds_df):
     assert tfit.some_param == "price"
 
     t = TestTransform(some_param=fp.HP("undefined_hyperparam"))
-    with pytest.raises(fp.core.UnresolvedHyperparameterError):
+    with pytest.raises(fp.UnresolvedHyperparameterError):
         tfit = t.fit(diamonds_df, bindings=bindings)
 
     t = TestTransform(
@@ -313,12 +313,12 @@ def test_Pipeline(diamonds_df):
     assert diamonds_df.equals(p.fit(diamonds_df).apply(diamonds_df))
 
     # bare transform, automatically becomes list of 1
-    p = fp.Pipeline(fp.KeepColumns(["x"]))
+    p = fp.Pipeline(transforms=fp.KeepColumns(["x"]))
     assert len(p) == 1
     assert p.fit(diamonds_df).apply(diamonds_df).equals(diamonds_df[["x"]])
 
     p = fp.Pipeline(
-        [
+        transforms=[
             fp.CopyColumns(["price"], ["price_train"]),
             fp.DeMean(["price_train"]),
             fp.KeepColumns(["x", "y", "z", "price", "price_train"]),
@@ -332,18 +332,18 @@ def test_Pipeline(diamonds_df):
     assert df.equals(target_df)
 
     # pipeline of pipeline is coalesced
-    p2 = fp.Pipeline(p)
+    p2 = fp.Pipeline(transforms=p)
     assert len(p2) == len(p)
     assert p2 == p
-    p2 = fp.Pipeline([p])
+    p2 = fp.Pipeline(transforms=[p])
     assert len(p2) == len(p)
     assert p2 == p
 
     # TypeError for a non-Transform in the pipeline
     with pytest.raises(TypeError):
-        fp.Pipeline(42)
+        fp.Pipeline(transforms=42)
     with pytest.raises(TypeError):
-        fp.Pipeline([fp.DeMean(["price"]), 42])
+        fp.Pipeline(transforms=[fp.DeMean(["price"]), 42])
 
 
 def test_IfHyperparamIsTrue(diamonds_df):
@@ -464,7 +464,7 @@ def test_Pipeline_callchaining(diamonds_df):
     # call-chaining should give the same result as list of transform instances
     cols = ["carat", "x", "y", "z", "depth", "table"]
     pipeline_con = fp.Pipeline(
-        [
+        transforms=[
             fp.Pipe(["carat"], np.log1p),
             fp.Winsorize(cols, limit=0.05),
             fp.ZScore(cols),
@@ -485,3 +485,101 @@ def test_Pipeline_callchaining(diamonds_df):
         .apply(diamonds_df)
         .equals(pipeline_chain.fit(diamonds_df).apply(diamonds_df))
     )
+
+
+def test_Dataset(diamonds_df):
+    ds = fp.PandasDataset(diamonds_df)
+    assert ds.to_dataframe().equals(diamonds_df)
+    dsc = fp.DatasetCollection({"__data__": ds})
+    assert dsc.to_dataframe().equals(diamonds_df)
+    dsc2 = fp.DatasetCollection({"__data__": diamonds_df})
+    assert dsc2.to_dataframe().equals(diamonds_df)
+
+    assert fp.data_to_dataframe(diamonds_df).equals(diamonds_df)
+    assert fp.data_to_dataframe(ds).equals(diamonds_df)
+    assert fp.data_to_dataframe(dsc).equals(diamonds_df)
+    assert fp.data_to_dataframe(dsc2).equals(diamonds_df)
+
+
+def test_data_selection(diamonds_df):
+    ds = fp.PandasDataset(diamonds_df)
+    dsc = fp.DatasetCollection({"__data__": ds})
+    iddy = fp.Identity()
+    diddy = fp.Pipeline("foo")  # Identity, but selects "foo" dataset
+
+    for arg in (diamonds_df, ds, dsc):
+        assert iddy.apply(arg).equals(diamonds_df)
+
+    for arg in (diamonds_df, ds, dsc):
+        # diddy is looking for 'foo', not the default '__data__'
+        with pytest.raises(fp.UnknownDatasetError):
+            diddy.fit(arg).apply(arg)
+
+    dsc_with_foo = fp.DatasetCollection({"foo": ds})
+    assert diddy.fit(dsc_with_foo).apply(dsc_with_foo).equals(diamonds_df)
+
+    dsc_with_foo = fp.DatasetCollection({"foo": diamonds_df})
+    assert diddy.fit(dsc_with_foo).apply(dsc_with_foo).equals(diamonds_df)
+
+
+def test_data_selection_in_pipeline(diamonds_df):
+    df = diamonds_df
+    index_all = set(df.index)
+    index_in = set(np.random.choice(df.index, size=int(len(df) / 2), replace=False))
+    index_out = index_all - index_in
+    len(index_all), len(index_in), len(index_out)
+    df_in = df.loc[list(index_in)]
+    df_out = df.loc[list(index_out)]
+    dsc = fp.DatasetCollection({"in": df_in, "out": df_out})
+
+    cols = ["carat", "x", "y", "z", "depth", "table"]
+    pipeline_con = fp.Pipeline(
+        transforms=[
+            fp.Pipe(["carat"], np.log1p),
+            fp.Winsorize(cols, limit=0.05),
+            fp.ZScore(cols),
+            fp.ImputeConstant(cols, 0.0),
+            fp.Clip(cols, upper=2, lower=-2),
+        ]
+    )
+    with pytest.raises(fp.UnknownDatasetError):
+        # pipeline_con is just looking for the default __data__, which our dsc doesn't
+        # have
+        pipeline_con.fit(dsc)
+
+    pipeline_con_in = fp.Pipeline(
+        "in",
+        [
+            fp.Pipe(["carat"], np.log1p),
+            fp.Winsorize(cols, limit=0.05),
+            fp.ZScore(cols),
+            fp.ImputeConstant(cols, 0.0),
+            fp.Clip(cols, upper=2, lower=-2),
+        ],
+    )
+    result_in = pipeline_con_in.fit(dsc).apply(dsc)
+    assert result_in.equals(pipeline_con.fit(df_in).apply(df_in))
+
+    pipeline_con_out = fp.Pipeline(
+        "out",
+        [
+            fp.Pipe(["carat"], np.log1p),
+            fp.Winsorize(cols, limit=0.05),
+            fp.ZScore(cols),
+            fp.ImputeConstant(cols, 0.0),
+            fp.Clip(cols, upper=2, lower=-2),
+        ],
+    )
+    result_out = pipeline_con_out.fit(dsc).apply(dsc)
+    assert result_out.equals(pipeline_con.fit(df_out).apply(df_out))
+
+    pipeline_chain_in = (
+        fp.Pipeline("in")
+        .pipe(["carat"], np.log1p)
+        .winsorize(cols, limit=0.05)
+        .z_score(cols)
+        .impute_constant(cols, 0.0)
+        .clip(cols, upper=2, lower=-2)
+    )
+    result_in = pipeline_chain_in.fit(dsc).apply(dsc)
+    assert result_in.equals(pipeline_con.fit(df_in).apply(df_in))

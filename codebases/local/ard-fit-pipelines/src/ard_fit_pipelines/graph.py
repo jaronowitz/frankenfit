@@ -14,6 +14,7 @@ import pandas as pd
 from typing import Callable, Optional
 
 from . import transforms as fpt
+from . import core as fpc
 
 _LOG = logging.getLogger(__name__)
 
@@ -130,6 +131,8 @@ _pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeli
 
 @define
 class Pipeline(fpt.Transform):
+    dataset_name: str = "__data__"
+
     transforms: list[fpt.Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
@@ -183,7 +186,7 @@ class Pipeline(fpt.Transform):
                 f"I don't know how to extend a Pipeline with {other}, which is of "
                 f"type {type(other)}, bases = {type(other).__bases__}. "
             )
-        return Pipeline(transforms)
+        return Pipeline(dataset_name=self.dataset_name, transforms=transforms)
 
     copy_columns = _pipeline_method_wrapping_transform("copy_columns", fpt.CopyColumns)
     keep_columns = _pipeline_method_wrapping_transform("keep_columns", fpt.KeepColumns)
@@ -218,3 +221,39 @@ class Pipeline(fpt.Transform):
     if_training_data_has_property = _pipeline_method_wrapping_transform(
         "if_training_data_has_property", IfTrainingDataHasProperty
     )
+
+
+@define
+class Join(fpt.Transform):
+    left: Pipeline
+    right: Pipeline
+    how: str
+
+    on: Optional[str] = None
+    left_on: Optional[str] = None
+    right_on: Optional[str] = None
+    suffixes: tuple[str] = ("_x", "_y")
+
+    # TODO: more merge params like left_index etc.
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        bindings = self.bindings()
+        return (
+            self.left.fit(df_fit, bindings=bindings),
+            self.right.fit(df_fit, bindings=bindings),
+        )
+
+    def _apply(
+        self, df_apply: pd.DataFrame, state: tuple[fpc.FitTransform]
+    ) -> pd.DataFrame:
+        fit_left, fit_right = state
+        df_left, df_right = fit_left.apply(df_apply), fit_right.apply(df_apply)
+        return pd.merge(
+            left=df_left,
+            right=df_right,
+            how=self.how,
+            on=self.on,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            suffixes=self.suffixes,
+        )

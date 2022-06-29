@@ -1,3 +1,6 @@
+"""
+Fitapply - Get fit and apply yourself!
+"""
 from importlib.metadata import (  # noqa: N814
     # import-as with leading _ so that we don't pollute the globals of anyone
     # daring enough to *-import us.
@@ -11,19 +14,36 @@ except _PNFE:
     # package is not installed
     pass
 
-# import .core
-# import .transforms
+# Names:
+# - flitterbop (so glam)
+# - fitbop (too random?)
+# - fitapply
+#       fitapply.io, fitapp.ly
+# - fitbits (too similar to fitbit)
+# - fapple (too fappy)
+# - ply
+# - fapply (too fappy)
+# - getfit (too similar to getit? too generic?)
+# - aplifit
 
 from ard_fit_pipelines.core import (
+    UnknownDatasetError,
+    UnresolvedHyperparameterError,
+    Dataset,
+    PandasDataset,
+    DatasetCollection,
+    Data,
+    data_to_dataframe,
     Transform,
-    StatelessTransform,
     FitTransform,
+    StatelessTransform,
     HP,
     HPFmtStr,
     HPLambda,
     HPCols,
     columns_field,
 )
+
 from ard_fit_pipelines.transforms import (
     Identity,
     ColumnsTransform,
@@ -44,6 +64,7 @@ from ard_fit_pipelines.transforms import (
     Print,
     LogMessage,
 )
+
 from ard_fit_pipelines.graph import (
     Pipeline,
     IfHyperparamIsTrue,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
 from attrs import define, field, fields_dict
 import pandas as pd
@@ -29,6 +29,72 @@ _LOG = logging.getLogger(__name__)
 #       original _fit, constructs new FitSubClass with bound params and state
 # StatelessTransform changes behavior to allow apply() directly on transform
 # StatelessPipeline
+
+
+class Dataset(ABC):
+    @abstractmethod
+    def to_dataframe(self):
+        raise NotImplementedError
+
+
+@define
+class PandasDataset(Dataset):
+    df: pd.DataFrame
+
+    def to_dataframe(self):
+        return self.df
+
+
+class UnknownDatasetError(KeyError):
+    """
+    Thrown by DatasetCollection.get_dataset() if the requested dataset name is not
+    found.
+    """
+
+
+def _dataset_collection_converter(map: dict[str, pd.DataFrame | Dataset]):
+    return {
+        name: PandasDataset(value) if isinstance(value, pd.DataFrame) else value
+        for name, value in map.items()
+    }
+
+
+@define
+class DatasetCollection:
+
+    map: dict[str, Dataset] = field(converter=_dataset_collection_converter)
+
+    def get_dataset(self, name):
+        if name not in self.map:
+            raise UnknownDatasetError(
+                f"Asked for a Dataset named {name!r} but this DatasetCollection only "
+                f"has: {list(self.map.keys())}"
+            )
+        return self.map[name]
+
+    def to_dataframe(self, name="__data__"):
+        return self.get_dataset(name).to_dataframe()
+
+
+# Type alias for the primary argument to Transform.fit() and .apply()
+Data = Union[pd.DataFrame, Dataset, DatasetCollection]
+
+
+def data_to_dataframe(data: Data, dataset_name="__data__") -> pd.DataFrame:
+    if data is None:
+        # XXX do we really want this behavior?
+        return pd.DataFrame()  # silent but deadly!
+
+    if isinstance(data, pd.DataFrame):
+        dsc = DatasetCollection({"__data__": PandasDataset(data)})
+    elif isinstance(data, Dataset):
+        dsc = DatasetCollection({"__data__": data})
+    elif isinstance(data, DatasetCollection):
+        dsc = data
+    else:
+        raise TypeError(f"Expected {Data} but got {data} which has type {type(data)}")
+
+    return dsc.to_dataframe(dataset_name)
 
 
 # TODO: remove need for Transform subclasses to write @define
@@ -103,8 +169,10 @@ class Transform(ABC):
         def _apply(self, df_apply: pd.DataFrame, state: object=None) -> pd.DataFrame:
             return df_apply[self.cols]
     ```
-
     """
+
+    # Note dataset_name is a regular attribute, NOT managed by attrs
+    dataset_name = "__data__"  # TODO: docs
 
     @abstractmethod
     def _fit(self, df_fit: pd.DataFrame) -> object:
@@ -115,14 +183,13 @@ class Transform(ABC):
         raise NotImplementedError
 
     def fit(
-        self, df_fit: pd.DataFrame, bindings: Optional[dict[str, object]] = None
+        self, data_fit: Data, bindings: Optional[dict[str, object]] = None
     ) -> FitTransform:
-        if df_fit is None:
-            df_fit = pd.DataFrame()
+        df_fit = data_to_dataframe(data_fit, dataset_name=self.dataset_name)
         _LOG.debug(
             "Fitting %s on %d rows: %r", self.__class__.__name__, len(df_fit), self
         )
-        fit_class = getattr(self, self._fit_class_name)
+        fit_class: FitTransform = getattr(self, self._fit_class_name)
         return fit_class(self, df_fit, bindings)
 
     def params(self) -> list[str]:
@@ -169,6 +236,11 @@ class Transform(ABC):
         cls._fit_class_name = fit_class_name
 
 
+class UnresolvedHyperparameterError(NameError):
+    """Exception thrown when a Transform is not able to resolve all of its
+    hyperparameters at fit-time."""
+
+
 class FitTransform(ABC):
     """
     The result of fitting a {transform_class_name} Transform. Call this object's
@@ -193,6 +265,7 @@ class FitTransform(ABC):
             # print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
             setattr(self, name, bound_val)
         self.__bindings = bindings
+        self.dataset_name: str = transform.dataset_name
         self.__nrows = len(df_fit)
         # freak out if any hyperparameters failed to bind
         self._check_hyperparams()
@@ -224,10 +297,11 @@ class FitTransform(ABC):
     def _apply(self, df_apply: pd.DataFrame, state=None) -> pd.DataFrame:
         raise NotImplementedError
 
-    def apply(self, df_apply: pd.DataFrame) -> pd.DataFrame:
+    def apply(self, data_apply: Data) -> pd.DataFrame:
         """
         Return the result of applying this fit Transform to the given DataFrame.
         """
+        df_apply = data_to_dataframe(data_apply, dataset_name=self.dataset_name)
         _LOG.debug(
             "Applying %s to %d rows: %r",
             self.__class__.__qualname__,
@@ -278,7 +352,7 @@ class StatelessTransform(Transform):
         return None
 
     def apply(
-        self, df_apply: pd.DataFrame, bindings: dict[str, object] = None
+        self, data_apply: Data, bindings: dict[str, object] = None
     ) -> pd.DataFrame:
         """
         Convenience function allowing one to apply a StatelessTransform without an
@@ -286,11 +360,7 @@ class StatelessTransform(Transform):
         with optional hyperparameter bindings as provided) and then returning the result
         of applying the resulting FitTransform to the given DataFrame.
         """
-        return self.fit(None, bindings=bindings).apply(df_apply)
-
-
-class UnresolvedHyperparameterError(NameError):
-    pass
+        return self.fit(None, bindings=bindings).apply(data_apply)
 
 
 @define
