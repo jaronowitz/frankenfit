@@ -18,7 +18,6 @@ from . import core as fpc
 
 _LOG = logging.getLogger(__name__)
 
-# TODO:
 # - graph-making transforms (pipeline, joins, ifs)
 # - the notion that a pipeline may fit and apply on a collection of datasets, not just
 # one. graph "branches" may begin with a Dataset node, whose fit/apply methods take a
@@ -235,6 +234,7 @@ class Join(fpt.Transform):
     suffixes: tuple[str] = ("_x", "_y")
 
     # TODO: more merge params like left_index etc.
+    # TODO: (when on distributed compute) context extension
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         bindings = self.bindings()
