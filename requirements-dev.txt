@@ -1,0 +1,2 @@
+# For enforcement of pre-commit hooks
+pre-commit ~= 2.19
