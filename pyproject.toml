@@ -1,6 +1,20 @@
 
 [build-system]
-requires = ["ard-srctool", "pydataset"]
+requires = ["setuptools>=45", "wheel", "setuptools_scm~=7.0.3"]
+# Note that running tests additionally requires pytest and pydataset, but they are not
+# required for building the package. See tox.ini for test-time dependencies.
 
 [tool.setuptools_scm]
-root = '../../../'
+root = '.'
+
+[project]
+name = "frankenfit"
+version = "0.1"
+authors = [
+    {name = "Max Bane", email = "max@thebanes.org"}
+]
+requires-python = ">=3.9"
+dependencies = [
+    'attrs',
+    'pandas',
+]
