@@ -13,8 +13,8 @@ import pandas as pd
 
 from typing import Callable, Optional
 
-from . import transforms as fpt
-from . import core as fpc
+from . import transforms as fft
+from . import core as ffc
 
 _LOG = logging.getLogger(__name__)
 
@@ -28,10 +28,10 @@ _LOG = logging.getLogger(__name__)
 
 
 @define
-class IfHyperparamIsTrue(fpt.Transform):
+class IfHyperparamIsTrue(fft.Transform):
     name: str
-    then: fpt.Transform
-    otherwise: Optional[fpt.Transform] = None
+    then: fft.Transform
+    otherwise: Optional[fft.Transform] = None
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         bindings = self.bindings()
@@ -48,10 +48,10 @@ class IfHyperparamIsTrue(fpt.Transform):
 
 
 @define
-class IfHyperparamLambda(fpt.Transform):
+class IfHyperparamLambda(fft.Transform):
     fun: Callable  # dict[str, object] -> bool
-    then: fpt.Transform
-    otherwise: Optional[fpt.Transform] = None
+    then: fft.Transform
+    otherwise: Optional[fft.Transform] = None
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         bindings = self.bindings()
@@ -68,10 +68,10 @@ class IfHyperparamLambda(fpt.Transform):
 
 
 @define
-class IfTrainingDataHasProperty(fpt.Transform):
+class IfTrainingDataHasProperty(fft.Transform):
     fun: Callable  # dict[str, object] -> bool
-    then: fpt.Transform
-    otherwise: Optional[fpt.Transform] = None
+    then: fft.Transform
+    otherwise: Optional[fft.Transform] = None
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if self.fun(df_fit):
@@ -120,7 +120,7 @@ def _convert_pipeline_transforms(value):
         return list(value.transforms)
     if isinstance(value, list) and len(value) == 1 and isinstance(value[0], Pipeline):
         return list(value[0].transforms)
-    if isinstance(value, fpt.Transform):
+    if isinstance(value, fft.Transform):
         return [value]
     return list(value)
 
@@ -129,17 +129,17 @@ _pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeli
 
 
 @define
-class Pipeline(fpt.Transform):
+class Pipeline(fft.Transform):
     dataset_name: str = "__data__"
 
-    transforms: list[fpt.Transform] = field(
+    transforms: list[fft.Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
 
     @transforms.validator
     def _check_transforms(self, attribute, value):
         for t in value:
-            if not isinstance(t, fpt.Transform):
+            if not isinstance(t, fft.Transform):
                 raise TypeError(
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t} (type {type(t)})"
@@ -176,7 +176,7 @@ class Pipeline(fpt.Transform):
     def then(self, other):
         if isinstance(other, Pipeline):
             transforms = self.transforms + other.transforms
-        elif isinstance(other, fpt.Transform):
+        elif isinstance(other, fft.Transform):
             transforms = self.transforms + [other]
         elif isinstance(other, list):
             transforms = self.transforms + other
@@ -187,29 +187,29 @@ class Pipeline(fpt.Transform):
             )
         return Pipeline(dataset_name=self.dataset_name, transforms=transforms)
 
-    copy_columns = _pipeline_method_wrapping_transform("copy_columns", fpt.CopyColumns)
-    keep_columns = _pipeline_method_wrapping_transform("keep_columns", fpt.KeepColumns)
+    copy_columns = _pipeline_method_wrapping_transform("copy_columns", fft.CopyColumns)
+    keep_columns = _pipeline_method_wrapping_transform("keep_columns", fft.KeepColumns)
     rename_columns = _pipeline_method_wrapping_transform(
-        "rename_columns", fpt.RenameColumns
+        "rename_columns", fft.RenameColumns
     )
-    drop_columns = _pipeline_method_wrapping_transform("drop_columns", fpt.DropColumns)
+    drop_columns = _pipeline_method_wrapping_transform("drop_columns", fft.DropColumns)
     stateless_lambda = _pipeline_method_wrapping_transform(
-        "stateless_lambda", fpt.StatelessLambda
+        "stateless_lambda", fft.StatelessLambda
     )
     stateful_lambda = _pipeline_method_wrapping_transform(
-        "stateful_lambda", fpt.StatefulLambda
+        "stateful_lambda", fft.StatefulLambda
     )
-    pipe = _pipeline_method_wrapping_transform("pipe", fpt.Pipe)
-    clip = _pipeline_method_wrapping_transform("clip", fpt.Clip)
-    winsorize = _pipeline_method_wrapping_transform("winsorize", fpt.Winsorize)
+    pipe = _pipeline_method_wrapping_transform("pipe", fft.Pipe)
+    clip = _pipeline_method_wrapping_transform("clip", fft.Clip)
+    winsorize = _pipeline_method_wrapping_transform("winsorize", fft.Winsorize)
     impute_constant = _pipeline_method_wrapping_transform(
-        "impute_constant", fpt.ImputeConstant
+        "impute_constant", fft.ImputeConstant
     )
-    impute_mean = _pipeline_method_wrapping_transform("impute_mean", fpt.ImputeMean)
-    de_mean = _pipeline_method_wrapping_transform("de_mean", fpt.DeMean)
-    z_score = _pipeline_method_wrapping_transform("z_score", fpt.ZScore)
-    print = _pipeline_method_wrapping_transform("print", fpt.Print)
-    log_message = _pipeline_method_wrapping_transform("log_message", fpt.LogMessage)
+    impute_mean = _pipeline_method_wrapping_transform("impute_mean", fft.ImputeMean)
+    de_mean = _pipeline_method_wrapping_transform("de_mean", fft.DeMean)
+    z_score = _pipeline_method_wrapping_transform("z_score", fft.ZScore)
+    print = _pipeline_method_wrapping_transform("print", fft.Print)
+    log_message = _pipeline_method_wrapping_transform("log_message", fft.LogMessage)
 
     if_hyperparam_is_true = _pipeline_method_wrapping_transform(
         "if_hyperparam_is_true", IfHyperparamIsTrue
@@ -223,7 +223,7 @@ class Pipeline(fpt.Transform):
 
 
 @define
-class Join(fpt.Transform):
+class Join(fft.Transform):
     left: Pipeline
     right: Pipeline
     how: str
@@ -244,7 +244,7 @@ class Join(fpt.Transform):
         )
 
     def _apply(
-        self, df_apply: pd.DataFrame, state: tuple[fpc.FitTransform]
+        self, df_apply: pd.DataFrame, state: tuple[ffc.FitTransform]
     ) -> pd.DataFrame:
         fit_left, fit_right = state
         df_left, df_right = fit_left.apply(df_apply), fit_right.apply(df_apply)

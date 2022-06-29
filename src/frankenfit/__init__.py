@@ -1,5 +1,5 @@
 """
-Fitapply - Get fit and apply yourself!
+Frankenfit - it's alive! And fit!
 """
 from importlib.metadata import (  # noqa: N814
     # import-as with leading _ so that we don't pollute the globals of anyone
@@ -9,7 +9,7 @@ from importlib.metadata import (  # noqa: N814
 )
 
 try:
-    __version__ = _version("ard_fit_pipelines")
+    __version__ = _version("frankenfit")
 except _PNFE:
     # package is not installed
     pass
@@ -26,7 +26,7 @@ except _PNFE:
 # - getfit (too similar to getit? too generic?)
 # - aplifit
 
-from ard_fit_pipelines.core import (
+from frankenfit.core import (
     UnknownDatasetError,
     UnresolvedHyperparameterError,
     Dataset,
@@ -44,7 +44,7 @@ from ard_fit_pipelines.core import (
     columns_field,
 )
 
-from ard_fit_pipelines.transforms import (
+from frankenfit.transforms import (
     Identity,
     ColumnsTransform,
     WeightedTransform,
@@ -65,7 +65,7 @@ from ard_fit_pipelines.transforms import (
     LogMessage,
 )
 
-from ard_fit_pipelines.graph import (
+from frankenfit.graph import (
     Pipeline,
     IfHyperparamIsTrue,
     IfHyperparamLambda,

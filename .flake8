@@ -9,9 +9,6 @@ extend-exclude =
 	# build artifacts
 	*/build/,
 
-	# external codebases
-	codebases/external/
-
 # compat with black around slice operators
 extend-ignore = E203
 
