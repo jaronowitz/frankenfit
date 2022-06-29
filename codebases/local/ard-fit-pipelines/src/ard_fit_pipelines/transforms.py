@@ -1,3 +1,6 @@
+"""
+Provides a library of basic Transform subclasses.
+"""
 from __future__ import annotations
 import inspect
 import logging

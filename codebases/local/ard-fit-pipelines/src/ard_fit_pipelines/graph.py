@@ -1,3 +1,8 @@
+"""
+The graph module provides Transform subclasses (notably Pipeline, Join, and friends)
+that take other Transforms as parameters, allowing the creation of sequences and
+tree-like structures of Transforms that process each other's output (i.e., composition).
+"""
 from __future__ import annotations
 from functools import partial
 import inspect
@@ -174,7 +179,6 @@ class Pipeline(fpt.Transform):
         elif isinstance(other, list):
             transforms = self.transforms + other
         else:
-            breakpoint
             raise TypeError(
                 f"I don't know how to extend a Pipeline with {other}, which is of "
                 f"type {type(other)}, bases = {type(other).__bases__}. "
