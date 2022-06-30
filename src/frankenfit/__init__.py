@@ -41,6 +41,8 @@ from frankenfit.core import (
     HPLambda,
     HPCols,
     columns_field,
+    fmt_str_field,
+    dict_field,
 )
 
 from frankenfit.transforms import (

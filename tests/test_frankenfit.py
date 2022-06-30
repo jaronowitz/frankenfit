@@ -368,6 +368,19 @@ def test_IfHyperparamIsTrue(diamonds_df):
         .apply(df)
     )
     assert result.equals(target_demean)
+    with pytest.raises(ff.UnresolvedHyperparameterError):
+        result = (
+            ff.IfHyperparamIsTrue("do_it", then=lambda_demean)
+            .fit(df, bindings={})
+            .apply(df)
+        )
+    result = (
+        ff.IfHyperparamIsTrue("do_it", then=lambda_demean, allow_unresolved=True)
+        .fit(df, bindings={})
+        .apply(df)
+    )
+    assert result.equals(df)  # identity
+
     result = (
         ff.IfHyperparamIsTrue("do_it", then=lambda_demean, otherwise=lambda_add_ones)
         .fit(df, bindings={"do_it": False})
@@ -530,7 +543,6 @@ def test_data_selection_in_pipeline(diamonds_df):
     index_all = set(df.index)
     index_in = set(np.random.choice(df.index, size=int(len(df) / 2), replace=False))
     index_out = index_all - index_in
-    len(index_all), len(index_in), len(index_out)
     df_in = df.loc[list(index_in)]
     df_out = df.loc[list(index_out)]
     dsc = ff.DatasetCollection({"in": df_in, "out": df_out})

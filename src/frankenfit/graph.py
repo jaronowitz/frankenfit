@@ -38,9 +38,15 @@ class IfHyperparamIsTrue(fft.Transform):
     name: str
     then: fft.Transform
     otherwise: Optional[fft.Transform] = None
+    allow_unresolved: Optional[bool] = False
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         bindings = self.bindings()
+        if (not self.allow_unresolved) and self.name not in bindings:
+            raise ffc.UnresolvedHyperparameterError(
+                f"IfHyperparamIsTrue: no binding for {self.name!r} but "
+                "allow_unresolved is False"
+            )
         if bindings.get(self.name):
             return self.then.fit(df_fit, bindings=bindings)
         elif self.otherwise is not None:
