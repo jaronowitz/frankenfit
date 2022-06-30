@@ -1,2 +1,10 @@
 # For enforcement of pre-commit hooks
 pre-commit ~= 2.19
+
+# For running tests
+tox
+
+# for editor autocomplete (tox and pre-commit actually get these on their own)
+flake8
+pytest
+pydataset
