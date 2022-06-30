@@ -1,4 +1,3 @@
-
 # `frankenfit`: it's alive! it's fit!
 
 Boomb, that's what it does.
@@ -11,8 +10,14 @@ Boomb, that's what it does.
 
 ## Development
 
-We target Python 3.9+. To get started, make sure the `python3.9` binary is on your path,
-clone this repo, and run:
+If you're not hacking on the `frankenfit` codebase itself, and just want to build or
+install it from source, `$ pip build`, `$ pip sdist`, `$ pip install` should all work
+out of the box without creating any special virtual environment, as long as you're using
+Python 3.9+ and a recent version of `pip`.
+
+To get started with hacking on `frankenfit` itself, make sure the `python3.9` binary is
+on your path, clone this repo, and run:
+
 ```
 $ ./setup-venv-dev python3.9
 $ source ./.venv-dev/bin/activate
@@ -34,3 +39,19 @@ Please be diligent about writing or updating tests for any new or changed functi
 We follow `black` to the letter and additionally target `flake8` compliance, minus a few
 exceptions documented in `.flake8`. This is enforced at commit-time by `pre-commit`
 hooks, and checked by `tox` at test-time.
+
+### Dependencies and where they are defined
+
+There are three categories of dependencies for the project:
+
+* Run-time dependencies. These are the dependencies required of users to actually import
+  and use the library. The are defined in `pyproject.toml` and will be installed
+  automatically by pip when installing the `frankenfit` package.
+* Test-time dependencies. Running the test suite requires additional dependencies beyond
+  the run-time dependencies. These are defined in `tox.ini`
+* Developer dependencies. These are packages that a developer hacking on `frankenfit`
+  needs to make full use of the repository, including `pre-commit` for the commit hooks,
+  `jupyter` for interacting with example notebooks, as well as all of the run-time and
+  test-time dependencies to allow for editor autocompletions and ad hoc testing. The
+  developer dependencies are defined in `requirements-dev.txt`, and are automatically
+  installed to the environment created by the `setup-venv-dev` script.
