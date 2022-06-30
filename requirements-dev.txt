@@ -8,3 +8,7 @@ tox
 flake8
 pytest
 pydataset
+
+# for using dev notebooks
+jupyter
+seaborn
