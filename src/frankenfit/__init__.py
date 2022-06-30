@@ -62,6 +62,8 @@ from frankenfit.transforms import (
     ZScore,
     Print,
     LogMessage,
+    SKLearn,
+    Statsmodels,
 )
 
 from frankenfit.graph import (

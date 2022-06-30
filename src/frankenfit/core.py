@@ -284,6 +284,7 @@ class FitTransform(ABC):
     def __init__(self, transform: Transform, dsc_fit: DatasetCollection, bindings=None):
         "Docstr for FitTransform.__init__"
         bindings = bindings or {}
+        self._field_names = transform.params()
         for name in self._field_names:
             unbound_val = getattr(transform, name)
             bound_val = HP.resolve_maybe(unbound_val, bindings)
@@ -435,6 +436,22 @@ class HPFmtStr(HP):
         # treate name as format string to be formatted against bindings
         return self.name.format(**bindings)
 
+    @classmethod
+    def maybe_from_value(cls, x: str | HP):
+        if isinstance(x, HP):
+            return x
+        if isinstance(x, str):
+            if x != "":
+                return HPFmtStr(x)
+            return x
+        raise TypeError(
+            f"Unable to create a HPFmtStr from {x!r} which has type {type(x)}"
+        )
+
+
+def fmt_str_field(**kwargs):
+    return field(converter=HPFmtStr.maybe_from_value, **kwargs)
+
 
 # Valid column list specs (routed by field converter):
 # hp('which_cols') -> plain old hp
@@ -505,3 +522,37 @@ def columns_field(**kwargs):
     return field(
         validator=_validate_not_empty, converter=HPCols.maybe_from_value, **kwargs
     )
+
+
+@define
+class HPDict(HP):
+    mapping: dict
+    name: str = None
+
+    def resolve(self, bindings: dict[str, object]) -> object:
+        return {
+            (k.resolve(bindings) if isinstance(k, HP) else k): v.resolve(bindings)
+            if isinstance(v, HP)
+            else v
+            for k, v in self.mapping.items()
+        }
+
+    @classmethod
+    def maybe_from_value(cls, x: dict | HP):
+        if isinstance(x, HP):
+            return x
+        if not isinstance(x, dict):
+            raise TypeError(
+                f"HPDict.maybe_from_value requires an HP or a dict, but got {x} which "
+                f"has type {type(x)}"
+            )
+        # it's a dict
+        if all(map(lambda k: not isinstance(k, HP), x.keys())) and all(
+            map(lambda v: not isinstance(v, HP), x.values())
+        ):
+            return x
+        return cls(x)
+
+
+def dict_field(**kwargs):
+    return field(converter=HPDict.maybe_from_value, **kwargs)

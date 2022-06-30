@@ -12,3 +12,5 @@ pydataset
 # for using dev notebooks
 jupyter
 seaborn
+scikit-learn
+statsmodels

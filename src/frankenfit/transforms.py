@@ -15,6 +15,8 @@ from .core import (
     columns_field,
     StatelessTransform,
     HP,
+    dict_field,
+    fmt_str_field,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -360,8 +362,55 @@ class LogMessage(Identity):
         # return super()._apply(df_apply)
 
 
-# Timeseries?
-# Graph-making transforms:
-# Pipeline, Join, JoinAsOf (time series), IfHyperparamTrue, IfTrainingDataHasProperty,
-# GroupedBy, Longitudinally (time series), CrossSectionally (time seires),
-# Sequentially (time series), AcrossHyperParamGrid
+@define(slots=False)
+class SKLearn(Transform):
+    """
+    Wraps a scikit-learn model.
+    """
+
+    sklearn_class: type | HP
+    x_cols: list[str] = columns_field()
+    response_col: str = fmt_str_field()
+    hat_col: str = fmt_str_field()
+    class_params: dict[str, object] = dict_field(factory=dict)
+    w_col: Optional[str] = fmt_str_field(factory=str)
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        model = self.sklearn_class(**self.class_params)
+        X = df_fit[self.x_cols]
+        y = df_fit[self.response_col]
+        if self.w_col:
+            w = df_fit[self.w_col]
+            # TODO: raise exception if model.fit signature has no sample_weight arg
+            model = model.fit(X, y, sample_weight=w)
+        else:
+            model = model.fit(X, y)
+
+        return model
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        model = state
+        return df_apply.assign(**{self.hat_col: model.predict(df_apply[self.x_cols])})
+
+
+@define(slots=False)
+class Statsmodels(Transform):
+    """
+    Wraps a statsmodels model.
+    """
+
+    sm_class: type | HP
+    x_cols: list[str] = columns_field()
+    response_col: str = fmt_str_field()
+    hat_col: str = fmt_str_field()
+    class_params: dict[str, object] = dict_field(factory=dict)
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        X = df_fit[self.x_cols]
+        y = df_fit[self.response_col]
+        model = self.sm_class(y, X, **self.class_params)
+        return model.fit()
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        model = state
+        return df_apply.assign(**{self.hat_col: model.predict(df_apply[self.x_cols])})

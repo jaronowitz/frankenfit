@@ -616,3 +616,49 @@ def test_Join(diamonds_df):
     p = ff.Pipeline("xyz").join(ff.Pipeline("cut"), how="left", on="diamond_id")
     result = p.fit(dsc).apply(dsc)
     assert result.equals(target)
+
+
+def test_SKLearn(diamonds_df):
+    ds = ff.Dataset.from_pandas(diamonds_df)
+    from sklearn.linear_model import LinearRegression
+
+    target_preds = (
+        LinearRegression(fit_intercept=True)
+        .fit(diamonds_df[["carat", "depth", "table"]], diamonds_df["price"])
+        .predict(diamonds_df[["carat", "depth", "table"]])
+    )
+    target = diamonds_df.assign(price_hat=target_preds)
+
+    sk = ff.SKLearn(
+        LinearRegression,
+        ["carat", "depth", "table"],
+        "price",
+        "price_hat",
+        class_params={"fit_intercept": True},
+    )
+    result = sk.fit(ds).apply(ds)
+    assert result.equals(target)
+
+    # TODO: test w_col
+    # TODO: test hyperparameterizations
+
+
+def test_Statsmodels(diamonds_df):
+    ds = ff.Dataset.from_pandas(diamonds_df)
+    from statsmodels.api import OLS
+
+    ols = OLS(diamonds_df["price"], diamonds_df[["carat", "depth", "table"]])
+    target_preds = ols.fit().predict(diamonds_df[["carat", "depth", "table"]])
+    target = diamonds_df.assign(price_hat=target_preds)
+
+    sm = ff.Statsmodels(
+        OLS,
+        ["carat", "depth", "table"],
+        "price",
+        "price_hat",
+    )
+    result = sm.fit(ds).apply(ds)
+    assert result.equals(target)
+
+    # TODO: test w_col
+    # TODO: test hyperparameterizations

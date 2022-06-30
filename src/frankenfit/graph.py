@@ -26,6 +26,12 @@ _LOG = logging.getLogger(__name__)
 # ... kinda neat, then you could imagine a Timeseries subclass of Dataset which allows
 # users to call fit/apply just on time-ranges (like context)
 
+# Timeseries?
+# Graph-making transforms:
+# Pipeline, Join, JoinAsOf (time series), IfHyperparamTrue, IfTrainingDataHasProperty,
+# GroupedBy, Longitudinally (time series), CrossSectionally (time seires),
+# Sequentially (time series), AcrossHyperParamGrid
+
 
 @define
 class IfHyperparamIsTrue(fft.Transform):
@@ -262,6 +268,9 @@ class Pipeline(fft.Transform):
     if_training_data_has_property = _pipeline_method_wrapping_transform(
         "if_training_data_has_property", IfTrainingDataHasProperty
     )
+
+    sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
+    statsmodels = _pipeline_method_wrapping_transform("statsmodels", fft.SKLearn)
 
     # Pipeline()...join(left_pipeline, right_pipeline)...
     # join = _pipeline_method_wrapping_transform("join", Join)
