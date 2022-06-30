@@ -33,7 +33,6 @@ from frankenfit.core import (
     PandasDataset,
     DatasetCollection,
     Data,
-    data_to_dataframe,
     Transform,
     FitTransform,
     StatelessTransform,
@@ -70,4 +69,5 @@ from frankenfit.graph import (
     IfHyperparamIsTrue,
     IfHyperparamLambda,
     IfTrainingDataHasProperty,
+    Join,
 )

@@ -86,6 +86,45 @@ class IfTrainingDataHasProperty(fft.Transform):
         return df_apply  # act like Identity
 
 
+@define
+class Join(fft.Transform):
+    left: Pipeline
+    right: Pipeline
+    how: str
+
+    on: Optional[str] = None
+    left_on: Optional[str] = None
+    right_on: Optional[str] = None
+    suffixes: tuple[str] = ("_x", "_y")
+
+    # TODO: more merge params like left_index etc.
+    # TODO: (when on distributed compute) context extension
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        dsc = self.dataset_collection | {"__pass__": df_fit}
+        bindings = self.bindings()
+        return (
+            self.left.fit(dsc, bindings=bindings),
+            self.right.fit(dsc, bindings=bindings),
+        )
+
+    def _apply(
+        self, df_apply: pd.DataFrame, state: tuple[ffc.FitTransform]
+    ) -> pd.DataFrame:
+        fit_left, fit_right = state
+        dsc = self.dataset_collection | {"__pass__": df_apply}
+        df_left, df_right = fit_left.apply(dsc), fit_right.apply(dsc)
+        return pd.merge(
+            left=df_left,
+            right=df_right,
+            how=self.how,
+            on=self.on,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            suffixes=self.suffixes,
+        )
+
+
 def method_wrapping_transform(
     class_qualname: str, method_name: str, transform_class: type
 ) -> Callable[..., Pipeline]:
@@ -130,7 +169,7 @@ _pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeli
 
 @define
 class Pipeline(fft.Transform):
-    dataset_name: str = "__data__"
+    dataset_name: str = "__pass__"
 
     transforms: list[fft.Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
@@ -149,19 +188,22 @@ class Pipeline(fft.Transform):
     # transforms?
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
-        df = df_fit
+        dsc = self.dataset_collection | {"__pass__": df_fit}
         fit_transforms = []
         bindings = self.bindings()
         for t in self.transforms:
-            ft = t.fit(df, bindings=bindings)
-            df = ft.apply(df)
+            ft = t.fit(dsc, bindings=bindings)
+            df = ft.apply(dsc)
+            dsc |= {"__pass__": df}
             fit_transforms.append(ft)
         return fit_transforms
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        df = df_apply
+        dsc = self.dataset_collection | {"__pass__": df_apply}
+        df = df_apply  # in case we are an empty Pipeline
         for fit_transform in state:
-            df = fit_transform.apply(df)
+            df = fit_transform.apply(dsc)
+            dsc |= {"__pass__": df}
         return df
 
     def __len__(self):
@@ -221,39 +263,35 @@ class Pipeline(fft.Transform):
         "if_training_data_has_property", IfTrainingDataHasProperty
     )
 
+    # Pipeline()...join(left_pipeline, right_pipeline)...
+    # join = _pipeline_method_wrapping_transform("join", Join)
 
-@define
-class Join(fft.Transform):
-    left: Pipeline
-    right: Pipeline
-    how: str
-
-    on: Optional[str] = None
-    left_on: Optional[str] = None
-    right_on: Optional[str] = None
-    suffixes: tuple[str] = ("_x", "_y")
-
-    # TODO: more merge params like left_index etc.
-    # TODO: (when on distributed compute) context extension
-
-    def _fit(self, df_fit: pd.DataFrame) -> object:
-        bindings = self.bindings()
-        return (
-            self.left.fit(df_fit, bindings=bindings),
-            self.right.fit(df_fit, bindings=bindings),
-        )
-
-    def _apply(
-        self, df_apply: pd.DataFrame, state: tuple[ffc.FitTransform]
-    ) -> pd.DataFrame:
-        fit_left, fit_right = state
-        df_left, df_right = fit_left.apply(df_apply), fit_right.apply(df_apply)
-        return pd.merge(
-            left=df_left,
-            right=df_right,
-            how=self.how,
-            on=self.on,
-            left_on=self.left_on,
-            right_on=self.right_on,
-            suffixes=self.suffixes,
-        )
+    def join(
+        self, *others, how, on=None, left_on=None, right_on=None, suffixes=("_x", "_y")
+    ):
+        if len(others) == 2:
+            # joining two other pipelines (unrelated to self) and appending them to self
+            # (which is possibly weird because it may efface all of the data up to this
+            # point in the pipeline?)
+            join = Join(
+                *others,
+                how,
+                on=on,
+                left_on=left_on,
+                right_on=right_on,
+                suffixes=suffixes,
+            )
+        elif len(others) == 1:
+            # joining self as left with other as right
+            join = Join(
+                self,
+                *others,
+                how,
+                on=on,
+                left_on=left_on,
+                right_on=right_on,
+                suffixes=suffixes,
+            )
+        else:
+            raise TypeError("Wrong number of arguments.")
+        return self + join

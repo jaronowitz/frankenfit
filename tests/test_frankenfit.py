@@ -488,22 +488,25 @@ def test_Pipeline_callchaining(diamonds_df):
 
 
 def test_Dataset(diamonds_df):
+    assert ff.Dataset.from_pandas(diamonds_df).to_dataframe().equals(diamonds_df)
     ds = ff.PandasDataset(diamonds_df)
     assert ds.to_dataframe().equals(diamonds_df)
-    dsc = ff.DatasetCollection({"__data__": ds})
+    dsc = ff.DatasetCollection({"__pass__": ds})
     assert dsc.to_dataframe().equals(diamonds_df)
-    dsc2 = ff.DatasetCollection({"__data__": diamonds_df})
+    dsc2 = ff.DatasetCollection({"__pass__": diamonds_df})
     assert dsc2.to_dataframe().equals(diamonds_df)
 
-    assert ff.data_to_dataframe(diamonds_df).equals(diamonds_df)
-    assert ff.data_to_dataframe(ds).equals(diamonds_df)
-    assert ff.data_to_dataframe(dsc).equals(diamonds_df)
-    assert ff.data_to_dataframe(dsc2).equals(diamonds_df)
+    assert (
+        ff.DatasetCollection.from_data(diamonds_df).to_dataframe().equals(diamonds_df)
+    )
+    assert ff.DatasetCollection.from_data(ds).to_dataframe().equals(diamonds_df)
+    assert ff.DatasetCollection.from_data(dsc).to_dataframe().equals(diamonds_df)
+    assert ff.DatasetCollection.from_data(dsc2).to_dataframe().equals(diamonds_df)
 
 
 def test_data_selection(diamonds_df):
     ds = ff.PandasDataset(diamonds_df)
-    dsc = ff.DatasetCollection({"__data__": ds})
+    dsc = ff.DatasetCollection({"__pass__": ds})
     iddy = ff.Identity()
     diddy = ff.Pipeline("foo")  # Identity, but selects "foo" dataset
 
@@ -511,7 +514,7 @@ def test_data_selection(diamonds_df):
         assert iddy.apply(arg).equals(diamonds_df)
 
     for arg in (diamonds_df, ds, dsc):
-        # diddy is looking for 'foo', not the default '__data__'
+        # diddy is looking for 'foo', not the default '__pass__'
         with pytest.raises(ff.UnknownDatasetError):
             diddy.fit(arg).apply(arg)
 
@@ -542,10 +545,9 @@ def test_data_selection_in_pipeline(diamonds_df):
             ff.Clip(cols, upper=2, lower=-2),
         ]
     )
-    with pytest.raises(ff.UnknownDatasetError):
-        # pipeline_con is just looking for the default __data__, which our dsc doesn't
-        # have
-        pipeline_con.fit(dsc)
+    # with pytest.raises(ff.UnknownDatasetError):
+    #     # pipeline_con is just looking for dataset "foo", which our dsc doesn't have
+    #     pipeline_con.fit(dsc)
 
     pipeline_con_in = ff.Pipeline(
         "in",
@@ -583,3 +585,34 @@ def test_data_selection_in_pipeline(diamonds_df):
     )
     result_in = pipeline_chain_in.fit(dsc).apply(dsc)
     assert result_in.equals(pipeline_con.fit(df_in).apply(df_in))
+
+
+def test_Join(diamonds_df):
+    diamonds_df = diamonds_df.assign(diamond_id=diamonds_df.index)
+    xyz_df = diamonds_df[["diamond_id", "x", "y", "z"]]
+    cut_df = diamonds_df[["diamond_id", "cut"]]
+    target = pd.merge(xyz_df, cut_df, how="left", on="diamond_id")
+
+    t = ff.Join(ff.Pipeline("xyz"), ff.Pipeline("cut"), how="left", on="diamond_id")
+    dsc = ff.DatasetCollection({"xyz": xyz_df, "cut": cut_df})
+    result = t.fit(dsc).apply(dsc)
+    assert result.equals(target)
+    # assert result.equals(diamonds_df[["diamond_id", "x", "y", "z", "cut"]])
+
+    p = ff.Pipeline(
+        transforms=[
+            ff.Join(ff.Pipeline("xyz"), ff.Pipeline("cut"), how="left", on="diamond_id")
+        ]
+    )
+    result = p.fit(dsc).apply(dsc)
+    assert result.equals(target)
+
+    p = ff.Pipeline().join(
+        ff.Pipeline("xyz"), ff.Pipeline("cut"), how="left", on="diamond_id"
+    )
+    result = p.fit(dsc).apply(dsc)
+    assert result.equals(target)
+
+    p = ff.Pipeline("xyz").join(ff.Pipeline("cut"), how="left", on="diamond_id")
+    result = p.fit(dsc).apply(dsc)
+    assert result.equals(target)
