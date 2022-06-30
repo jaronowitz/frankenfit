@@ -14,3 +14,7 @@ jupyter
 seaborn
 scikit-learn
 statsmodels
+
+# for editor autocomplete
+attrs
+pandas
