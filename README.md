@@ -31,5 +31,6 @@ Please be diligent about writing or updating tests for any new or changed functi
 
 ### Code style
 
-We follow `black` to the letter and additionally target `flake8` compliance. This is
-enforced at commit-time by `pre-commit` hooks, and checked by `tox` at test-time.
+We follow `black` to the letter and additionally target `flake8` compliance, minus a few
+exceptions documented in `.flake8`. This is enforced at commit-time by `pre-commit`
+hooks, and checked by `tox` at test-time.
