@@ -10,7 +10,7 @@ Boomb, that's what it does.
 
 ## Development
 
-If you're not hacking on the `frankenfit` codebase itself, and just want to build or
+If you're not hacking on the Frankenfit codebase itself, and just want to build or
 install it from source, `$ pip build .`, `$ pip sdist .`, `$ pip install .` should all
 work out of the box without creating any special virtual environment, as long as you're
 using Python 3.9+ and a recent version of `pip`.
@@ -34,7 +34,7 @@ We use the `pytest` testing framework together with the `tox` test runner. Tests
 under `tests/` and are discovered by `pytest` according to its normal discovery rules.
 Please be diligent about writing or updating tests for any new or changed functionality.
 
-### Code style
+### Code style and linters
 
 We follow `black` to the letter and additionally target `flake8` compliance, minus a few
 exceptions documented in `.flake8`. This is enforced at commit-time by `pre-commit`
@@ -45,7 +45,7 @@ hooks, and checked by `tox` at test-time.
 There are three categories of dependencies for the project:
 
 * Run-time dependencies. These are the dependencies required of users to actually import
-  and use the library. The are defined in `pyproject.toml` and will be installed
+  and use the library. They are defined in `pyproject.toml` and will be installed
   automatically by pip when installing the `frankenfit` package.
 * Test-time dependencies. Running the test suite requires additional dependencies beyond
   the run-time dependencies. These are defined in `tox.ini`
