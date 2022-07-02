@@ -56,3 +56,10 @@ There are three categories of dependencies for the project:
   autocompletions and ad hoc testing. The developer dependencies are defined in
   `requirements-dev.txt`, and are automatically installed to the environment created by
   the `setup-venv-dev` script.
+
+### Writing documentation
+
+Documentation lives in `docs/`, and we use [Jupyter Book]() to build it as a static HTML
+site. Documentation content is written in Markdown (specifically MyST), but the Python
+docstrings, which are included in the API reference section of the documentation, must
+still be in reStructuredText, so it's a bit of a Frankenstein situation.

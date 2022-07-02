@@ -32,20 +32,37 @@ _LOG = logging.getLogger(__name__)
 
 
 class Dataset(ABC):
+    """
+    Abstract base class of a dataset.
+    """
+
     @abstractmethod
-    def to_dataframe(self):
+    def to_dataframe(self) -> pd.DataFrame:
+        """
+        Get a DataFrame.
+        """
         raise NotImplementedError
 
     @staticmethod
     def from_pandas(df: pd.DataFrame) -> Dataset:
+        """
+        Convenienice static method returns a :class:`PandasDataset` wrapping the given
+        pandas DataFrame.
+        """
         return PandasDataset(df)
 
 
 @define
 class PandasDataset(Dataset):
     df: pd.DataFrame
+    """
+    That darn dataframe.
+    """
 
     def to_dataframe(self):
+        """
+        Returns the wrapped `DataFrame` instance directly.
+        """
         return self.df
 
 
@@ -124,8 +141,8 @@ Data = Union[pd.DataFrame, Dataset, DatasetCollection]
 class Transform(ABC):
     """
     The abstract base class of all (unfit) Transforms. Subclasses must implement the
-    `_fit()` and `_apply()` methods (but see StatelessTransform, which removes the
-    requirement to implement `_fit()`).
+    :meth:`_fit()` and `_apply()` methods (but see StatelessTransform, which removes
+    the requirement to implement `_fit()`).
 
     Subclasses should use `attrs` field variables to hold parameters (but not fit state)
     of the transformation being implemented, with the expectation that these parameters
@@ -161,36 +178,39 @@ class Transform(ABC):
     Subclasses must not keep parameters in fields named `fit`, `apply`, `state`, or
     `params`, as these would break functionality by overriding expected method names.
 
-    Examples of writing Transforms:
+    Examples of writing Transforms::
 
-    ```
-    # A simple stateful transform from scratch, subclassing Transform directly.
-    @define
-    class DeMean(Transform):
-        "De-mean some columns."
+        from attrs import define
+        import pandas as pd
+        import frankenfit as ff
 
-        cols: list[str] # Or, get this for free by subclassing ColumnsTransform
+        # A simple stateful transform from scratch, subclassing Transform directly.
+        @define
+        class DeMean(ff.Transform):
+            "De-mean some columns."
 
-        def _fit(self, df_fit: pd.DataFrame) -> object:
-            return df_fit[self.cols].mean()
+            cols: list[str] # Or, get this for free by subclassing ColumnsTransform
 
-        def _apply(self, df_apply: pd.DataFrame, state: object):
-            means = state
-            return df_apply.assign(**{
-                c: df_apply[c] - means[c]
-                for c in self.cols
-            })
+            def _fit(self, df_fit: pd.DataFrame) -> object:
+                return df_fit[self.cols].mean()
 
-    # A stateless transform whose only parameter is a list of columns; the
-    # implementation is simplified by subclassing two "convenience base classes":
-    # StatelessTransform for the common case of a transform with no state to fit, and
-    # ColumnsTransform, for the common case of operating on a parameterized list of
-    # columns, which is made available as an attrs-managed field `self.cols`.  (@define
-    # is not necessary because we are not introducing any fields in our sublcass.)
-    class KeepColumns(StatelessTransform, ColumnsTransform):
-        def _apply(self, df_apply: pd.DataFrame, state: object=None) -> pd.DataFrame:
-            return df_apply[self.cols]
-    ```
+            def _apply(self, df_apply: pd.DataFrame, state: object):
+                means = state
+                return df_apply.assign(**{
+                    c: df_apply[c] - means[c]
+                    for c in self.cols
+                })
+
+        # A stateless transform whose only parameter is a list of columns; the
+        # implementation is simplified by subclassing two "convenience base classes":
+        # StatelessTransform for the common case of a transform with no state to fit,
+        # and ColumnsTransform, for the common case of operating on a parameterized list
+        # of columns, which is made available as an attrs-managed field `self.cols`.
+        class KeepColumns(ff.StatelessTransform, ff.ColumnsTransform):
+            def _apply(
+                self, df_apply: pd.DataFrame, state: object=None
+            ) -> pd.DataFrame:
+                return df_apply[self.cols]
     """
 
     # Note the following are regular attributes, NOT managed by attrs
@@ -202,24 +222,61 @@ class Transform(ABC):
 
     @abstractmethod
     def _fit(self, df_fit: pd.DataFrame) -> object:
+        """_summary_
+
+        :param df_fit: _description_
+        :type df_fit: pd.DataFrame
+        :raises NotImplementedError: _description_
+        :return: _description_
+        :rtype: object
+        """
         raise NotImplementedError
 
     @abstractmethod
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        """_summary_
+
+        :param df_apply: _description_
+        :type df_apply: pd.DataFrame
+        :param state: _description_, defaults to None
+        :type state: object, optional
+        :raises NotImplementedError: _description_
+        :return: _description_
+        :rtype: pd.DataFrame
+        """
         raise NotImplementedError
 
     def fit(
         self, data_fit: Data, bindings: Optional[dict[str, object]] = None
     ) -> FitTransform:
+        """Get fit or get bit.
+
+        :param data_fit: _description_
+        :type data_fit: Data
+        :param bindings: _description_, defaults to None
+        :type bindings: Optional[dict[str, object]], optional
+        :return: _description_
+        :rtype: FitTransform
+        """
         dsc = DatasetCollection.from_data(data_fit)
         fit_class: FitTransform = getattr(self, self._fit_class_name)
         return fit_class(self, dsc, bindings)
 
     def params(self) -> list[str]:
+        """Return the butt hut. If ``self`` is a `Pipeline`, then wow.
+
+        :return: list of parameter names.
+        :rtype: list[str]
+        """
         field_names = list(fields_dict(self.__class__).keys())
         return field_names
 
     def hyperparams(self) -> dict[str, HP]:
+        """_summary_
+
+        :return: _description_
+        :rtype: dict[str, HP]
+        """
         return {
             name: hp_obj
             for name in self.params()
@@ -395,6 +452,12 @@ class FitTransform(ABC):
 
 
 class StatelessTransform(Transform):
+    """_summary_
+
+    :param Transform: _description_
+    :type Transform: _type_
+    """
+
     def _fit(self, df_fit: pd.DataFrame):
         return None
 
@@ -421,23 +484,53 @@ class HP:
     name: str
 
     def resolve(self, bindings: dict[str, object]) -> object:
+        """_summary_
+
+        :param bindings: _description_
+        :type bindings: dict[str, object]
+        :return: _description_
+        :rtype: object
+        """
         # default: treat hp name as key into bindings
         return bindings.get(self.name, self)
 
     @staticmethod
     def resolve_maybe(v, bindings: dict[str, object]) -> object:
+        """_summary_
+
+        :param v: _description_
+        :type v: _type_
+        :param bindings: _description_
+        :type bindings: dict[str, object]
+        :return: _description_
+        :rtype: object
+        """
         if isinstance(v, HP):
             return v.resolve(bindings)
         return v
 
 
 class HPFmtStr(HP):
+    """_summary_
+
+    :param HP: _description_
+    :type HP: _type_
+    """
+
     def resolve(self, bindings: dict[str, object]) -> object:
         # treate name as format string to be formatted against bindings
         return self.name.format(**bindings)
 
     @classmethod
     def maybe_from_value(cls, x: str | HP):
+        """_summary_
+
+        :param x: _description_
+        :type x: str | HP
+        :raises TypeError: _description_
+        :return: _description_
+        :rtype: _type_
+        """
         if isinstance(x, HP):
             return x
         if isinstance(x, str):
@@ -450,6 +543,11 @@ class HPFmtStr(HP):
 
 
 def fmt_str_field(**kwargs):
+    """_summary_
+
+    :return: _description_
+    :rtype: _type_
+    """
     return field(converter=HPFmtStr.maybe_from_value, **kwargs)
 
 
@@ -465,6 +563,14 @@ def fmt_str_field(**kwargs):
 
 @define
 class HPLambda(HP):
+    """_summary_
+
+    :param HP: _description_
+    :type HP: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+
     resolve_fun: Callable
     name: str = None
 
@@ -474,11 +580,26 @@ class HPLambda(HP):
 
 @define
 class HPCols(HP):
+    """_summary_
+
+    :param HP: _description_
+    :type HP: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+
     cols: list[str | HP]
     name: str = None
 
     @classmethod
     def maybe_from_value(cls, x: str | HP | Iterable[str | HP]) -> HPCols | HP:
+        """_summary_
+
+        :param x: _description_
+        :type x: str | HP | Iterable[str  |  HP]
+        :return: _description_
+        :rtype: HPCols | HP
+        """
         if isinstance(x, HP):
             return x
         if isinstance(x, str):
@@ -519,6 +640,11 @@ def _validate_not_empty(instance, attribute, value):
 
 
 def columns_field(**kwargs):
+    """_summary_
+
+    :return: _description_
+    :rtype: _type_
+    """
     return field(
         validator=_validate_not_empty, converter=HPCols.maybe_from_value, **kwargs
     )
@@ -526,6 +652,15 @@ def columns_field(**kwargs):
 
 @define
 class HPDict(HP):
+    """_summary_
+
+    :param HP: _description_
+    :type HP: _type_
+    :raises TypeError: _description_
+    :return: _description_
+    :rtype: _type_
+    """
+
     mapping: dict
     name: str = None
 
@@ -539,6 +674,14 @@ class HPDict(HP):
 
     @classmethod
     def maybe_from_value(cls, x: dict | HP):
+        """_summary_
+
+        :param x: _description_
+        :type x: dict | HP
+        :raises TypeError: _description_
+        :return: _description_
+        :rtype: _type_
+        """
         if isinstance(x, HP):
             return x
         if not isinstance(x, dict):
@@ -555,4 +698,9 @@ class HPDict(HP):
 
 
 def dict_field(**kwargs):
+    """_summary_
+
+    :return: _description_
+    :rtype: _type_
+    """
     return field(converter=HPDict.maybe_from_value, **kwargs)

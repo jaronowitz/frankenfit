@@ -1,7 +1,12 @@
 """
-The graph module provides Transform subclasses (notably Pipeline, Join, and friends)
-that take other Transforms as parameters, allowing the creation of sequences and
-tree-like structures of Transforms that process each other's output (i.e., composition).
+The graph module provides :class:`~frankenft.Transform` subclasses (notably
+:class:`~frankenfit.Pipeline`, :class:`~frankenfit.Join`, and friends) that take other
+Transforms as parameters, allowing the creation of sequences and tree-like structures of
+Transforms that process each other's output (i.e., composition).
+
+Ordinarily, users should never need to import this module directly. Instead, they access
+the classes and functions defined here through the public API exposed as
+``frankenfit.*``.
 """
 from __future__ import annotations
 from functools import partial
@@ -156,12 +161,8 @@ def method_wrapping_transform(
     constructed with the given parameters to this Pipeline. This method's arguments are
     passed directly to {transform_class.__name__}.__init__().
 
-    Class docs for {transform_class.__qualname__}
-    ---------------{'-' * len(transform_class.__qualname__)}
+    Class docs for {transform_class.__qualname__}:
     {transform_class.__doc__ or ''}
-    Constructor docs for {transform_class.__qualname__}.__init__
-    ---------------------{'-' * len(transform_class.__qualname__ + '.__init__')}
-    {transform_class.__init__.__doc__}
     """
     return method_impl
 
@@ -276,7 +277,7 @@ class Pipeline(fft.Transform):
     )
 
     sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
-    statsmodels = _pipeline_method_wrapping_transform("statsmodels", fft.SKLearn)
+    statsmodels = _pipeline_method_wrapping_transform("statsmodels", fft.Statsmodels)
 
     # Pipeline()...join(left_pipeline, right_pipeline)...
     # join = _pipeline_method_wrapping_transform("join", Join)

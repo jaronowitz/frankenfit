@@ -18,3 +18,7 @@ statsmodels
 # for editor autocomplete
 attrs
 pandas
+
+# for building docs
+jupyter-book
+furo

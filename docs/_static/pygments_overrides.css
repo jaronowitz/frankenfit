@@ -1,0 +1,3 @@
+body:not([data-theme="light"]) .highlight {
+    background-color: var(--color-background-secondary) !important;
+}

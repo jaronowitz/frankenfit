@@ -7,7 +7,9 @@ extend-exclude =
 	.venv-*,
 
 	# build artifacts
-	*/build/,
+	build/,
+	docs/_build/,
+	docs/conf.py,
 
 # compat with black around slice operators
 extend-ignore = E203
