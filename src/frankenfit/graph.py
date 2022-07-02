@@ -38,11 +38,23 @@ _LOG = logging.getLogger(__name__)
 # Sequentially (time series), AcrossHyperParamGrid
 
 
+class IfStatement(ffc.Transform):
+    then: ffc.Transform
+    otherwise: Optional[ffc.Transform] = None
+
+    def hyperparams(self) -> set[str]:
+        result = super().hyperparams()
+        result |= self.then.hyperparams()
+        if self.otherwise is not None:
+            result |= self.otherwise.hyperparams()
+        return result
+
+
 @define
-class IfHyperparamIsTrue(fft.Transform):
+class IfHyperparamIsTrue(IfStatement):
     name: str
-    then: fft.Transform
-    otherwise: Optional[fft.Transform] = None
+    then: ffc.Transform
+    otherwise: Optional[ffc.Transform] = None
     allow_unresolved: Optional[bool] = False
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
@@ -63,12 +75,17 @@ class IfHyperparamIsTrue(fft.Transform):
             return state.apply(df_apply)
         return df_apply  # act like Identity
 
+    def hyperparams(self) -> set[str]:
+        result = super().hyperparams()
+        result.add(self.name)
+        return result
+
 
 @define
-class IfHyperparamLambda(fft.Transform):
+class IfHyperparamLambda(IfStatement):
     fun: Callable  # dict[str, object] -> bool
-    then: fft.Transform
-    otherwise: Optional[fft.Transform] = None
+    then: ffc.Transform
+    otherwise: Optional[ffc.Transform] = None
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         bindings = self.bindings()
@@ -83,12 +100,20 @@ class IfHyperparamLambda(fft.Transform):
             return state.apply(df_apply)
         return df_apply  # act like Identity
 
+    def hyperparams(self) -> set[str]:
+        result = super().hyperparams()
+        # find out what bindings our lambda function queries
+        sd = ffc.SentinelDict()
+        self.fun(sd)
+        result |= sd.keys_checked or set()
+        return result
+
 
 @define
-class IfTrainingDataHasProperty(fft.Transform):
-    fun: Callable  # dict[str, object] -> bool
-    then: fft.Transform
-    otherwise: Optional[fft.Transform] = None
+class IfTrainingDataHasProperty(IfStatement):
+    fun: Callable  # df -> bool
+    then: ffc.Transform
+    otherwise: Optional[ffc.Transform] = None
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if self.fun(df_fit):
@@ -104,7 +129,7 @@ class IfTrainingDataHasProperty(fft.Transform):
 
 
 @define
-class Join(fft.Transform):
+class Join(ffc.Transform):
     left: Pipeline
     right: Pipeline
     how: str
@@ -141,6 +166,11 @@ class Join(fft.Transform):
             suffixes=self.suffixes,
         )
 
+    def hyperparams(self) -> set[str]:
+        return (
+            super().hyperparams() | self.left.hyperparams() | self.right.hyperparams()
+        )
+
 
 def method_wrapping_transform(
     class_qualname: str, method_name: str, transform_class: type
@@ -172,7 +202,7 @@ def _convert_pipeline_transforms(value):
         return list(value.transforms)
     if isinstance(value, list) and len(value) == 1 and isinstance(value[0], Pipeline):
         return list(value[0].transforms)
-    if isinstance(value, fft.Transform):
+    if isinstance(value, ffc.Transform):
         return [value]
     return list(value)
 
@@ -181,24 +211,21 @@ _pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeli
 
 
 @define
-class Pipeline(fft.Transform):
+class Pipeline(ffc.Transform):
     dataset_name: str = "__pass__"
 
-    transforms: list[fft.Transform] = field(
+    transforms: list[ffc.Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
 
     @transforms.validator
     def _check_transforms(self, attribute, value):
         for t in value:
-            if not isinstance(t, fft.Transform):
+            if not isinstance(t, ffc.Transform):
                 raise TypeError(
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t} (type {type(t)})"
                 )
-
-    # TODO: should we override hyperparams() to return some kind of collection across
-    # transforms?
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         dsc = self.dataset_collection | {"__pass__": df_fit}
@@ -225,13 +252,21 @@ class Pipeline(fft.Transform):
     def __add__(self, other):
         return self.then(other)
 
+    def hyperparams(self) -> set[str]:
+        result = super().hyperparams()
+        for t in self.transforms:
+            result |= t.hyperparams()
+        return result
+
+    # TODO: fit_and_apply()
+
     ####################
     # call-chaining API:
 
     def then(self, other):
         if isinstance(other, Pipeline):
             transforms = self.transforms + other.transforms
-        elif isinstance(other, fft.Transform):
+        elif isinstance(other, ffc.Transform):
             transforms = self.transforms + [other]
         elif isinstance(other, list):
             transforms = self.transforms + other

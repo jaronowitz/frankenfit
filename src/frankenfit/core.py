@@ -249,7 +249,11 @@ class Transform(ABC):
     def fit(
         self, data_fit: Data, bindings: Optional[dict[str, object]] = None
     ) -> FitTransform:
-        """Get fit or get bit.
+        """
+        Fit this Transform on some data and return a :class:`FitTransform` object. The
+        actual return value will be some subclass of ``FitTransform`` that depends on
+        what class this Transform is; for example, :meth:`ZScore.fit()` returns a
+        :class:`FitZScore` object.
 
         :param data_fit: _description_
         :type data_fit: Data
@@ -271,17 +275,32 @@ class Transform(ABC):
         field_names = list(fields_dict(self.__class__).keys())
         return field_names
 
-    def hyperparams(self) -> dict[str, HP]:
-        """_summary_
-
-        :return: _description_
-        :rtype: dict[str, HP]
+    def hyperparams(self) -> set[str]:
         """
-        return {
-            name: hp_obj
-            for name in self.params()
-            if isinstance(hp_obj := getattr(self, name), HP)
-        }
+        Return the set of hyperparameter names that this Transform expects to be bound
+        at fit-time. If this Transform contains other Transforms (for example if it's a
+        :class:`Pipeline` or a :class:`Join`), then the set of hyperparameter names is
+        collected recursively.
+
+        If you're writing a Transform subclass that contains other Transforms (your own
+        special kind of join, for example), then you'll need to override this method
+        in order to implement the recursion correctly.
+
+        :return: list of hyperparameter names.
+        :rtype: list[str]
+        """
+        # TODO: is there some way to report what type each hyperparam is expected to
+        # have?
+        # TODO: is there some way to determine automatically which of our params() are,
+        # or contain, Transforms, and thereby handle the recursion here rather than
+        # expecting subclasses to implement it correctly?
+
+        sd = SentinelDict()
+        for name in self.params():
+            if isinstance(unbound_val := getattr(self, name), HP):
+                HP.resolve_maybe(unbound_val, sd)
+
+        return sd.keys_checked or set()
 
     def __init_subclass__(cls, /, no_magic=False, **kwargs):
         """
@@ -297,6 +316,9 @@ class Transform(ABC):
         # we should freak out if the subclass has any attribute named 'state' or
         # 'bindings', because those will collide at apply-time with fit_class method
         # names.
+        # TODO: generalize this check a bit -- we should be able to determine
+        # automatically which parameter names would collide with attributes of
+        # FitTransform.
         if hasattr(cls, "state"):
             raise AttributeError(
                 "Subclasses of Transform are not allowed to have an attribute "
@@ -316,6 +338,23 @@ class Transform(ABC):
         cls._fit_class_name = fit_class_name
 
 
+class SentinelDict(dict):
+    keys_checked = None
+
+    def _record_key(self, key):
+        if self.keys_checked is None:
+            self.keys_checked = set()
+        self.keys_checked.add(key)
+
+    def __getitem__(self, key):
+        self._record_key(key)
+        return None
+
+    def get(self, key, *args, **kwargs):
+        self._record_key(key)
+        return None
+
+
 class UnresolvedHyperparameterError(NameError):
     """Exception thrown when a Transform is not able to resolve all of its
     hyperparameters at fit-time."""
@@ -323,17 +362,17 @@ class UnresolvedHyperparameterError(NameError):
 
 class FitTransform(ABC):
     """
-    The result of fitting a {transform_class_name} Transform. Call this object's
-    `apply()` method on some data to get the result of applying the now-fit
-    transformation.
+    The result of fitting a :class:`{transform_class_name}` Transform. Call this
+    object's :meth:`apply()` method on some data to get the result of applying the
+    now-fit transformation.
 
     All parameters of the fit {transform_class_name} are available as instance
     variables, with any hyperparameters fully resolved against whatever bindings were
     provided at fit-time.
 
     The fit state of the transformation, as returned by {transform_class_name}'s
-    `_fit()` method at fit-time, is available from `state()`, and this is the state that
-    will be used at apply-time.
+    ``_fit()`` method at fit-time, is available from :meth:`state()`, and this is the
+    state that will be used at apply-time.
     """
 
     dataset_collection: DatasetCollection = None
@@ -427,7 +466,7 @@ class FitTransform(ABC):
     def state(self) -> object:
         """
         Return the fit state of the transformation, which is an arbitrary object
-        determined by the implementation of {transform_class_name}._fit().
+        determined by the implementation of ``{transform_class_name}._fit()``.
         """
         return self.__state
 
@@ -519,7 +558,7 @@ class HPFmtStr(HP):
 
     def resolve(self, bindings: dict[str, object]) -> object:
         # treate name as format string to be formatted against bindings
-        return self.name.format(**bindings)
+        return self.name.format_map(bindings)
 
     @classmethod
     def maybe_from_value(cls, x: str | HP):
@@ -610,7 +649,7 @@ class HPCols(HP):
         return [
             c.resolve(bindings)
             if isinstance(c, HP)
-            else c.format(**bindings)
+            else c.format_map(bindings)
             if isinstance(c, str)
             else c
             for c in self.cols
