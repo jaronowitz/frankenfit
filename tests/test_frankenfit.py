@@ -305,6 +305,12 @@ def test_Print(diamonds_df):
     assert buf.getvalue() == fit_msg + "\n" + apply_msg + "\n"
     assert df.equals(diamonds_df)
 
+    buf = StringIO()
+    t = ff.Print(fit_msg=None, apply_msg=None, dest=buf)
+    df = t.fit(diamonds_df).apply(diamonds_df)
+    assert buf.getvalue() == ""
+    assert df.equals(diamonds_df)
+
 
 def test_Pipeline(diamonds_df):
     p = ff.Pipeline()

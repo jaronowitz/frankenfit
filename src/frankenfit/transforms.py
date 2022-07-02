@@ -304,12 +304,13 @@ class Print(Identity):
     """
 
     def _fit(self, df_fit: pd.DataFrame):
+        if self.fit_msg is None:
+            return
         if isinstance(self.dest, str):
             with open(self.dest, "a") as dest:
                 print(self.fit_msg, file=dest)
         else:
             print(self.fit_msg, file=self.dest)
-        return Identity._fit(self, df_fit)
 
         # Idiomatic super() doesn't work because at call time self is a FitPrint
         # instance, which inherits directly from FitTransform, and not from
@@ -318,12 +319,14 @@ class Print(Identity):
         # return super()._fit(df_fit)
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        if self.apply_msg is None:
+            return df_apply
         if isinstance(self.dest, str):
             with open(self.dest, "a") as dest:
                 print(self.apply_msg, file=dest)
         else:
             print(self.apply_msg, file=self.dest)
-        return Identity._apply(self, df_apply, state=state)
+        return df_apply
         # Same issue with super() as in _fit().
         # return super()._apply(df_apply)
 
