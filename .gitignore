@@ -13,3 +13,5 @@ __pycache__/
 requirements.txt
 *.whl
 .ipynb_checkpoints/
+docs/_build
+docs/conf.py
