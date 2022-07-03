@@ -46,6 +46,7 @@ MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 .. autoclass:: StatelessTransform
     :show-inheritance:
     :members:
+    :exclude-members: FitStatelessTransform
 ```
 
 ## Writing a `Transform` subclass
@@ -108,27 +109,27 @@ Foobar.
 .. autoclass:: Pipeline
     :show-inheritance:
     :members:
-    :exclude-members: hyperparams
+    :exclude-members: hyperparams, FitPipeline
 
 .. autoclass:: Join
     :show-inheritance:
     :members:
-    :exclude-members: hyperparams
+    :exclude-members: hyperparams, FitJoin
 
 .. autoclass:: IfHyperparamIsTrue
     :show-inheritance:
     :members:
-    :exclude-members: hyperparams
+    :exclude-members: hyperparams, FitIfHyperparamIsTrue
 
 .. autoclass:: IfHyperparamLambda
     :show-inheritance:
     :members:
-    :exclude-members: hyperparams
+    :exclude-members: hyperparams, FitHyperparamLambda
 
 .. autoclass:: IfTrainingDataHasProperty
     :show-inheritance:
     :members:
-    :exclude-members: hyperparams
+    :exclude-members: hyperparams, FitIfTrainingDataHasPorperty
 ```
 
 ## Transform library
