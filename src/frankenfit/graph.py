@@ -20,8 +20,14 @@ from typing import Callable, Optional
 
 from . import transforms as fft
 from . import core as ffc
+from .core import (
+    Transform,
+)
 
 _LOG = logging.getLogger(__name__)
+
+# TODO: figure out how to make type annotations look like ``ff.Transform`` instead of
+# ``ffc.Transform``.
 
 # - graph-making transforms (pipeline, joins, ifs)
 # - the notion that a pipeline may fit and apply on a collection of datasets, not just
@@ -38,23 +44,11 @@ _LOG = logging.getLogger(__name__)
 # Sequentially (time series), AcrossHyperParamGrid
 
 
-class IfStatement(ffc.Transform):
-    then: ffc.Transform
-    otherwise: Optional[ffc.Transform] = None
-
-    def hyperparams(self) -> set[str]:
-        result = super().hyperparams()
-        result |= self.then.hyperparams()
-        if self.otherwise is not None:
-            result |= self.otherwise.hyperparams()
-        return result
-
-
 @define
-class IfHyperparamIsTrue(IfStatement):
+class IfHyperparamIsTrue(Transform):
     name: str
-    then: ffc.Transform
-    otherwise: Optional[ffc.Transform] = None
+    then: Transform
+    otherwise: Optional[Transform] = None
     allow_unresolved: Optional[bool] = False
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
@@ -82,10 +76,10 @@ class IfHyperparamIsTrue(IfStatement):
 
 
 @define
-class IfHyperparamLambda(IfStatement):
+class IfHyperparamLambda(Transform):
     fun: Callable  # dict[str, object] -> bool
-    then: ffc.Transform
-    otherwise: Optional[ffc.Transform] = None
+    then: Transform
+    otherwise: Optional[Transform] = None
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         bindings = self.bindings()
@@ -110,10 +104,10 @@ class IfHyperparamLambda(IfStatement):
 
 
 @define
-class IfTrainingDataHasProperty(IfStatement):
+class IfTrainingDataHasProperty(Transform):
     fun: Callable  # df -> bool
-    then: ffc.Transform
-    otherwise: Optional[ffc.Transform] = None
+    then: Transform
+    otherwise: Optional[Transform] = None
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if self.fun(df_fit):
@@ -129,7 +123,7 @@ class IfTrainingDataHasProperty(IfStatement):
 
 
 @define
-class Join(ffc.Transform):
+class Join(Transform):
     left: Pipeline
     right: Pipeline
     how: str
@@ -166,11 +160,6 @@ class Join(ffc.Transform):
             suffixes=self.suffixes,
         )
 
-    def hyperparams(self) -> set[str]:
-        return (
-            super().hyperparams() | self.left.hyperparams() | self.right.hyperparams()
-        )
-
 
 def method_wrapping_transform(
     class_qualname: str, method_name: str, transform_class: type
@@ -187,11 +176,11 @@ def method_wrapping_transform(
         return_annotation=class_qualname
     )
     method_impl.__doc__ = f"""
-    Return the result of appending a new {transform_class.__name__} transform
-    constructed with the given parameters to this Pipeline. This method's arguments are
-    passed directly to {transform_class.__name__}.__init__().
+    Return the result of appending a new :class:`{transform_class.__name__}` transform
+    constructed with the given parameters to this :class:`Pipeline`. This method's
+    arguments are passed directly to ``{transform_class.__name__}.__init__()``.
 
-    Class docs for {transform_class.__qualname__}:
+    Class docs for :class:`{transform_class.__qualname__}`:
     {transform_class.__doc__ or ''}
     """
     return method_impl
@@ -202,7 +191,7 @@ def _convert_pipeline_transforms(value):
         return list(value.transforms)
     if isinstance(value, list) and len(value) == 1 and isinstance(value[0], Pipeline):
         return list(value[0].transforms)
-    if isinstance(value, ffc.Transform):
+    if isinstance(value, Transform):
         return [value]
     return list(value)
 
@@ -211,17 +200,19 @@ _pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeli
 
 
 @define
-class Pipeline(ffc.Transform):
+class Pipeline(Transform):
+    # Already defined in the Transform base class, but declare again here so that attrs
+    # makes it the first (optional) __init__ argument.
     dataset_name: str = "__pass__"
 
-    transforms: list[ffc.Transform] = field(
+    transforms: list[Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
 
     @transforms.validator
     def _check_transforms(self, attribute, value):
         for t in value:
-            if not isinstance(t, ffc.Transform):
+            if not isinstance(t, Transform):
                 raise TypeError(
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t} (type {type(t)})"
@@ -252,21 +243,59 @@ class Pipeline(ffc.Transform):
     def __add__(self, other):
         return self.then(other)
 
-    def hyperparams(self) -> set[str]:
-        result = super().hyperparams()
-        for t in self.transforms:
-            result |= t.hyperparams()
-        return result
-
     # TODO: fit_and_apply()
 
     ####################
     # call-chaining API:
 
-    def then(self, other):
+    def then(self, other: Transform | list[Transform]) -> Pipeline:
+        """
+        Return the result of appending the given :class:`Transform` instance(s) to this
+        :class:`Pipeline`. The addition operator on Pipeline objects is an alias for
+        this method, meaning that the following are equivalent pairs::
+
+            pipeline + ff.DeMean(...) == pipeline.then(ff.DeMean(...))
+            pipeline + other_pipeline == pipeline.then(other_pipeline)
+            pipeline + [ff.Winsorize(...), ff.DeMean(...)] == pipeline.then(
+                [ff.Winsorize, ff.DeMean(...)]
+            )
+
+        In the case of appending built-in ``Transform`` classes it is usually not
+        necessary to call ``then()`` because the ``Pipeline`` object has a more specific
+        method for each built-in ``Transform``. For example, the last pipeline in the
+        example above could be written more idiomatically as::
+
+            pipeline.winsorize(...).de_mean(...)
+
+        The main use cases for ``then()`` are to append user-defined ``Transform``
+        subclasses that don't have built-in methods like the above, and to append
+        separately constructed ``Pipeline``\\ s when writing a pipeline in the
+        call-chain style. For example::
+
+            def bake_features(cols):
+                # using built-in methods for Winsorize and ZScore transforms
+                return ff.Pipeline().winsorize(cols, limit=0.05).z_score(cols)
+
+            class MyCustomTransform(ff.Transform):
+                ...
+
+            pipeline = (
+                ff.Pipeline()
+                .pipe(['carat'], np.log1p)  # built-in method for Pipe transform
+                .then(bake_features(['carat', 'table', 'height']))  # append Pipeline
+                .then(MyCustomTransform(...))  # append a user-defined transform
+            )
+
+        :param other: The Transform instance to append, or a list of Transforms, which
+            will be appended in the order in which in they appear in the list.
+        :type other: :class:`Transform` | ``list[Transform]``
+        :raises ``TypeError``: If ``other`` is not a ``Transform`` or list of
+            ``Transform``\\ s.
+        :rtype: :class:`Pipeline`
+        """
         if isinstance(other, Pipeline):
             transforms = self.transforms + other.transforms
-        elif isinstance(other, ffc.Transform):
+        elif isinstance(other, Transform):
             transforms = self.transforms + [other]
         elif isinstance(other, list):
             transforms = self.transforms + other

@@ -141,42 +141,45 @@ Data = Union[pd.DataFrame, Dataset, DatasetCollection]
 class Transform(ABC):
     """
     The abstract base class of all (unfit) Transforms. Subclasses must implement the
-    :meth:`_fit()` and `_apply()` methods (but see StatelessTransform, which removes
-    the requirement to implement `_fit()`).
+    :meth:`_fit()` and :meth:`_apply()` methods (but see :class:`StatelessTransform`,
+    which removes the requirement to implement :meth:`_fit()`).
 
-    Subclasses should use `attrs` field variables to hold parameters (but not fit state)
-    of the transformation being implemented, with the expectation that these parameters
-    will be provided by the user of the subclass as constructor arguments. Thanks to
-    `attrs`, in most cases no constructor needs to be written explicitly by the subclass
-    author, and in any case only field variables will be treated as potential
-    hyperparameters at fit-time (i.e., to potentially get their values from the
-    `bindings=` kwarg to `fit()`).
+    Subclasses should use `attrs <https://www.attrs.org>`_ field variables to hold
+    parameters (but not fit state) of the transformation being implemented, with the
+    expectation that these parameters will be provided by the user of the subclass as
+    constructor arguments.  Thanks to ``attrs``, in most cases no constructor needs to
+    be written explicitly by the subclass author, and in any case only ``attrs``-managed
+    field variables will be treated as potential hyperparameters at fit-time (i.e., to
+    potentially get their values from the ``bindings=`` kwarg to :meth:`fit()`).
 
-    The implementations of `_fit()` and `_apply()` may refer freely to any `attrs`
-    fields (generally understood as parameters of the transformation) as instance
-    variables on `self`. If any fields were given as hyperparameters at construction
-    time, they are resolved to concrete bindings before `_fit()` and `_apply()` are
-    invoked.
+    The implementations of :meth:`_fit()` and :meth:`_apply()` may refer freely to any
+    ``attrs`` fields (generally understood as parameters of the transformation) as
+    instance variables on ``self``. If any fields were given as hyperparameters at
+    construction time, they are resolved to concrete bindings before ``_fit()`` and
+    ``_apply()`` are invoked.
 
-    _fit() should accept some training data and return an arbitrary object representing
-    fit state, and which will be passed to `_apply()` at apply-time. Generally speaking,
-    `_fit()` should *not* mutate anything about `self`.
+    ``_fit()`` should accept some training data and return an arbitrary object
+    representing fit state, which will be passed to ``_apply()`` at apply-time.
+    Generally speaking, ``_fit()`` should *not* mutate anything about ``self``.
 
-    `_apply()` should then accept a state object as returned by `_fit()` and return the
-    result of applying the transformation to some given apply-time data.
+    ``_apply()`` should then accept a state object as returned by ``_fit()`` and return
+    the result of applying the transformation to some given apply-time data, also
+    without mutating ``self``.
 
-    Once implemented, the subclass is used like any Transform, which is to say by
+    Once implemented, the subclass is used like any ``Transform``, which is to say by
     constructing an instance with some parameters (which may be hypeparameters), and
-    then calling its `fit()` and `apply()` methods (note no leading underscores).
+    then calling its ``fit()`` and ``apply()`` methods (note no leading underscores).
 
-    A subclass `C` will automatically find itself in possession of an inner class
-    `FitC`, which derives from `FitTransform`.  `C.fit()` will then return `C.FitC`
-    instances (encapsulating the state returned by the subclasser's `_fit()`
-    implementation), whose `apply()` methods (i.e., `C.FitC.apply()`) employ the
-    subclasser's `_apply()` implementation.
+    A subclass ``C`` will automatically find itself in possession of an inner class
+    ``FitC``, which derives from ``FitTransform``.  ``C.fit()`` will then return a
+    ``C.FitC`` instance (encapsulating the state returned by the subclasser's ``_fit()``
+    implementation), whose ``apply()`` method (i.e., ``C.FitC.apply()``) employs the
+    subclasser's ``_apply()`` implementation.
 
-    Subclasses must not keep parameters in fields named `fit`, `apply`, `state`, or
-    `params`, as these would break functionality by overriding expected method names.
+    .. WARNING::
+        Subclasses must not keep parameters in fields named ``fit``, ``apply``,
+        ``state``, ``params``, or ``bindings`` as these would break functionality by
+        overriding expected method names.
 
     Examples of writing Transforms::
 
@@ -219,16 +222,59 @@ class Transform(ABC):
     # preceding Transform in a Pipeline, or the user's unnamed DataFrame/Dataset arg to
     # fit()/apply()
     dataset_name = "__pass__"  # TODO: docs
+    """
+    When part of a larger pipeline of transformations, the ``__dataset_name__``
+    attribute determines how data is passed to a Transform at fit- and
+    apply-time. The default value
+
+    :type: ``str``
+
+    .. NOTE::
+        Most subclasses of :class:`Transform` don't need to worry about doing anything
+        with this attribute. The main exceptions would be if you are writing your own
+        customized kind of :class:`Pipeline` class, or any Transform that needs to be
+        able to introduce a new "branch" of dataflow into a Pipeline, originating from
+        some data other than the output of the preceding Transform.
+
+    .. SEEALSO::
+        :attr:`~FitTransform.dataset_collection`, :meth:`_fit`, :meth:`_apply`,
+        :class:`Pipeline`.
+    """
 
     @abstractmethod
     def _fit(self, df_fit: pd.DataFrame) -> object:
-        """_summary_
+        """
+        Implements subclass-specific fitting logic.
 
-        :param df_fit: _description_
-        :type df_fit: pd.DataFrame
-        :raises NotImplementedError: _description_
-        :return: _description_
-        :rtype: object
+        .. NOTE::
+            ``_fit()`` is one of two methods (the other being ``_apply()``) that any
+            subclass of :class:`Transform` must implement. (But see
+            :class:`StatelessTransform` as a way to avoid this for transforms that don't
+            have state to fit.)
+
+        Here are some useful points to keep in mind whilst writing your ``_fit()``
+        function, which you can consider part Frankenfit's API contract:
+
+        - When your ``_fit()`` function is executed, ``self`` actually refers to an
+          instance of :class:`FitTransform` (in fact a subclass of ``FitTransform`` that
+          is specific to your :class:`Transform` subclass), which is being constructed
+          and will store the state that your method returns.
+        - Params all available on self, concrete values, hyperparams resolved.
+        - You have access to additional information beyond the training data
+          (``df_fit``) via the attributes :attr:`self.dataset_name
+          <Transform.dataset_name>`, :attr:`self.dataset_collection
+          <FitTransform.dataset_collection>` and method :meth:`self.bindings()
+          <FitTransform.bindings>`.
+
+        TODO: examples of using dataset_name, etc.
+
+        :param df_fit: A pandas ``DataFrame`` of training data.
+        :type df_fit: ``pd.DataFrame``
+        :raises NotImplementedError: If not implemented by the subclass.
+        :return: An arbitrary object, the type and meaning of which are specific to the
+            subclass. This object will be passed as the ``state`` argument to
+            :meth:`_apply()` at apply-time.
+        :rtype: ``object``
         """
         raise NotImplementedError
 
@@ -237,9 +283,9 @@ class Transform(ABC):
         """_summary_
 
         :param df_apply: _description_
-        :type df_apply: pd.DataFrame
+        :type df_apply: ``pd.DataFrame``
         :param state: _description_, defaults to None
-        :type state: object, optional
+        :type state: ``object``, optional
         :raises NotImplementedError: _description_
         :return: _description_
         :rtype: pd.DataFrame
@@ -277,14 +323,26 @@ class Transform(ABC):
 
     def hyperparams(self) -> set[str]:
         """
-        Return the set of hyperparameter names that this Transform expects to be bound
-        at fit-time. If this Transform contains other Transforms (for example if it's a
-        :class:`Pipeline` or a :class:`Join`), then the set of hyperparameter names is
-        collected recursively.
+        Return the set of hyperparameter names that this :class:`Transform` expects to
+        be bound at fit-time. If this Transform contains other Transforms (for example
+        if it's a :class:`Pipeline` or a :class:`Join`), then the set of hyperparameter
+        names is collected recursively.
 
         If you're writing a Transform subclass that contains other Transforms (your own
         special kind of join, for example), then you'll need to override this method
-        in order to implement the recursion correctly.
+        in order to implement the recursion correctly. For example, if you are writing a
+        join-like Transform that has two Transform-valued parameters ``left`` and
+        ``right``, then your ``hyperparams()`` method might look like this::
+
+            def hyperparams(self) -> set[str]:
+                return (
+                    super().hyperparams()
+                    | self.left.hyperparams()
+                    | self.right.hyperparams()
+                )
+
+        It is important to include ``super().hyperarams()`` in the result in order to
+        include any hyperparameters referenced by your class's own parameters.
 
         :return: list of hyperparameter names.
         :rtype: list[str]
@@ -296,11 +354,19 @@ class Transform(ABC):
         # expecting subclasses to implement it correctly?
 
         sd = SentinelDict()
+        sub_transform_results = set()
         for name in self.params():
-            if isinstance(unbound_val := getattr(self, name), HP):
+            unbound_val = getattr(self, name)
+            if isinstance(unbound_val, HP):
                 HP.resolve_maybe(unbound_val, sd)
+            elif isinstance(unbound_val, Transform):
+                sub_transform_results |= unbound_val.hyperparams()
+            elif isinstance(unbound_val, list) and len(unbound_val) > 0:
+                for x in unbound_val:
+                    if isinstance(x, Transform):
+                        sub_transform_results |= x.hyperparams()
 
-        return sd.keys_checked or set()
+        return (sd.keys_checked or set()) | sub_transform_results
 
     def __init_subclass__(cls, /, no_magic=False, **kwargs):
         """
@@ -376,6 +442,9 @@ class FitTransform(ABC):
     """
 
     dataset_collection: DatasetCollection = None
+    """
+    Some docs about this.
+    """
 
     def __init__(self, transform: Transform, dsc_fit: DatasetCollection, bindings=None):
         "Docstr for FitTransform.__init__"

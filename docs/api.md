@@ -33,8 +33,6 @@ MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
 ------------
 
-What follows is my butt.
-
 ## Core `Transform` base classes
 
 ```{eval-rst}
@@ -110,22 +108,27 @@ Foobar.
 .. autoclass:: Pipeline
     :show-inheritance:
     :members:
+    :exclude-members: hyperparams
 
 .. autoclass:: Join
     :show-inheritance:
     :members:
+    :exclude-members: hyperparams
 
 .. autoclass:: IfHyperparamIsTrue
     :show-inheritance:
     :members:
+    :exclude-members: hyperparams
 
 .. autoclass:: IfHyperparamLambda
     :show-inheritance:
     :members:
+    :exclude-members: hyperparams
 
 .. autoclass:: IfTrainingDataHasProperty
     :show-inheritance:
     :members:
+    :exclude-members: hyperparams
 ```
 
 ## Transform library

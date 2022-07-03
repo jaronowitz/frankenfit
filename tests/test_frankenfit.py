@@ -717,3 +717,4 @@ def test_complex_pipeline_1(diamonds_df):
     )
 
     assert pipeline.hyperparams() == {"bake_features", "predictors", "response_col"}
+    # TODO: test more stuff with this pipeline

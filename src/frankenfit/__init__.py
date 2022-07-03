@@ -22,24 +22,24 @@
 
 """
 The public Frankenfit API consists of all non-underscore-prefixed names in the
-top-level ``frankenfit`` package. Therefore a single import statement is necessary to
-pull in the complete API::
+top-level ``frankenfit`` package. Therefore a single import statement pulls in the
+complete API::
 
     import frankenfit
 
-As a stylistic convention, and for the sake of brevity, the author of Frankenfit
-recommends importing ``frankenfit`` with the short name ``ff``::
+.. TIP::
 
-    import frankenfit as ff
+    As a stylistic convention, and for the sake of brevity, the author of Frankenfit
+    recommends importing ``frankenfit`` with the short name ``ff``::
 
-All of the examples in the reference documentation assume that ``frankenfit`` has been
-imported with the short name ``ff`` as above.
+        import frankenfit as ff
+
+    All of the examples in the reference documentation assume that ``frankenfit`` has
+    been imported with the short name ``ff`` as above.
 
 If you use a star-import (:code:`from frankenfit import *`), care is taken to ensure
 that all and only the public API names are imported, so that your namespace is not
 polluted with unrelated names.
-
-Well hooey ``Dataset`` and `Dataset` and :class:`Dataset`.
 """
 
 from importlib.metadata import (  # noqa: N814
