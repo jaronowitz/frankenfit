@@ -328,22 +328,6 @@ class Transform(ABC):
         if it's a :class:`Pipeline` or a :class:`Join`), then the set of hyperparameter
         names is collected recursively.
 
-        If you're writing a Transform subclass that contains other Transforms (your own
-        special kind of join, for example), then you'll need to override this method
-        in order to implement the recursion correctly. For example, if you are writing a
-        join-like Transform that has two Transform-valued parameters ``left`` and
-        ``right``, then your ``hyperparams()`` method might look like this::
-
-            def hyperparams(self) -> set[str]:
-                return (
-                    super().hyperparams()
-                    | self.left.hyperparams()
-                    | self.right.hyperparams()
-                )
-
-        It is important to include ``super().hyperarams()`` in the result in order to
-        include any hyperparameters referenced by your class's own parameters.
-
         :return: list of hyperparameter names.
         :rtype: list[str]
         """
