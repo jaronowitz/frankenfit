@@ -103,11 +103,11 @@ def test_ColumnsTransform(diamonds_df):
     df = diamonds_df
     # test cols behavior
     # the simplest concrete ColumnsTransform is KeepColumns
-    t = ff.KeepColumns(["x", "y", "z"])
+    t = ff.Select(["x", "y", "z"])
     assert t.apply(df).equals(df[["x", "y", "z"]])
-    t = ff.KeepColumns("z")
+    t = ff.Select("z")
     assert t.apply(df).equals(df[["z"]])
-    t = ff.KeepColumns(ff.HP("which_cols"))
+    t = ff.Select(ff.HP("which_cols"))
     assert (
         t.fit(df, bindings={"which_cols": ["x", "y", "z"]})
         .apply(df)
@@ -127,9 +127,9 @@ def test_ColumnsTransform(diamonds_df):
         "z",
     ]
 
-    t = ff.KeepColumns(["x", ff.HP("some_col"), "z"])
+    t = ff.Select(["x", ff.HP("some_col"), "z"])
     assert t.fit(df, bindings=bindings).apply(df).equals(df[["x", "y", "z"]])
-    t = ff.KeepColumns(["x", "{some_col}", "z"])
+    t = ff.Select(["x", "{some_col}", "z"])
     assert t.fit(df, bindings=bindings).apply(df).equals(df[["x", "y", "z"]])
 
 
@@ -143,26 +143,26 @@ def test_DeMean(diamonds_df):
 def test_CopyColumns(diamonds_df):
     cols = ["price", "x", "y", "z"]
     df = diamonds_df[cols]
-    result = ff.CopyColumns(["price"], ["price_copy"]).apply(df)
+    result = ff.Copy(["price"], ["price_copy"]).apply(df)
     assert result["price_copy"].equals(df["price"])
     # optional list literals for lists of 1
-    result = ff.CopyColumns("price", "price_copy").apply(df)
+    result = ff.Copy("price", "price_copy").apply(df)
     assert result["price_copy"].equals(df["price"])
 
-    result = ff.CopyColumns(["price"], ["price_copy1", "price_copy2"]).apply(df)
+    result = ff.Copy(["price"], ["price_copy1", "price_copy2"]).apply(df)
     assert result["price_copy1"].equals(df["price"])
     assert result["price_copy2"].equals(df["price"])
     # optional list literals for lists of 1
-    result = ff.CopyColumns("price", ["price_copy1", "price_copy2"]).apply(df)
+    result = ff.Copy("price", ["price_copy1", "price_copy2"]).apply(df)
     assert result["price_copy1"].equals(df["price"])
     assert result["price_copy2"].equals(df["price"])
 
-    result = ff.CopyColumns(["price", "x"], ["price_copy", "x_copy"]).apply(df)
+    result = ff.Copy(["price", "x"], ["price_copy", "x_copy"]).apply(df)
     assert result["price_copy"].equals(df["price"])
     assert result["x_copy"].equals(df["x"])
 
     with pytest.raises(ValueError):
-        result = ff.CopyColumns(
+        result = ff.Copy(
             ["price", "x"],
             [
                 "price_copy",
@@ -171,18 +171,14 @@ def test_CopyColumns(diamonds_df):
 
     # with hyperparams
     bindings = {"response": "price"}
-    result = ff.CopyColumns(["{response}"], ["{response}_copy"]).apply(
-        df, bindings=bindings
-    )
+    result = ff.Copy(["{response}"], ["{response}_copy"]).apply(df, bindings=bindings)
     assert result["price_copy"].equals(df["price"])
 
-    result = ff.CopyColumns("{response}", "{response}_copy").apply(
-        df, bindings=bindings
-    )
+    result = ff.Copy("{response}", "{response}_copy").apply(df, bindings=bindings)
     assert result["price_copy"].equals(df["price"])
 
     result = (
-        ff.CopyColumns([ff.HP("response")], "{response}_copy")
+        ff.Copy([ff.HP("response")], "{response}_copy")
         .fit(None, bindings=bindings)
         .apply(df)
     )
@@ -190,26 +186,24 @@ def test_CopyColumns(diamonds_df):
 
     with pytest.raises(TypeError):
         # HP("response") resolves to a str, not a list of str
-        result = ff.CopyColumns(ff.HP("response"), "{response}_copy").fit(
+        result = ff.Copy(ff.HP("response"), "{response}_copy").fit(
             None, bindings=bindings
         )
 
 
 def test_KeepColumns(diamonds_df):
     kept = ["price", "x", "y", "z"]
-    result = ff.KeepColumns(kept).apply(diamonds_df)
+    result = ff.Select(kept).apply(diamonds_df)
     assert result.equals(diamonds_df[kept])
 
 
 def test_RenameColumns(diamonds_df):
-    result = ff.RenameColumns({"price": "price_orig"}).apply(diamonds_df)
+    result = ff.Rename({"price": "price_orig"}).apply(diamonds_df)
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
-    result = ff.RenameColumns(lambda c: c + "_orig" if c == "price" else c).apply(
-        diamonds_df
-    )
+    result = ff.Rename(lambda c: c + "_orig" if c == "price" else c).apply(diamonds_df)
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
 
-    result = ff.RenameColumns(
+    result = ff.Rename(
         ff.HPLambda(lambda b: {b["response"]: b["response"] + "_orig"})
     ).apply(diamonds_df, bindings={"response": "price"})
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
@@ -319,15 +313,15 @@ def test_Pipeline(diamonds_df):
     assert diamonds_df.equals(p.fit(diamonds_df).apply(diamonds_df))
 
     # bare transform, automatically becomes list of 1
-    p = ff.Pipeline(transforms=ff.KeepColumns(["x"]))
+    p = ff.Pipeline(transforms=ff.Select(["x"]))
     assert len(p) == 1
     assert p.fit(diamonds_df).apply(diamonds_df).equals(diamonds_df[["x"]])
 
     p = ff.Pipeline(
         transforms=[
-            ff.CopyColumns(["price"], ["price_train"]),
+            ff.Copy(["price"], ["price_train"]),
             ff.DeMean(["price_train"]),
-            ff.KeepColumns(["x", "y", "z", "price", "price_train"]),
+            ff.Select(["x", "y", "z", "price", "price_train"]),
         ]
     )
     assert len(p) == 3
@@ -699,7 +693,7 @@ def test_complex_pipeline_1(diamonds_df):
 
     pipeline = (
         ff.Pipeline()
-        .copy_columns("{response_col}", "{response_col}_train")
+        .copy("{response_col}", "{response_col}_train")
         .winsorize("{response_col}_train", limit=0.05)
         .pipe(["carat", "{response_col}_train"], np.log1p)
         .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
@@ -712,7 +706,7 @@ def test_complex_pipeline_1(diamonds_df):
             class_params={"fit_intercept": True},
         )
         # transform {response_col}_hat from log-dollars back to dollars
-        .copy_columns("{response_col}_hat", "{response_col}_hat_dollars")
+        .copy("{response_col}_hat", "{response_col}_hat_dollars")
         .pipe("{response_col}_hat_dollars", np.expm1)
     )
 

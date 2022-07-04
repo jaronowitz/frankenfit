@@ -306,12 +306,10 @@ class Pipeline(Transform):
             )
         return Pipeline(dataset_name=self.dataset_name, transforms=transforms)
 
-    copy_columns = _pipeline_method_wrapping_transform("copy_columns", fft.CopyColumns)
-    keep_columns = _pipeline_method_wrapping_transform("keep_columns", fft.KeepColumns)
-    rename_columns = _pipeline_method_wrapping_transform(
-        "rename_columns", fft.RenameColumns
-    )
-    drop_columns = _pipeline_method_wrapping_transform("drop_columns", fft.DropColumns)
+    copy = _pipeline_method_wrapping_transform("copy", fft.Copy)
+    select = _pipeline_method_wrapping_transform("keep", fft.Select)
+    rename = _pipeline_method_wrapping_transform("rename", fft.Rename)
+    drop = _pipeline_method_wrapping_transform("drop", fft.Drop)
     stateless_lambda = _pipeline_method_wrapping_transform(
         "stateless_lambda", fft.StatelessLambda
     )

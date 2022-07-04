@@ -65,7 +65,7 @@ class WeightedTransform(Transform):
 
 
 @define
-class CopyColumns(StatelessTransform, ColumnsTransform):
+class Copy(StatelessTransform, ColumnsTransform):
     """
     A stateless Transform that copies values from one or more source columns into
     corresponding destination columns, either creating them or overwriting their
@@ -105,7 +105,7 @@ class CopyColumns(StatelessTransform, ColumnsTransform):
         )
 
 
-class KeepColumns(StatelessTransform, ColumnsTransform):
+class Select(StatelessTransform, ColumnsTransform):
     """
     A stateless transform that selects the given columns from the data.
     """
@@ -114,7 +114,7 @@ class KeepColumns(StatelessTransform, ColumnsTransform):
         return df_apply[self.cols]
 
 
-class DropColumns(StatelessTransform, ColumnsTransform):
+class Drop(StatelessTransform, ColumnsTransform):
     """
     A stateless transform that drops the given columns from the data.
     """
@@ -124,7 +124,7 @@ class DropColumns(StatelessTransform, ColumnsTransform):
 
 
 @define
-class RenameColumns(StatelessTransform):
+class Rename(StatelessTransform):
     """
     A stateless Transform that renames columns.
 

@@ -1,6 +1,7 @@
-# Frankenfit: it's alive! it's fit!
+# Frankenfit: it's alive! it's fit! 🧟
 
-Boomb, that's what it does.
+Frankenfit is a Python library for describing, fitting, and applying predictive data
+modeling pipelines.
 
 ## Getting started
 

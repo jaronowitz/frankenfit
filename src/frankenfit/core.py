@@ -261,7 +261,7 @@ class Transform(ABC):
             have state to fit.)
 
         Here are some useful points to keep in mind whilst writing your ``_fit()``
-        function, which you can consider part Frankenfit's API contract:
+        function, which you can consider part of Frankenfit's API contract:
 
         - When your ``_fit()`` function is executed, ``self`` actually refers to an
           instance of :class:`FitTransform` (in fact a subclass of ``FitTransform`` that

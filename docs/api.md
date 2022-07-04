@@ -138,15 +138,15 @@ Foobar.
 .. autoclass:: Identity
     :show-inheritance:
 
-.. autoclass:: KeepColumns
+.. autoclass:: Select
     :show-inheritance:
 
-.. autoclass:: DropColumns
+.. autoclass:: Drop
     :show-inheritance:
 
-.. autoclass:: CopyColumns
+.. autoclass:: Copy
     :show-inheritance:
 
-.. autoclass:: RenameColumns
+.. autoclass:: Rename
     :show-inheritance:
 ```
