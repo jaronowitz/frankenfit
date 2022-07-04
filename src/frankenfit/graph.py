@@ -307,7 +307,7 @@ class Pipeline(Transform):
         return Pipeline(dataset_name=self.dataset_name, transforms=transforms)
 
     copy = _pipeline_method_wrapping_transform("copy", fft.Copy)
-    select = _pipeline_method_wrapping_transform("keep", fft.Select)
+    select = _pipeline_method_wrapping_transform("select", fft.Select)
     __getitem__ = select
     rename = _pipeline_method_wrapping_transform("rename", fft.Rename)
     drop = _pipeline_method_wrapping_transform("drop", fft.Drop)
