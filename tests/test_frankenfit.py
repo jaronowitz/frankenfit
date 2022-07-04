@@ -692,7 +692,7 @@ def test_complex_pipeline_1(diamonds_df):
         )
 
     pipeline = (
-        ff.Pipeline()
+        ff.Pipeline()[FEATURES + ["{response_col}"]]
         .copy("{response_col}", "{response_col}_train")
         .winsorize("{response_col}_train", limit=0.05)
         .pipe(["carat", "{response_col}_train"], np.log1p)
