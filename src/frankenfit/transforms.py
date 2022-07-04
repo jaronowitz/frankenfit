@@ -106,21 +106,36 @@ class CopyColumns(StatelessTransform, ColumnsTransform):
 
 
 class KeepColumns(StatelessTransform, ColumnsTransform):
+    """
+    A stateless transform that selects the given columns from the data.
+    """
+
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         return df_apply[self.cols]
 
 
+class DropColumns(StatelessTransform, ColumnsTransform):
+    """
+    A stateless transform that drops the given columns from the data.
+    """
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return df_apply.drop(columns=self.cols)
+
+
 @define
 class RenameColumns(StatelessTransform):
+    """
+    A stateless Transform that renames columns.
+
+    :param how: Either a function that, given a column name, returns what it should be
+        renamed do, or a dict from old column names to corresponding new names.
+    """
+
     how: Callable | dict[str, str]
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         return df_apply.rename(columns=self.how)
-
-
-class DropColumns(StatelessTransform, ColumnsTransform):
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return df_apply.drop(columns=self.cols)
 
 
 # Inliners: StatelessLambda, StatefulLambda

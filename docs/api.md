@@ -133,4 +133,20 @@ Foobar.
 ```
 
 ## Transform library
-Foobar.
+
+```{eval-rst}
+.. autoclass:: Identity
+    :show-inheritance:
+
+.. autoclass:: KeepColumns
+    :show-inheritance:
+
+.. autoclass:: DropColumns
+    :show-inheritance:
+
+.. autoclass:: CopyColumns
+    :show-inheritance:
+
+.. autoclass:: RenameColumns
+    :show-inheritance:
+```

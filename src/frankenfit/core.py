@@ -181,7 +181,7 @@ class Transform(ABC):
         ``state``, ``params``, or ``bindings`` as these would break functionality by
         overriding expected method names.
 
-    Examples of writing Transforms::
+    An example of writing a ``Transform`` subclass::
 
         from attrs import define
         import pandas as pd
@@ -204,11 +204,12 @@ class Transform(ABC):
                     for c in self.cols
                 })
 
-        # A stateless transform whose only parameter is a list of columns; the
-        # implementation is simplified by subclassing two "convenience base classes":
-        # StatelessTransform for the common case of a transform with no state to fit,
-        # and ColumnsTransform, for the common case of operating on a parameterized list
-        # of columns, which is made available as an attrs-managed field `self.cols`.
+    An example of a stateless Transform whose only parameter is a list of columns; the
+    implementation is simplified by subclassing two "convenience base classes":
+    :class:`StatelessTransform` for the common case of a transform with no state to fit,
+    and :class:`ColumnsTransform`, for the common case of operating on a parameterized
+    list of columns, which is made available as an attrs-managed field ``self.cols``::
+
         class KeepColumns(ff.StatelessTransform, ff.ColumnsTransform):
             def _apply(
                 self, df_apply: pd.DataFrame, state: object=None
@@ -225,9 +226,14 @@ class Transform(ABC):
     """
     When part of a larger pipeline of transformations, the ``__dataset_name__``
     attribute determines how data is passed to a Transform at fit- and
-    apply-time. The default value
+    apply-time.
 
-    :type: ``str``
+    The default value ``"__pass__"`` means that this ``Transform``'s
+    :meth:`_fit()` and :meth:`_apply()` methods will receive the output of the Transform
+    preceding it, or the user-provided data if being called outside of a Pipeline.
+
+    Any other value will cause the :meth:`_fit()` and :meth:`_apply()` methods to
+    receive the dataset with that name in the active :class:`DatasetCollection`.
 
     .. NOTE::
         Most subclasses of :class:`Transform` don't need to worry about doing anything
@@ -239,6 +245,8 @@ class Transform(ABC):
     .. SEEALSO::
         :attr:`~FitTransform.dataset_collection`, :meth:`_fit`, :meth:`_apply`,
         :class:`Pipeline`.
+
+    :type: ``str``
     """
 
     @abstractmethod
@@ -259,7 +267,7 @@ class Transform(ABC):
           instance of :class:`FitTransform` (in fact a subclass of ``FitTransform`` that
           is specific to your :class:`Transform` subclass), which is being constructed
           and will store the state that your method returns.
-        - Params all available on self, concrete values, hyperparams resolved.
+        - TODO: Params all available on self, concrete values, hyperparams resolved.
         - You have access to additional information beyond the training data
           (``df_fit``) via the attributes :attr:`self.dataset_name
           <Transform.dataset_name>`, :attr:`self.dataset_collection
@@ -280,7 +288,14 @@ class Transform(ABC):
 
     @abstractmethod
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        """_summary_
+        """
+        Implements subclass-specific logic to apply the tansformation after being fit.
+
+        .. NOTE::
+            ``_apply()`` is one of two methods (the other being ``_fit()``) that any
+            subclass of :class:`Transform` must implement.
+
+        TODO.
 
         :param df_apply: _description_
         :type df_apply: ``pd.DataFrame``
@@ -313,7 +328,8 @@ class Transform(ABC):
         return fit_class(self, dsc, bindings)
 
     def params(self) -> list[str]:
-        """Return the butt hut. If ``self`` is a `Pipeline`, then wow.
+        """
+        Return the names of all of the parameters
 
         :return: list of parameter names.
         :rtype: list[str]
