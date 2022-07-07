@@ -124,12 +124,19 @@ Foobar.
 .. autoclass:: IfHyperparamLambda
     :show-inheritance:
     :members:
-    :exclude-members: hyperparams, FitHyperparamLambda
+    :exclude-members: hyperparams, FitIfHyperparamLambda
 
 .. autoclass:: IfTrainingDataHasProperty
     :show-inheritance:
     :members:
-    :exclude-members: hyperparams, FitIfTrainingDataHasPorperty
+    :exclude-members: hyperparams, FitIfTrainingDataHasProperty
+
+.. autoclass:: GroupBy
+    :show-inheritance:
+    :members:
+    :exclude-members: FitGroupBy
+
+.. autoclass:: PipelineGrouper
 ```
 
 ## Transform library

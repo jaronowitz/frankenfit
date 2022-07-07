@@ -9,6 +9,7 @@ the classes and functions defined here through the public API exposed as
 ``frankenfit.*``.
 """
 from __future__ import annotations
+from abc import ABC, abstractmethod
 from functools import partial
 import inspect
 
@@ -199,8 +200,66 @@ def _convert_pipeline_transforms(value):
 _pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeline")
 
 
+class CallChainingMixin(ABC):
+    """
+    Abstract base class used internally to implement Frankenfit classes that provide a
+    standardized call-chaining API, e.g. :class:`Pipeline` and :class:`PipelineGrouper`.
+    Concrete subclasses must implement :meth:`then()`.
+    """
+
+    @abstractmethod
+    def then(self, other: Transform | list[Transform]) -> Pipeline:
+        """
+        Return the result of appending the given :class:`Transform` to the current
+        call-chaining object.
+        """
+        raise NotImplementedError
+
+    def __add__(self, other):
+        return self.then(other)
+
+    ####################
+    # call-chaining API:
+
+    copy = _pipeline_method_wrapping_transform("copy", fft.Copy)
+    select = _pipeline_method_wrapping_transform("select", fft.Select)
+    __getitem__ = select
+    rename = _pipeline_method_wrapping_transform("rename", fft.Rename)
+    drop = _pipeline_method_wrapping_transform("drop", fft.Drop)
+    stateless_lambda = _pipeline_method_wrapping_transform(
+        "stateless_lambda", fft.StatelessLambda
+    )
+    stateful_lambda = _pipeline_method_wrapping_transform(
+        "stateful_lambda", fft.StatefulLambda
+    )
+    pipe = _pipeline_method_wrapping_transform("pipe", fft.Pipe)
+    clip = _pipeline_method_wrapping_transform("clip", fft.Clip)
+    winsorize = _pipeline_method_wrapping_transform("winsorize", fft.Winsorize)
+    impute_constant = _pipeline_method_wrapping_transform(
+        "impute_constant", fft.ImputeConstant
+    )
+    impute_mean = _pipeline_method_wrapping_transform("impute_mean", fft.ImputeMean)
+    de_mean = _pipeline_method_wrapping_transform("de_mean", fft.DeMean)
+    z_score = _pipeline_method_wrapping_transform("z_score", fft.ZScore)
+    print = _pipeline_method_wrapping_transform("print", fft.Print)
+    log_message = _pipeline_method_wrapping_transform("log_message", fft.LogMessage)
+
+    if_hyperparam_is_true = _pipeline_method_wrapping_transform(
+        "if_hyperparam_is_true", IfHyperparamIsTrue
+    )
+    if_hyperparam_lambda = _pipeline_method_wrapping_transform(
+        "if_hyperparam_lambda", IfHyperparamLambda
+    )
+    if_training_data_has_property = _pipeline_method_wrapping_transform(
+        "if_training_data_has_property", IfTrainingDataHasProperty
+    )
+
+    sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
+    statsmodels = _pipeline_method_wrapping_transform("statsmodels", fft.Statsmodels)
+
+
 @define
-class Pipeline(Transform):
+class Pipeline(Transform, CallChainingMixin):
     # Already defined in the Transform base class, but declare again here so that attrs
     # makes it the first (optional) __init__ argument.
     dataset_name: str = "__pass__"
@@ -240,13 +299,7 @@ class Pipeline(Transform):
     def __len__(self):
         return len(self.transforms)
 
-    def __add__(self, other):
-        return self.then(other)
-
     # TODO: fit_and_apply()
-
-    ####################
-    # call-chaining API:
 
     def then(self, other: Transform | list[Transform]) -> Pipeline:
         """
@@ -269,7 +322,7 @@ class Pipeline(Transform):
 
         The main use cases for ``then()`` are to append user-defined ``Transform``
         subclasses that don't have built-in methods like the above, and to append
-        separately constructed ``Pipeline``\\ s when writing a pipeline in the
+        separately constructed ``Pipeline`` objects when writing a pipeline in the
         call-chain style. For example::
 
             def bake_features(cols):
@@ -306,42 +359,6 @@ class Pipeline(Transform):
             )
         return Pipeline(dataset_name=self.dataset_name, transforms=transforms)
 
-    copy = _pipeline_method_wrapping_transform("copy", fft.Copy)
-    select = _pipeline_method_wrapping_transform("select", fft.Select)
-    __getitem__ = select
-    rename = _pipeline_method_wrapping_transform("rename", fft.Rename)
-    drop = _pipeline_method_wrapping_transform("drop", fft.Drop)
-    stateless_lambda = _pipeline_method_wrapping_transform(
-        "stateless_lambda", fft.StatelessLambda
-    )
-    stateful_lambda = _pipeline_method_wrapping_transform(
-        "stateful_lambda", fft.StatefulLambda
-    )
-    pipe = _pipeline_method_wrapping_transform("pipe", fft.Pipe)
-    clip = _pipeline_method_wrapping_transform("clip", fft.Clip)
-    winsorize = _pipeline_method_wrapping_transform("winsorize", fft.Winsorize)
-    impute_constant = _pipeline_method_wrapping_transform(
-        "impute_constant", fft.ImputeConstant
-    )
-    impute_mean = _pipeline_method_wrapping_transform("impute_mean", fft.ImputeMean)
-    de_mean = _pipeline_method_wrapping_transform("de_mean", fft.DeMean)
-    z_score = _pipeline_method_wrapping_transform("z_score", fft.ZScore)
-    print = _pipeline_method_wrapping_transform("print", fft.Print)
-    log_message = _pipeline_method_wrapping_transform("log_message", fft.LogMessage)
-
-    if_hyperparam_is_true = _pipeline_method_wrapping_transform(
-        "if_hyperparam_is_true", IfHyperparamIsTrue
-    )
-    if_hyperparam_lambda = _pipeline_method_wrapping_transform(
-        "if_hyperparam_lambda", IfHyperparamLambda
-    )
-    if_training_data_has_property = _pipeline_method_wrapping_transform(
-        "if_training_data_has_property", IfTrainingDataHasProperty
-    )
-
-    sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
-    statsmodels = _pipeline_method_wrapping_transform("statsmodels", fft.Statsmodels)
-
     # Pipeline()...join(left_pipeline, right_pipeline)...
     # join = _pipeline_method_wrapping_transform("join", Join)
 
@@ -374,3 +391,76 @@ class Pipeline(Transform):
         else:
             raise TypeError("Wrong number of arguments.")
         return self + join
+
+    def groupby(self, cols) -> PipelineGrouper:
+        return PipelineGrouper(cols, self)
+
+
+@define
+class GroupBy(ffc.Transform):
+    """
+    Group the fitting and application of a :class:`Transform` by the distinct values of
+    some column or combination of columns.
+    """
+
+    # TODO: what about grouping by index?
+    cols: str | ffc.HP | list[str | ffc.HP] = ffc.columns_field()
+    transform: ffc.HP | ffc.Transform = field()
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        bindings = self.bindings()
+
+        def fit_on_group(df_group: pd.DataFrame):
+            dsc = self.dataset_collection | {"__pass__": df_group}
+            return self.transform.fit(dsc, bindings=bindings)
+
+        return (
+            df_fit.groupby(self.cols, as_index=False, sort=False)
+            .apply(fit_on_group)
+            .rename(columns={None: "__state__"})
+        )
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        def apply_on_group(df_group: pd.DataFrame):
+            dsc = self.dataset_collection | {
+                "__pass__": df_group.drop(["__state__"], axis=1)
+            }
+            # values of __state__ auto to be identical within the group
+            group_state: ffc.FitTransform = df_group["__state__"].iloc[0]
+            return group_state.apply(dsc)
+
+        return (
+            df_apply.merge(state, how="left", on=self.cols)
+            .groupby(self.cols, as_index=False, sort=False)
+            .apply(apply_on_group)
+        )
+
+
+class PipelineGrouper(CallChainingMixin):
+    """
+    An intermediate "grouper" object returned by :meth:`Pipeline.groupby()` (analogous
+    to pandas ``DataFrameGroupBy`` objects), which is not a :class:`Pipeline`, but has
+    the same call-chain methods as a Pipeline, and consumes the next call to finally
+    create the :class:`GroupBy` Transform and return the result of appending that to the
+    matrix Pipeline. It enables this style of ``groupby()`` call-chaining syntax::
+
+        (
+            ff.Pipeline()
+            # ...
+            .groupby("cut")  # -> PipelineGrouper
+                .z_score(cols)  # -> Pipeline
+        )
+    """
+
+    def __init__(self, groupby_cols, pipeline_upstream):
+        self.groupby_cols = groupby_cols
+        self.pipeline_upstream = pipeline_upstream
+
+    def __repr__(self):
+        return "PipelineGrouper(%r, %r)" % (self.groupby_cols, self.pipeline_upstream)
+
+    def then(self, other: Transform | list[Transform]) -> Pipeline:
+        if isinstance(other, list):
+            other = Pipeline(other)
+        groupby = GroupBy(self.groupby_cols, other)
+        return self.pipeline_upstream + groupby

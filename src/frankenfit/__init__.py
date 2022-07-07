@@ -116,4 +116,6 @@ from frankenfit.graph import (
     IfHyperparamLambda,
     IfTrainingDataHasProperty,
     Join,
+    GroupBy,
+    PipelineGrouper,
 )

@@ -712,3 +712,16 @@ def test_complex_pipeline_1(diamonds_df):
 
     assert pipeline.hyperparams() == {"bake_features", "predictors", "response_col"}
     # TODO: test more stuff with this pipeline
+
+
+def test_GroupBy(diamonds_df):
+    df: pd.DataFrame = diamonds_df.reset_index().drop(["index"], axis=1)
+    target = df.groupby("cut", as_index=False, sort=False).apply(len)
+    pip = ff.Pipeline().stateless_lambda(len)
+    assert pip.fit(df).apply(df) == len(df)
+
+    result = ff.GroupBy("cut", pip).fit(df).apply(df)
+    assert result.equals(target)
+
+    pip = ff.Pipeline().groupby("cut").stateless_lambda(len)
+    assert pip.fit(df).apply(df).equals(target)

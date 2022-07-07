@@ -7,6 +7,42 @@ modeling pipelines.
 
 ### Examples
 
+```python
+from sklearn.linear_model import LinearRegression
+
+FEATURES = ["carat", "x", "y", "z", "depth", "table"]
+
+def bake_features(cols):
+    return (
+        ff.Pipeline()
+        .print(fit_msg=f"Baking: {cols}")
+        .winsorize(cols, limit=0.05)
+        .z_score(cols)
+        .impute_constant(cols, 0.0)
+        .clip(cols, upper=2, lower=-2)
+    )
+
+pipeline = (
+    ff.Pipeline()
+    [FEATURES + ["{response_col}"]]
+    .copy("{response_col}", "{response_col}_train")
+    .winsorize("{response_col}_train", limit=0.05)
+    .pipe(["carat", "{response_col}_train"], np.log1p)
+    .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
+    .sklearn(
+        LinearRegression,
+        # x_cols=["carat", "depth", "table"],
+        x_cols=ff.HP("predictors"),
+        response_col="{response_col}_train",
+        hat_col="{response_col}_hat",
+        class_params={"fit_intercept": True},
+    )
+    # transform {response_col}_hat from log-dollars back to dollars
+    .copy("{response_col}_hat", "{response_col}_hat_dollars")
+    .pipe("{response_col}_hat_dollars", np.expm1)
+)
+```
+
 ### Docs
 
 ## Development
