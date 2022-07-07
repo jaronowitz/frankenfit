@@ -109,7 +109,8 @@ Foobar.
 .. autoclass:: Pipeline
     :show-inheritance:
     :members:
-    :exclude-members: hyperparams, FitPipeline
+    :inherited-members:
+    :exclude-members: hyperparams, FitPipeline, params
 
 .. autoclass:: Join
     :show-inheritance:

@@ -21,9 +21,7 @@ from typing import Callable, Optional
 
 from . import transforms as fft
 from . import core as ffc
-from .core import (
-    Transform,
-)
+from .core import Transform
 
 _LOG = logging.getLogger(__name__)
 
@@ -300,6 +298,25 @@ class Pipeline(Transform, CallChainingMixin):
         return len(self.transforms)
 
     # TODO: fit_and_apply()
+    def fit_and_apply(
+        self, data_fit: ffc.Data, bindings: Optional[dict[str, object]] = None
+    ) -> pd.DataFrame:
+        """
+        An efficient alternative to ``self.fit(df).apply(df)`` specific to
+        :class:`Pipeline` objects. When the fit-data and apply-data are identical, it is
+        more efficient to use a single call to ``fit_and_apply()`` than it is to call
+        :meth:`~Transform.fit()` followed by a separate call to
+        :meth:`~FitTransform.apply()`, both on the same data argument.
+
+        :return: The result of fitting this :class:`Pipeline` and applying it to its own
+            fitting data.
+        """
+        dsc = ffc.DatasetCollection.from_data(data_fit)
+        for t in self.transforms:
+            ft = t.fit(dsc, bindings=bindings)
+            df = ft.apply(dsc)
+            dsc |= {"__pass__": df}
+        return df
 
     def then(self, other: Transform | list[Transform]) -> Pipeline:
         """
@@ -359,13 +376,16 @@ class Pipeline(Transform, CallChainingMixin):
             )
         return Pipeline(dataset_name=self.dataset_name, transforms=transforms)
 
-    # Pipeline()...join(left_pipeline, right_pipeline)...
-    # join = _pipeline_method_wrapping_transform("join", Join)
-
     def join(
         self, right, how, on=None, left_on=None, right_on=None, suffixes=("_x", "_y")
-    ):
-        # joining self as left with arg as right
+    ) -> Pipeline:
+        """
+        Return the result of appending to this :class:`Pipeline` a new :class:`Join`
+        transform with this ``Pipeline`` as the ``Join``'s ``left`` argument.
+
+        Class docs for :class:`Join`:
+        {join_docs}
+        """
         join = Join(
             self,
             right,
@@ -379,6 +399,9 @@ class Pipeline(Transform, CallChainingMixin):
 
     def groupby(self, cols) -> PipelineGrouper:
         return PipelineGrouper(cols, self)
+
+
+Pipeline.join.__doc__ = Pipeline.join.__doc__.format(join_docs=Join.__doc__)
 
 
 @define

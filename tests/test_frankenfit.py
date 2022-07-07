@@ -331,6 +331,10 @@ def test_Pipeline(diamonds_df):
     df = p.fit(diamonds_df).apply(diamonds_df)
     assert df.equals(target_df)
 
+    # fit_and_apply() gives same result
+    df = p.fit_and_apply(diamonds_df)
+    assert df.equals(target_df)
+
     # pipeline of pipeline is coalesced
     p2 = ff.Pipeline(transforms=p)
     assert len(p2) == len(p)
