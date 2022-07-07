@@ -118,4 +118,5 @@ from frankenfit.graph import (
     Join,
     GroupBy,
     PipelineGrouper,
+    CrossValidate,
 )

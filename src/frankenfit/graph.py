@@ -21,7 +21,7 @@ from typing import Callable, Optional
 
 from . import transforms as fft
 from . import core as ffc
-from .core import Transform
+from .core import Transform, optional_columns_field
 
 _LOG = logging.getLogger(__name__)
 
@@ -179,9 +179,14 @@ def method_wrapping_transform(
     constructed with the given parameters to this :class:`Pipeline`. This method's
     arguments are passed directly to ``{transform_class.__name__}.__init__()``.
 
-    Class docs for :class:`{transform_class.__qualname__}`:
-    {transform_class.__doc__ or ''}
+    .. SEEALSO:: :class:`{transform_class.__qualname__}`
     """
+    if transform_class.__doc__ is not None:
+        transform_class.__doc__ += f"""
+
+    .. SEEALSO:: :meth:`{class_qualname}.{method_name}`
+    """
+
     return method_impl
 
 
@@ -383,8 +388,7 @@ class Pipeline(Transform, CallChainingMixin):
         Return the result of appending to this :class:`Pipeline` a new :class:`Join`
         transform with this ``Pipeline`` as the ``Join``'s ``left`` argument.
 
-        Class docs for :class:`Join`:
-        {join_docs}
+        .. SEEALSO:: :class:`Join`:
         """
         join = Join(
             self,
@@ -472,3 +476,14 @@ class PipelineGrouper(CallChainingMixin):
             other = Pipeline(other)
         groupby = GroupBy(self.groupby_cols, other)
         return self.pipeline_upstream + groupby
+
+
+@define
+class CrossValidate(Transform):
+    """
+    CrossValidate it, bro.
+    """
+
+    score_transform: Transform = field()
+    k: int | ffc.HP = field()
+    split_on = optional_columns_field()

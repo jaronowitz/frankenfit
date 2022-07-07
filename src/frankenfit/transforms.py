@@ -107,7 +107,29 @@ class Copy(StatelessTransform, ColumnsTransform):
 
 class Select(StatelessTransform, ColumnsTransform):
     """
-    A stateless transform that selects the given columns from the data.
+    Select the given columns from the data.
+
+    .. TIP::
+        As syntactic sugar, :class:`Pipeline` overrides the index operator (via a custom
+        ``__getitem__`` implementatino) as a synonym for appending a ``Select``
+        transform to the pipeline. For example, the following three pipelines are
+        equivalent::
+
+            ff.Pipeline([..., Select(["col1", "col2"]), ...])
+
+            (
+                ff.Pipeline()
+                ...
+                .select(["col1", "col2"]
+                ...
+            )
+
+            (
+                ff.Pipeline()
+                ...
+                ["col1", "col2"]
+                ...
+            )
     """
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
@@ -116,7 +138,7 @@ class Select(StatelessTransform, ColumnsTransform):
 
 class Drop(StatelessTransform, ColumnsTransform):
     """
-    A stateless transform that drops the given columns from the data.
+    Drop the given columns from the data.
     """
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
@@ -126,7 +148,7 @@ class Drop(StatelessTransform, ColumnsTransform):
 @define
 class Rename(StatelessTransform):
     """
-    A stateless Transform that renames columns.
+    Rename columns.
 
     :param how: Either a function that, given a column name, returns what it should be
         renamed do, or a dict from old column names to corresponding new names.
@@ -136,9 +158,6 @@ class Rename(StatelessTransform):
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         return df_apply.rename(columns=self.how)
-
-
-# Inliners: StatelessLambda, StatefulLambda
 
 
 @define
@@ -302,21 +321,18 @@ class ZScore(WeightedTransform, ColumnsTransform):
 @define
 class Print(Identity):
     """
-    An Identity transform that has the side-effect of printing a message at fit- and/or
+    An identity transform that has the side-effect of printing a message at fit- and/or
     apply-time.
+
+    :param fit_msg: Message to print at fit-time.
+    :param apply_msg: Message to print at apply-time.
+    :param dest: File object to which to print, or the name of a file to open in append
+        mode. If ``None`` (default), print to stdout.
     """
 
     fit_msg: Optional[str] = None
-    """Message to print at fit-time."""
-
     apply_msg: Optional[str] = None
-    """Message to print at apply-time."""
-
     dest: Optional[TextIO | str] = None  # if str, will be opened in append mode
-    """
-    File object to which to print, or the name of a file to open in append mode. If
-    None (default), print to stdout.
-    """
 
     def _fit(self, df_fit: pd.DataFrame):
         if self.fit_msg is None:
@@ -349,41 +365,61 @@ class Print(Identity):
 @define
 class LogMessage(Identity):
     """
-    An Identity transform that has the side-effect of logging a message at fit- and/or
-    apply-time.
+    An identity transform that has the side-effect of logging a message at fit- and/or
+    apply-time. The message string(s) must be fully known at construction-time.
+
+    :param fit_msg: Message to log at fit-time.
+    :param apply_msg: Message to log at apply-time.
+    :param logger: Logger instance to which to log. If None (default), use
+        ``logging.getLogger("frankenfit.transforms")``
+    :param level: Level at which to log, default ``INFO``.
     """
 
     fit_msg: Optional[str] = None
-    """Message to log at fit-time."""
-
     apply_msg: Optional[str] = None
-    """Message to log at apply-time."""
-
     logger: Optional[Logger] = None
-    """Logger instance to which to log. If None (default), use transforms.LOG"""
-
     level: int = logging.INFO
-    """Level at which to log, default INFO."""
 
     def _fit(self, df_fit: pd.DataFrame):
         if self.fit_msg is not None:
             logger = self.logger or _LOG
             logger.log(self.level, self.fit_msg)
         return Identity._fit(self, df_fit)
-        # return super()._fit(df_fit)
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         if self.apply_msg is not None:
             logger = self.logger or _LOG
             logger.log(self.level, self.apply_msg)
         return Identity._apply(self, df_apply, state=state)
-        # return super()._apply(df_apply)
 
 
 @define(slots=False)
 class SKLearn(Transform):
     """
-    Wraps a scikit-learn model.
+    Wrap a scikit-learn ("sklearn") model. At fit-time, the given sklearn model class
+    is instantiated (with arguments from ``class_params``) and trained on the fitting
+    data by calling its ``fit()`` method. At apply-time, the now-fit sklearn model
+    object is used to generated predictions by calling its `predict()` method, which are
+    assigned to the apply-time data as a new column, ``hat_col``.
+
+    :param sklearn_class: The sklearn class to wrap.
+    :param x_cols: The predictor columns. These are selected from the fit/apply-data to
+        create the ``X`` argument to the sklearn model's ``fit()`` and ``predict()``
+        methods.
+    :param response_col: The response column. At fit-time, this is selected from the
+        fitting data to create the ``y`` argument to the sklearn model's ``fit()``
+        method.
+    :param hat_col: The name of the new column to create at apply-time containing
+        predictions from the sklearn model.
+    :param class_params: Parameters to pass as kwargs to the ``sklearn_class``
+        constructor when instantiating it.
+    :param w_col: The sample weight column. If specified, this is selected at fit-time
+        from the fitting data to create the ``sample_weight`` keyword argument to the
+        sklearn model's ``fit()`` method.
+
+        .. WARNING:: Not every sklearn model accepts a ``sample_weight`` keyword
+            argument to its ``fit()`` method. Consult the documentation of whichever
+            sklearn model you are using.
     """
 
     sklearn_class: type | HP
@@ -414,7 +450,7 @@ class SKLearn(Transform):
 @define(slots=False)
 class Statsmodels(Transform):
     """
-    Wraps a statsmodels model.
+    Wrap a statsmodels model.
     """
 
     sm_class: type | HP

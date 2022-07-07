@@ -157,4 +157,13 @@ Foobar.
 
 .. autoclass:: Rename
     :show-inheritance:
+
+.. autoclass:: SKLearn
+    :show-inheritance:
+
+.. autoclass:: Print
+    :show-inheritance:
+
+.. autoclass:: LogMessage
+    :show-inheritance:
 ```

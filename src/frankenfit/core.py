@@ -758,6 +758,15 @@ def columns_field(**kwargs):
     )
 
 
+def optional_columns_field(**kwargs):
+    """_summary_
+
+    :return: _description_
+    :rtype: _type_
+    """
+    return field(factory=list, converter=HPCols.maybe_from_value, **kwargs)
+
+
 @define
 class HPDict(HP):
     """_summary_
