@@ -363,33 +363,18 @@ class Pipeline(Transform, CallChainingMixin):
     # join = _pipeline_method_wrapping_transform("join", Join)
 
     def join(
-        self, *others, how, on=None, left_on=None, right_on=None, suffixes=("_x", "_y")
+        self, right, how, on=None, left_on=None, right_on=None, suffixes=("_x", "_y")
     ):
-        if len(others) == 2:
-            # joining two other pipelines (unrelated to self) and appending them to self
-            # (which is possibly weird because it may efface all of the data up to this
-            # point in the pipeline?)
-            join = Join(
-                *others,
-                how,
-                on=on,
-                left_on=left_on,
-                right_on=right_on,
-                suffixes=suffixes,
-            )
-        elif len(others) == 1:
-            # joining self as left with other as right
-            join = Join(
-                self,
-                *others,
-                how,
-                on=on,
-                left_on=left_on,
-                right_on=right_on,
-                suffixes=suffixes,
-            )
-        else:
-            raise TypeError("Wrong number of arguments.")
+        # joining self as left with arg as right
+        join = Join(
+            self,
+            right,
+            how,
+            on=on,
+            left_on=left_on,
+            right_on=right_on,
+            suffixes=suffixes,
+        )
         return self + join
 
     def groupby(self, cols) -> PipelineGrouper:

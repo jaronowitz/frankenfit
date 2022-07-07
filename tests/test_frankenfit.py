@@ -619,12 +619,6 @@ def test_Join(diamonds_df):
     result = p.fit(dsc).apply(dsc)
     assert result.equals(target)
 
-    p = ff.Pipeline().join(
-        ff.Pipeline("xyz"), ff.Pipeline("cut"), how="left", on="diamond_id"
-    )
-    result = p.fit(dsc).apply(dsc)
-    assert result.equals(target)
-
     p = ff.Pipeline("xyz").join(ff.Pipeline("cut"), how="left", on="diamond_id")
     result = p.fit(dsc).apply(dsc)
     assert result.equals(target)
