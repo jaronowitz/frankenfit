@@ -721,5 +721,11 @@ def test_GroupBy(diamonds_df):
     result = ff.GroupBy("cut", pip).fit(df).apply(df)
     assert result.equals(target)
 
-    pip = ff.Pipeline().groupby("cut").stateless_lambda(len)
+    pip = ff.Pipeline().group_by("cut").stateless_lambda(len)
     assert pip.fit(df).apply(df).equals(target)
+
+
+def test_Correlation(diamonds_df):
+    target = diamonds_df[["price", "carat"]].corr()
+    cm = ff.Correlation(["price"], ["carat"]).apply(diamonds_df)
+    assert cm.iloc[0, 0] == target.iloc[0, 1]

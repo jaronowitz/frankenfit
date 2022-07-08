@@ -21,7 +21,7 @@ from typing import Callable, Optional
 
 from . import transforms as fft
 from . import core as ffc
-from .core import Transform, optional_columns_field
+from .core import Transform
 
 _LOG = logging.getLogger(__name__)
 
@@ -385,8 +385,8 @@ class Pipeline(Transform, CallChainingMixin):
         self, right, how, on=None, left_on=None, right_on=None, suffixes=("_x", "_y")
     ) -> Pipeline:
         """
-        Return the result of appending to this :class:`Pipeline` a new :class:`Join`
-        transform with this ``Pipeline`` as the ``Join``'s ``left`` argument.
+        Return a new :class:`Pipeline` containing a new :class:`Join` transform with
+        this ``Pipeline`` as the ``Join``'s ``left`` argument.
 
         .. SEEALSO:: :class:`Join`:
         """
@@ -399,9 +399,9 @@ class Pipeline(Transform, CallChainingMixin):
             right_on=right_on,
             suffixes=suffixes,
         )
-        return self + join
+        return Pipeline(transforms=join)
 
-    def groupby(self, cols) -> PipelineGrouper:
+    def group_by(self, cols) -> PipelineGrouper:
         return PipelineGrouper(cols, self)
 
 
@@ -450,16 +450,16 @@ class GroupBy(ffc.Transform):
 
 class PipelineGrouper(CallChainingMixin):
     """
-    An intermediate "grouper" object returned by :meth:`Pipeline.groupby()` (analogous
+    An intermediate "grouper" object returned by :meth:`Pipeline.group_by()` (analogous
     to pandas ``DataFrameGroupBy`` objects), which is not a :class:`Pipeline`, but has
     the same call-chain methods as a Pipeline, and consumes the next call to finally
     create the :class:`GroupBy` Transform and return the result of appending that to the
-    matrix Pipeline. It enables this style of ``groupby()`` call-chaining syntax::
+    matrix Pipeline. It enables this style of ``group_by()`` call-chaining syntax::
 
         (
             ff.Pipeline()
             # ...
-            .groupby("cut")  # -> PipelineGrouper
+            .group_by("cut")  # -> PipelineGrouper
                 .z_score(cols)  # -> Pipeline
         )
     """
@@ -478,12 +478,17 @@ class PipelineGrouper(CallChainingMixin):
         return self.pipeline_upstream + groupby
 
 
-@define
-class CrossValidate(Transform):
-    """
-    CrossValidate it, bro.
-    """
-
-    score_transform: Transform = field()
-    k: int | ffc.HP = field()
-    split_on = optional_columns_field()
+# @define
+# class CrossValidateKFold(Transform):
+#     """
+#     Cross-validate it, bro.
+#
+#     Behavior at fit- and apply-times... think of analogy to Sequentially.
+#
+#     fit-time: df_fit ->
+#     """
+#
+#     transform: Transform = field()
+#     score_transform: Transform = field()
+#     k: int | ffc.HP = field()
+#     by = optional_columns_field()
