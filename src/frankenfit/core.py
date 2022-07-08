@@ -6,6 +6,7 @@ import logging
 from typing import Callable, Optional, Union
 
 from attrs import define, field, fields_dict
+import graphviz
 import pandas as pd
 
 _LOG = logging.getLogger(__name__)
@@ -821,3 +822,45 @@ def dict_field(**kwargs):
     :rtype: _type_
     """
     return field(converter=HPDict.maybe_from_value, **kwargs)
+
+
+_id_num = {}
+
+
+def _next_id_num(class_name):
+    n = _id_num.get(class_name, 0)
+    n += 1
+    _id_num[class_name] = n
+    return n
+
+
+def _visualize(transform: Transform, g: graphviz.Digraph):
+    class_name = transform.__class__.__qualname__
+    node_id = str(_next_id_num(class_name))
+    node_name = f"{class_name}#{node_id}"
+    param_vals = {}
+    for name in transform.params():
+        val = getattr(transform, name)
+        if isinstance(val, Transform):
+            g.edge(node_name, _visualize(val, g), label=name)
+        elif isinstance(val, list) and len(val) > 0:
+            prev_name = node_name
+            for x in val:
+                if isinstance(x, Transform):
+                    next_name = _visualize(x, g)
+                    g.edge(prev_name, next_name)
+                    prev_name = next_name
+        elif val is not None:
+            param_vals[name] = repr(val)
+
+    param_vals_fmt = ",\n".join([" = ".join([k, v]) for k, v in param_vals.items()])
+    g.node(node_name, label=f"--- {node_name} ---\n{param_vals_fmt}")
+    return node_name
+
+
+def visualize(transform: Transform, **digraph_kwargs):
+    global _id_num
+    _id_num = {}
+    g = graphviz.Digraph(**digraph_kwargs)
+    _visualize(transform, g)
+    return g

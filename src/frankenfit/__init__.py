@@ -85,6 +85,7 @@ from frankenfit.core import (
     columns_field,
     fmt_str_field,
     dict_field,
+    visualize,
 )
 
 from frankenfit.transforms import (
@@ -108,6 +109,7 @@ from frankenfit.transforms import (
     LogMessage,
     SKLearn,
     Statsmodels,
+    Correlation,
 )
 
 from frankenfit.graph import (
@@ -118,5 +120,4 @@ from frankenfit.graph import (
     Join,
     GroupBy,
     PipelineGrouper,
-    CrossValidate,
 )

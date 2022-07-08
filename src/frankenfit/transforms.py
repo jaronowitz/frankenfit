@@ -468,3 +468,48 @@ class Statsmodels(Transform):
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         model = state
         return df_apply.assign(**{self.hat_col: model.predict(df_apply[self.x_cols])})
+
+
+@define
+class Correlation(StatelessTransform):
+    """
+    Compute the correlation between each pair of columns in the cross-product of
+    ``left_cols`` and ``right_cols``.
+
+    :param left_cols: List of "left" correlands. Result will have one row per element of
+        ``left_cols``.
+    :param right_cols: List of "right" correlands. Result will have one column per
+        element of ``right_cols``.
+    :param method: One of ``"pearson"``, ``"spearman"``, or ``"kendall"``, specifying
+        which type of correlation coefficient to compute.
+    :param min_obs: The minimum number of non-missing values for each pair of columns.
+        If a pair has fewer than this many non-missing observations, then the
+        correlation for that pair will be missing in the result.
+
+    Example::
+
+        from pydataset import data
+        df = data("diamonds")
+        ff.Correlation(["price"], ["carat"]).apply(df)
+        # -->           carat
+        # --> price  0.921591
+
+        ff.Correlation(["table", "depth"], ["x", "y", "z"]).apply(df)
+        # -->               x         y         z
+        # --> table  0.195344  0.183760  0.150929
+        # --> depth -0.025289 -0.029341  0.094924
+
+    .. SEEALSO::
+        The parameters of :meth:`pandas.DataFrame.corr()`.
+    """
+
+    left_cols: list[str] = columns_field()
+    right_cols: list[str] = columns_field()
+    method: Optional[str | HP] = "pearson"
+    min_obs: Optional[int] = 1
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        cm = df_apply[self.left_cols + self.right_cols].corr(
+            method=self.method, min_periods=self.min_obs
+        )
+        return cm.loc[self.left_cols, self.right_cols]

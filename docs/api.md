@@ -166,4 +166,7 @@ Foobar.
 
 .. autoclass:: LogMessage
     :show-inheritance:
+
+.. autoclass:: Correlation
+    :show-inheritance:
 ```

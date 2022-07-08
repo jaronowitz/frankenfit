@@ -12,6 +12,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from functools import partial
 import inspect
+import warnings
 
 import logging
 from attrs import define, field
@@ -191,12 +192,21 @@ def method_wrapping_transform(
 
 
 def _convert_pipeline_transforms(value):
-    if isinstance(value, Pipeline):
+    # "coalesce" Pipelines if they are pass-through
+    if isinstance(value, Pipeline) and value.dataset_name == "__pass__":
         return list(value.transforms)
-    if isinstance(value, list) and len(value) == 1 and isinstance(value[0], Pipeline):
+
+    if (
+        isinstance(value, list)
+        and len(value) == 1
+        and isinstance(value[0], Pipeline)
+        and value[0].dataset_name == "__pass__"
+    ):
         return list(value[0].transforms)
+
     if isinstance(value, Transform):
         return [value]
+
     return list(value)
 
 
@@ -259,6 +269,18 @@ class CallChainingMixin(ABC):
 
     sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
     statsmodels = _pipeline_method_wrapping_transform("statsmodels", fft.Statsmodels)
+    correlation = _pipeline_method_wrapping_transform("correlation", fft.Correlation)
+
+
+EFFACING_TRANSFORM_CLASSES = [
+    Join,
+]
+
+
+def is_effacing(transform: Transform):
+    if transform.dataset_name != "__pass__":
+        return True
+    return any(isinstance(transform, C) for C in EFFACING_TRANSFORM_CLASSES)
 
 
 @define
@@ -273,12 +295,24 @@ class Pipeline(Transform, CallChainingMixin):
 
     @transforms.validator
     def _check_transforms(self, attribute, value):
+        t_is_first = True
         for t in value:
             if not isinstance(t, Transform):
                 raise TypeError(
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t} (type {type(t)})"
                 )
+            # warning if an "effacing Transform" is non-initial. E.g., Join, or
+            # any Transform with dataset_name != "__pass__"
+            if (not t_is_first) and is_effacing(t):
+                warnings.warn(
+                    f"An effacing Transform is non-initial in a Pipeline: {t!r}. "
+                    "This is likely unintentional because the effects of all "
+                    "preceding Transforms will be discarded by the effacing "
+                    "Transform.",
+                    RuntimeWarning,
+                )
+            t_is_first = False
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         dsc = self.dataset_collection | {"__pass__": df_fit}
@@ -302,16 +336,19 @@ class Pipeline(Transform, CallChainingMixin):
     def __len__(self):
         return len(self.transforms)
 
-    # TODO: fit_and_apply()
     def fit_and_apply(
         self, data_fit: ffc.Data, bindings: Optional[dict[str, object]] = None
     ) -> pd.DataFrame:
         """
         An efficient alternative to ``self.fit(df).apply(df)`` specific to
-        :class:`Pipeline` objects. When the fit-data and apply-data are identical, it is
-        more efficient to use a single call to ``fit_and_apply()`` than it is to call
-        :meth:`~Transform.fit()` followed by a separate call to
-        :meth:`~FitTransform.apply()`, both on the same data argument.
+        :class:`Pipeline` objects. When the fit-time data and apply-time data are
+        identical, it is more efficient to use a single call to ``fit_and_apply()`` than
+        it is to call :meth:`~Transform.fit()` followed by a separate call to
+        :meth:`~FitTransform.apply()`, both on the same data argument. This is because
+        ``fit()`` itself must already apply every transform in the pipeline, in orer to
+        produce the fitting data for the following transform. ``fit_and_apply()``
+        captures the result of these fit-time applications, avoiding their unnecessary
+        recomputation.
 
         :return: The result of fitting this :class:`Pipeline` and applying it to its own
             fitting data.
@@ -332,7 +369,7 @@ class Pipeline(Transform, CallChainingMixin):
             pipeline + ff.DeMean(...) == pipeline.then(ff.DeMean(...))
             pipeline + other_pipeline == pipeline.then(other_pipeline)
             pipeline + [ff.Winsorize(...), ff.DeMean(...)] == pipeline.then(
-                [ff.Winsorize, ff.DeMean(...)]
+                [ff.Winsorize(...), ff.DeMean(...)]
             )
 
         In the case of appending built-in ``Transform`` classes it is usually not
@@ -361,6 +398,21 @@ class Pipeline(Transform, CallChainingMixin):
                 .then(MyCustomTransform(...))  # append a user-defined transform
             )
 
+        Another common use case for ``then()`` is when you want :meth:`group_by()` to
+        group a complex sub-pipeline, not just a single transform, e.g.::
+
+            pipeline = (
+                ff.Pipeline()
+                .group_by("cut")
+                    .then(
+                        # This whole sequence of transforms will be fit and applied
+                        # independently per distinct value of cut
+                        ff.Pipeline()
+                        .zscore(["carat", "table", "depth"])
+                        .winsorize(["carat", "table", "depth"])
+                    )
+            )
+
         :param other: The Transform instance to append, or a list of Transforms, which
             will be appended in the order in which in they appear in the list.
         :type other: :class:`Transform` | ``list[Transform]``
@@ -368,7 +420,8 @@ class Pipeline(Transform, CallChainingMixin):
             ``Transform``\\ s.
         :rtype: :class:`Pipeline`
         """
-        if isinstance(other, Pipeline):
+        if isinstance(other, Pipeline) and other.dataset_name == "__pass__":
+            # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
         elif isinstance(other, Transform):
             transforms = self.transforms + [other]

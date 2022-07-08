@@ -4,6 +4,7 @@ from attrs import define
 import pytest
 import numpy as np
 import pandas as pd
+import warnings
 
 from pydataset import data
 
@@ -602,6 +603,18 @@ def test_data_selection_in_pipeline(diamonds_df):
     result_in = pipeline_chain_in.fit(dsc).apply(dsc)
     assert result_in.equals(pipeline_con.fit(df_in).apply(df_in))
 
+    with warnings.catch_warnings(record=True) as w:
+        (
+            ff.Pipeline()
+            .pipe(["carat"], np.log1p)
+            .then(
+                # effacing pipeline should issue warning
+                ff.Pipeline("foo").z_score(cols)
+            )
+        )
+        assert len(w) == 1
+        assert issubclass(w[-1].category, RuntimeWarning)
+
 
 def test_Join(diamonds_df):
     diamonds_df = diamonds_df.assign(diamond_id=diamonds_df.index)
@@ -626,6 +639,19 @@ def test_Join(diamonds_df):
     p = ff.Pipeline("xyz").join(ff.Pipeline("cut"), how="left", on="diamond_id")
     result = p.fit(dsc).apply(dsc)
     assert result.equals(target)
+
+    with warnings.catch_warnings(record=True) as w:
+        ff.Pipeline(
+            transforms=[
+                ff.Select(["foo", "bar"]),
+                # should trigger effacement warning
+                ff.Join(
+                    ff.Pipeline("xyz"), ff.Pipeline("cut"), how="left", on="diamond_id"
+                ),
+            ]
+        )
+        assert len(w) == 1
+        assert issubclass(w[-1].category, RuntimeWarning)
 
 
 def test_SKLearn(diamonds_df):
