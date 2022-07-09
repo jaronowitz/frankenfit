@@ -72,3 +72,61 @@ want to group a single Transform, which forces you either to break out of call-c
 style, or create a length-1 Pipeline.
 
 The choice will influence syntax for other groupers like Sequentially.
+
+## Options for CrossValidate graph Transform
+
+```python
+(
+  ff.Pipeline()
+  ...
+  .cross_validated(
+    score_transform,
+    k=5,
+    split_on="time",  # optional folds are defined by distinct values of "time" rather
+                      # than by rows?
+  )  # -> "score" column, row per fold
+  .stateless_lambda(lambda df: df[["score"]].mean()) #  mean of per-fold scores
+)
+
+# Behavior is analogous to sequential fitting, just with folds rather than periods.
+# This is a pipline that always generates OOS predictions even on its own training set.
+pip = (
+  ff.Pipeline()
+  ...
+  # randomly divide rows into 5 partitions and add a "__fold__" column indicating which
+  # partition each row is in
+  .partition('__fold__', k=5, shuffle=True, units="<row>")
+  # for each distinct value of "__fold__", fit the pipeline on data from all *other*
+  # folds and apply it out-of-sample on that fold. State is a map from distinct value of
+  # __fold__ to a FitTransform trained on all the other folds.
+  .cross_validate(by='__fold__')
+)
+
+# CV evaluation is just
+pip.correlation(...)
+# or
+pip.groupby("__fold__").correlation(...).mean(...)
+
+# apply to new test data, as long as it comes with a __fold__ column
+pip.apply(...)
+```
+... Maybe a better name would be like `k_folded()`?
+
+Key insight is that cross-validated and sequential fits are both instances of
+resampling, which is a generalization of groupby. GroupBy and Resample both have fit
+state per chunk of data, which is used to apply on new chunks with matching key...
+Resample is just GroupBy with an added layer of indirection for determining the training
+data of the model that goes with each apply-time chunk.
+
+```python
+(
+  ff.Pipeline()
+  .group_by('foo').then(...)
+)
+(
+  ff.Pipeline()
+  .resample_by('foo', training_schedule).then(...)
+)
+```
+... we could even just add a `training_schedule=` arg to GroupBy instead of a new
+ResampleBy transform, with the default training schedule being in-sample.
