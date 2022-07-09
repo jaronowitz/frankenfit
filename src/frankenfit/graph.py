@@ -490,8 +490,9 @@ class GroupBy(ffc.Transform):
             dsc = self.dataset_collection | {
                 "__pass__": df_group.drop(["__state__"], axis=1)
             }
-            # values of __state__ auto to be identical within the group
+            # values of __state__ ought to be identical within the group
             group_state: ffc.FitTransform = df_group["__state__"].iloc[0]
+            # TODO: what if this group was not seen at fit-time?
             return group_state.apply(dsc)
 
         return (
