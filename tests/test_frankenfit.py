@@ -38,9 +38,9 @@ def test_Transform(diamonds_df):
     assert isinstance(DeMean.FitDeMean, type)
     assert DeMean.FitDeMean.__name__ == "FitDeMean"
     cols = ["price", "x", "y", "z"]
-    t = DeMean(cols)
-    assert repr(t) == ("DeMean(cols=%r)" % cols)
-    assert t.params() == ["cols"]
+    t = DeMean(cols, tag="mytag")
+    assert repr(t) == ("DeMean(tag=%r, cols=%r)" % ("mytag", cols))
+    assert t.params() == ["tag", "cols"]
     fit = t.fit(diamonds_df)
     assert fit.state().equals(diamonds_df[cols].mean())
     result = fit.apply(diamonds_df)
@@ -755,3 +755,53 @@ def test_Correlation(diamonds_df):
     target = diamonds_df[["price", "carat"]].corr()
     cm = ff.Correlation(["price"], ["carat"]).apply(diamonds_df)
     assert cm.iloc[0, 0] == target.iloc[0, 1]
+
+
+def test_tags(diamonds_df):
+    from sklearn.linear_model import LinearRegression
+
+    FEATURES = ["carat", "x", "y", "z", "depth", "table"]
+
+    def bake_features(cols):
+        return (
+            ff.Pipeline()
+            .print(fit_msg=f"Baking: {cols}")
+            .winsorize(cols, limit=0.05)
+            .z_score(cols)
+            .impute_constant(cols, 0.0)
+            .clip(cols, upper=2, lower=-2)
+        )
+
+    pipeline = (
+        ff.Pipeline()[FEATURES + ["{response_col}"]]
+        .copy("{response_col}", "{response_col}_train")
+        .winsorize("{response_col}_train", limit=0.05)
+        .pipe(["carat", "{response_col}_train"], np.log1p)
+        .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
+        .sklearn(
+            LinearRegression,
+            # x_cols=["carat", "depth", "table"],
+            x_cols=ff.HP("predictors"),
+            response_col="{response_col}_train",
+            hat_col="{response_col}_hat",
+            class_params={"fit_intercept": True},
+            tag="my-regression",
+        )
+        # transform {response_col}_hat from log-dollars back to dollars
+        .copy("{response_col}_hat", "{response_col}_hat_dollars")
+        .pipe("{response_col}_hat_dollars", np.expm1)
+    )
+
+    # FIXME: after all the other tests ran, we don't know what the tag will be
+    assert isinstance(pipeline.find_by_tag("my-regression"), ff.SKLearn)
+
+    fit = pipeline.fit(
+        diamonds_df,
+        bindings={
+            "response_col": "price",
+            "bake_features": True,
+            "predictors": FEATURES,
+        },
+    )
+    assert isinstance(fit.find_by_tag("my-regression"), ff.SKLearn.FitSKLearn)
+    assert isinstance(fit.find_by_tag("my-regression").state().coef_, np.ndarray)

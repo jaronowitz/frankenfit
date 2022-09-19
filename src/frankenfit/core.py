@@ -5,7 +5,7 @@ from collections.abc import Iterable
 import logging
 from typing import Callable, Optional, Union
 
-from attrs import define, field, fields_dict
+from attrs import define, field, fields_dict, Factory
 import graphviz
 import pandas as pd
 
@@ -137,6 +137,12 @@ class DatasetCollection:
 Data = Union[pd.DataFrame, Dataset, DatasetCollection]
 
 
+def _next_auto_tag(partial_self):
+    class_name = partial_self.__class__.__qualname__
+    nonce = str(_next_id_num(class_name))
+    return f"{class_name}#{nonce}"
+
+
 # TODO: remove need for Transform subclasses to write @define
 @define(slots=False)
 class Transform(ABC):
@@ -223,7 +229,7 @@ class Transform(ABC):
     # Special (and default) value "__pass__" means give me give me the output of the
     # preceding Transform in a Pipeline, or the user's unnamed DataFrame/Dataset arg to
     # fit()/apply()
-    dataset_name = "__pass__"  # TODO: docs
+    dataset_name = "__pass__"
     """
     When part of a larger pipeline of transformations, the ``__dataset_name__``
     attribute determines how data is passed to a Transform at fit- and
@@ -249,6 +255,30 @@ class Transform(ABC):
 
     :type: ``str``
     """
+
+    tag: str = field(
+        init=True,
+        eq=False,
+        kw_only=True,
+        default=Factory(_next_auto_tag, takes_self=True),
+    )
+    """
+    The ``tag`` attribute is the one parameter common to all ``Transforms``. used for
+    identifying and selecting Transform instances within Pipelines. Ignored when
+    comparing Transforms. It is an optional kwarg to the constructor of ``Transform``
+    and all of its subclasses. If not provided, a default value is derived from the
+    subclass's ``__qualname__``. It's up to the user to keep tags unique.
+
+    .. SEEALSO::
+        :meth:`find_by_tag`, :meth:`FitTransform.find_by_tag`.
+
+    :type: ``str``
+    """
+
+    # def __attrs_post_init__(self):
+    #     class_name = self.__class__.__qualname__
+    #     node_id = str(_next_id_num(class_name))
+    #     self.tag = f"{class_name}#{node_id}"
 
     @abstractmethod
     def _fit(self, df_fit: pd.DataFrame) -> object:
@@ -307,6 +337,12 @@ class Transform(ABC):
         :rtype: pd.DataFrame
         """
         raise NotImplementedError
+
+    def find_by_tag(self, tag: str):
+        result = _find_Transform_by_tag(self, tag)
+        if result is not None:
+            return result
+        raise ValueError(f"No child transform found with tag: {tag}")
 
     def fit(
         self, data_fit: Data, bindings: Optional[dict[str, object]] = None
@@ -458,6 +494,7 @@ class FitTransform(ABC):
             setattr(self, name, bound_val)
         self.__bindings = bindings
         self.dataset_name: str = transform.dataset_name
+        self.tag: str = transform.tag
         # freak out if any hyperparameters failed to bind
         self._check_hyperparams()
 
@@ -539,6 +576,12 @@ class FitTransform(ABC):
         determined by the implementation of ``{transform_class_name}._fit()``.
         """
         return self.__state
+
+    def find_by_tag(self, tag: str):
+        result = _find_FitTransform_by_tag(self, tag)
+        if result is not None:
+            return result
+        raise ValueError(f"No child FitTransform found with tag: {tag}")
 
     def __init_subclass__(cls, /, transform_class: type = None, **kwargs):
         # TODO: futz with base classes so that super() works like normal in the user's
@@ -832,6 +875,46 @@ def _next_id_num(class_name):
     n += 1
     _id_num[class_name] = n
     return n
+
+
+def _find_Transform_by_tag(transform: Transform, tag: str):
+    # XXX: this is kind of brittle because we assume the only way to have child
+    # transforms is via Transform-valued or list-of-Transform-valued parameters
+    if transform.tag == tag:
+        return transform
+    for name in transform.params():
+        val = getattr(transform, name)
+        if isinstance(val, Transform):
+            result = _find_Transform_by_tag(val, tag)
+            if result is not None:
+                return result
+        elif isinstance(val, list) and len(val) > 0:
+            for x in val:
+                if isinstance(x, Transform):
+                    result = _find_Transform_by_tag(x, tag)
+                    if result is not None:
+                        return result
+    return None
+
+
+def _find_FitTransform_by_tag(transform: FitTransform, tag: str):
+    # XXX: this is kind of brittle because we assume the only way to have child
+    # transforms is via Transform-valued or list-of-Transform-valued parameters
+    if transform.tag == tag:
+        return transform
+
+    val = transform.state()
+    if isinstance(val, FitTransform):
+        result = _find_FitTransform_by_tag(val, tag)
+        if result is not None:
+            return result
+    elif isinstance(val, list) and len(val) > 0:
+        for x in val:
+            if isinstance(x, FitTransform):
+                result = _find_FitTransform_by_tag(x, tag)
+                if result is not None:
+                    return result
+    return None
 
 
 def _visualize(transform: Transform, g: graphviz.Digraph):
