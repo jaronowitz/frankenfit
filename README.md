@@ -1,7 +1,9 @@
 # Frankenfit: it's alive! it's fit! 🧟
 
 Frankenfit is a Python library for describing, fitting, and applying predictive data
-modeling pipelines.
+modeling pipelines. (See also Merriam Webster's [usage
+note](https://web.archive.org/web/20220326154221/https://www.merriam-webster.com/words-at-play/frankenstein-frankenfood-franken-prefix)
+regarding the "franken-" prefix.)
 
 ## Getting started
 
