@@ -918,11 +918,11 @@ def _find_FitTransform_by_tag(transform: FitTransform, tag: str):
 
 
 def _visualize(transform: Transform, g: graphviz.Digraph):
-    class_name = transform.__class__.__qualname__
-    node_id = str(_next_id_num(class_name))
-    node_name = f"{class_name}#{node_id}"
+    node_name = transform.tag
     param_vals = {}
     for name in transform.params():
+        if name == "tag":
+            continue
         val = getattr(transform, name)
         if isinstance(val, Transform):
             g.edge(node_name, _visualize(val, g), label=name)
@@ -942,8 +942,6 @@ def _visualize(transform: Transform, g: graphviz.Digraph):
 
 
 def visualize(transform: Transform, **digraph_kwargs):
-    global _id_num
-    _id_num = {}
     g = graphviz.Digraph(**digraph_kwargs)
     _visualize(transform, g)
     return g

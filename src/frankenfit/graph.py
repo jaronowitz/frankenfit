@@ -10,13 +10,15 @@ the classes and functions defined here through the public API exposed as
 """
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from functools import partial
+from functools import partial, reduce
 import inspect
+import operator
 import warnings
 
 import logging
 from attrs import define, field
 import pandas as pd
+import numpy as np
 
 from typing import Callable, Optional
 
@@ -405,7 +407,7 @@ class Pipeline(Transform, CallChainingMixin):
                 ff.Pipeline()
                 .group_by("cut")
                     .then(
-                        # This whole sequence of transforms will be fit and applied
+                        # This whole Pipeline of transforms will be fit and applied
                         # independently per distinct value of cut
                         ff.Pipeline()
                         .zscore(["carat", "table", "depth"])
@@ -454,11 +456,78 @@ class Pipeline(Transform, CallChainingMixin):
         )
         return Pipeline(transforms=join)
 
-    def group_by(self, cols) -> PipelineGrouper:
-        return PipelineGrouper(cols, self)
+    def group_by(self, cols, fitting_schedule=None) -> PipelineGrouper:
+        """
+        Return a :class:`PipelineGrouper` object, which will consume the next Transform
+        in the call-chain by wrapping it in a :class:`GroupBy` transform and returning
+        the result of appending that ``GroupBy`` to this Pipeline. It enables
+        Pandas-style call-chaining with ``GroupBy``.
+
+        For example, grouping a single Transform::
+
+            (
+                ff.Pipeline()
+                # ...
+                .group_by("cut")  # -> PipelineGrouper
+                    .z_score(cols)  # -> Pipeline
+            )
+
+        Grouping a sequence of Transforms::
+
+            (
+                ff.Pipeline()
+                # ...
+                .group_by("cut")
+                    .then(
+                        ff.Pipeline()
+                        .winsorize(cols, limit=0.01)
+                        .z_score(cols)
+                        .clip(cols, upper=2, lower=-2)
+                    )
+            )
+
+        .. NOTE::
+            When using ``group_by()``, by convention we add a level of indentation to
+            the next call in the call-chain, to indicate visually that it is being
+            consumed by the preceding ``group_by()`` call.
+
+        :param cols: The column(s) by which to group. The next Transform in the
+            call-chain will be fit and applied separately on each subset of data with a
+            distinct combination of values in ``cols``.
+        :type cols: str | HP | list[str | HP]
+
+        :param fitting_schedule: How to determine the fitting data of each group. The
+            default schedule is :meth:`fit_group_on_self`. Use this to implement
+            workflows like cross-validation and sequential fitting.
+        :type fitting_schedule: Callable[dict[str, object], np.array[bool]]
+
+        :rtype: :class:`PipelineGrouper`
+        """
+        return PipelineGrouper(cols, self, fitting_schedule or fit_group_on_self)
 
 
 Pipeline.join.__doc__ = Pipeline.join.__doc__.format(join_docs=Join.__doc__)
+
+
+def fit_group_on_self(group_col_map):
+    """
+    The default fitting schedule for :class:`GroupBy`: for each group, the grouped-by
+    transform is fit on the data belonging to that group.
+    """
+    return lambda df: reduce(
+        operator.and_, (df[c] == v for (c, v) in group_col_map.items())
+    )
+
+
+def fit_group_on_all_other_groups(group_col_map):
+    """
+    A built-in fitting schedule for :class:`GroupBy`: for each group, the grouped-by
+    transform is fit on the data belonging to all other groups. This is similar to
+    k-fold cross-validation if the groups are viewed as folds.
+    """
+    return lambda df: reduce(
+        operator.or_, (df[c] != v for (c, v) in group_col_map.items())
+    )
 
 
 @define
@@ -466,17 +535,42 @@ class GroupBy(ffc.Transform):
     """
     Group the fitting and application of a :class:`Transform` by the distinct values of
     some column or combination of columns.
+
+    :param cols: The column(s) by which to group. ``transform`` will be fit and applied
+        separately on each subset of data with a distinct combination of values in
+        ``cols``.
+    :type cols: str | HP | list[str | HP]
+
+    :param transform: The :class:`Transform` to group.
+    :type transform: HP | Transform
+
+    :param fitting_schedule: How to determine the fitting data of each group. The
+        default schedule is :meth:`fit_group_on_self`. Use this to implement workflows
+        like cross-validation and sequential fitting.
+    :type fitting_schedule: Callable[dict[str, object], np.array[bool]]
+
+    .. SEEALSO::
+        :meth:`Pipeline.group_by`
+
     """
 
     # TODO: what about grouping by index?
     cols: str | ffc.HP | list[str | ffc.HP] = ffc.columns_field()
     transform: ffc.HP | ffc.Transform = field()
+    # TODO: what about hyperparams in the fitting schedule? that's a thing.
+    fitting_schedule: Callable[dict[str, object], np.array[bool]] = field(
+        default=fit_group_on_self
+    )
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         bindings = self.bindings()
 
         def fit_on_group(df_group: pd.DataFrame):
-            dsc = self.dataset_collection | {"__pass__": df_group}
+            # select the fitting data for this group
+            group_col_map = {c: df_group[c].iloc[0] for c in self.cols}
+            df_group_fit = df_fit.loc[self.fitting_schedule(group_col_map)]
+            # fit the transform on the fitting data for this group
+            dsc = self.dataset_collection | {"__pass__": df_group_fit}
             return self.transform.fit(dsc, bindings=bindings)
 
         return (
@@ -518,9 +612,10 @@ class PipelineGrouper(CallChainingMixin):
         )
     """
 
-    def __init__(self, groupby_cols, pipeline_upstream):
+    def __init__(self, groupby_cols, pipeline_upstream, fitting_schedule):
         self.groupby_cols = groupby_cols
         self.pipeline_upstream = pipeline_upstream
+        self.fitting_schedule = fitting_schedule
 
     def __repr__(self):
         return "PipelineGrouper(%r, %r)" % (self.groupby_cols, self.pipeline_upstream)
@@ -528,7 +623,11 @@ class PipelineGrouper(CallChainingMixin):
     def then(self, other: Transform | list[Transform]) -> Pipeline:
         if isinstance(other, list):
             other = Pipeline(other)
-        groupby = GroupBy(self.groupby_cols, other)
+        groupby = GroupBy(
+            self.groupby_cols,
+            other,
+            fitting_schedule=self.fitting_schedule,
+        )
         return self.pipeline_upstream + groupby
 
 

@@ -37,9 +37,9 @@ complete API::
     All of the examples in the reference documentation assume that ``frankenfit`` has
     been imported with the short name ``ff`` as above.
 
-If you use a star-import (:code:`from frankenfit import *`), care is taken to ensure
-that all and only the public API names are imported, so that your namespace is not
-polluted with unrelated names.
+In case you use a star-import (:code:`from frankenfit import *`), care is taken to
+ensure that all and only the public API names are imported, so that your namespace is
+not polluted with unrelated names.
 """
 
 from importlib.metadata import (  # noqa: N814
@@ -120,4 +120,6 @@ from frankenfit.graph import (
     Join,
     GroupBy,
     PipelineGrouper,
+    fit_group_on_self,
+    fit_group_on_all_other_groups,
 )

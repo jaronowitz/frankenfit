@@ -750,6 +750,21 @@ def test_GroupBy(diamonds_df):
     pip = ff.Pipeline().group_by("cut").stateless_lambda(len)
     assert pip.fit(df).apply(df).equals(target)
 
+    # A sttaeful transform
+    pip = ff.Pipeline().group_by("cut").de_mean(["price"])[["cut", "price"]]
+    result = pip.fit_and_apply(df)
+    assert np.abs(result["price"].mean()) < 1e-10
+    assert all(np.abs(result.groupby("cut")["price"].mean()) < 1e-10)
+
+    # "cross-validated" de-meaning hah
+    pip = (
+        ff.Pipeline()
+        .group_by("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
+        .de_mean(["price"])[["cut", "price"]]
+    )
+    result = pip.fit_and_apply(df)
+    assert all(np.abs(result.groupby("cut")["price"].mean()) > 4)
+
 
 def test_Correlation(diamonds_df):
     target = diamonds_df[["price", "carat"]].corr()
