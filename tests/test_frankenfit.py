@@ -765,6 +765,28 @@ def test_GroupBy(diamonds_df):
     result = pip.fit_and_apply(df)
     assert all(np.abs(result.groupby("cut")["price"].mean()) > 4)
 
+    pip = (
+        ff.Pipeline().group_by("cut").stateless_lambda(lambda df: df[["price"]].mean())
+    )
+    result = pip.fit_and_apply(df).set_index("cut").sort_index().reset_index()
+    target = df.groupby("cut")[["price"]].mean().sort_index().reset_index()
+    assert result.equals(target)
+
+    pip = (
+        ff.Pipeline()
+        .group_by("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
+        .de_mean("price")[["cut", "price"]]
+    )
+    result = pip.fit_and_apply(df)
+    cuts = pd.Series(df["cut"].unique(), name="cut")
+    cut_means = pd.DataFrame(
+        dict(cut=cuts, price=cuts.map(lambda v: df.loc[df["cut"] != v]["price"].mean()))
+    )
+    target = df.merge(cut_means, how="left", on="cut", suffixes=("", "_mean")).assign(
+        price=lambda df: df["price"] - df["price_mean"]
+    )[["cut", "price"]]
+    assert result.equals(target)
+
 
 def test_Correlation(diamonds_df):
     target = diamonds_df[["price", "carat"]].corr()
@@ -807,7 +829,6 @@ def test_tags(diamonds_df):
         .pipe("{response_col}_hat_dollars", np.expm1)
     )
 
-    # FIXME: after all the other tests ran, we don't know what the tag will be
     assert isinstance(pipeline.find_by_tag("my-regression"), ff.SKLearn)
 
     fit = pipeline.fit(
