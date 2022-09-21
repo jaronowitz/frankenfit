@@ -85,7 +85,6 @@ from frankenfit.core import (
     columns_field,
     fmt_str_field,
     dict_field,
-    visualize,
 )
 
 from frankenfit.transforms import (

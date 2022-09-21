@@ -76,6 +76,12 @@ class IfHyperparamIsTrue(Transform):
         result.add(self.name)
         return result
 
+    def _visualize(self, digraph, bg_fg: tuple[str, str]):
+        entries, exits = super()._visualize(digraph, bg_fg)
+        if self.otherwise is None:
+            exits = exits + [(self.tag, "otherwise")]
+        return entries, exits
+
 
 @define
 class IfHyperparamLambda(Transform):
@@ -104,6 +110,12 @@ class IfHyperparamLambda(Transform):
         result |= sd.keys_checked or set()
         return result
 
+    def _visualize(self, digraph, bg_fg: tuple[str, str]):
+        entries, exits = super()._visualize(digraph, bg_fg)
+        if self.otherwise is None:
+            exits = exits + [(self.tag, "otherwise")]
+        return entries, exits
+
 
 @define
 class IfTrainingDataHasProperty(Transform):
@@ -122,6 +134,12 @@ class IfTrainingDataHasProperty(Transform):
         if state is not None:
             return state.apply(df_apply)
         return df_apply  # act like Identity
+
+    def _visualize(self, digraph, bg_fg: tuple[str, str]):
+        entries, exits = super()._visualize(digraph, bg_fg)
+        if self.otherwise is None:
+            exits = exits + [(self.tag, "otherwise")]
+        return entries, exits
 
 
 @define
@@ -571,6 +589,8 @@ class GroupBy(ffc.Transform):
             df_group_fit = df_fit.loc[self.fitting_schedule(group_col_map)]
             # fit the transform on the fitting data for this group
             dsc = self.dataset_collection | {"__pass__": df_group_fit}
+            # TODO: new per-group tags for the FitTransforms? How should find_by_tag()
+            # work on FitGroupBy?
             return self.transform.fit(dsc, bindings=bindings)
 
         return (

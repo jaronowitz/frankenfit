@@ -433,6 +433,100 @@ class Transform(ABC):
 
         return (sd.keys_checked or set()) | sub_transform_results
 
+    def _visualize(self, digraph, bg_fg: tuple[str, str]):
+        # out of the box, handle three common cases:
+        # - we are a simple transform with no child transforms
+        # - we have one or more child transforms as Transform-valued params
+        # - we have one or more child transforms as elements of a list-valued param
+        # Subclasses override for their own cases not covered by the above
+        # TODO: this function has gotten too big and needs refactoring
+        children_as_params: dict[str, Transform] = {}
+        children_as_elements_of_params: dict[str, list[Transform]] = {}
+        param_vals: dict[str, object] = {}
+
+        for name in self.params():
+            if name == "tag":
+                continue
+            val = getattr(self, name)
+            tvals = []
+            has_children = False
+            # collect each Transform-type param
+            if isinstance(val, Transform):
+                children_as_params[name] = val
+                has_children = True
+            # same for each Transform-type element of a list param
+            elif isinstance(val, list) and len(val) > 0:
+                for x in val:
+                    if isinstance(x, Transform):
+                        tvals.append(x)
+                        has_children = True
+            if tvals:
+                children_as_elements_of_params[name] = tvals
+            # for non-Transform params, collect their values to be displayed in the
+            # label of the node for this Transform
+            if (not has_children) and (val is not None):
+                param_vals[name] = repr(val)
+
+        param_vals_fmt = ",\n".join([" = ".join([k, v]) for k, v in param_vals.items()])
+        self_label = f"{self.tag}\n{param_vals_fmt}"
+
+        if not (children_as_params or children_as_elements_of_params):
+            digraph.node(self.tag, label=self_label)
+            return ([self.tag], [(self.tag, "")])
+
+        # we gon' need a cartouche
+        my_exits = []
+        with digraph.subgraph(name=f"cluster_{self.tag}") as sg:
+            bg, fg = bg_fg
+            bg_fg = fg, bg
+            sg.attr(style="filled", color=bg)
+            sg.node_attr.update(style="filled", color=fg)
+            sg.node(self.tag, label=self_label)
+
+            for t_name, t in children_as_params.items():
+                t_entries, t_exits = t._visualize(sg, bg_fg)
+                for t_entry in t_entries:
+                    sg.edge(self.tag, t_entry, label=t_name)
+                my_exits.extend(t_exits)
+
+            for tlist_name, tlist in children_as_elements_of_params.items():
+                prev_exits = None
+                for t in tlist:
+                    t_entries, t_exits = t._visualize(sg, bg_fg)
+                    if prev_exits is None:
+                        # edges from self to first transform's entries
+                        for t_entry in t_entries:
+                            sg.edge(self.tag, t_entry, label=tlist_name)
+                    else:
+                        # edge from prvious transform's exits node to this
+                        # transform's entries node
+                        for prev_exit, prev_exit_label in prev_exits:
+                            for t_entry in t_entries:
+                                sg.edge(prev_exit, t_entry, label=prev_exit_label)
+                    prev_exits = t_exits
+                # last transform in tlist becomes one of our exits
+                my_exits.append((t.tag, ""))
+
+        return [self.tag], my_exits
+
+    VISUALIZE_DEFAULT_DIGRAPH_KWARGS = {
+        "node_attr": {
+            "shape": "box",
+            "fontsize": "10",
+            "fontname": "Monospace",
+        },
+        "edge_attr": {"fontsize": "10", "fontname": "Monospace"},
+    }
+
+    def visualize(self, **digraph_kwargs):
+        # TODO: rework with a _visualize() method that does the actual recursion and can
+        # be overridden. have a notion of entry and exit tags for each subgraph
+        digraph = graphviz.Digraph(
+            **(self.VISUALIZE_DEFAULT_DIGRAPH_KWARGS | digraph_kwargs)
+        )
+        self._visualize(digraph, ("lightgrey", "white"))
+        return digraph
+
     def __init_subclass__(cls, /, no_magic=False, **kwargs):
         """
         Implements black magic to help with writing Transform subclasses.
@@ -922,33 +1016,3 @@ def _next_id_num(class_name):
     n += 1
     _id_num[class_name] = n
     return n
-
-
-def _visualize(transform: Transform, g: graphviz.Digraph):
-    node_name = transform.tag
-    param_vals = {}
-    for name in transform.params():
-        if name == "tag":
-            continue
-        val = getattr(transform, name)
-        if isinstance(val, Transform):
-            g.edge(node_name, _visualize(val, g), label=name)
-        elif isinstance(val, list) and len(val) > 0:
-            prev_name = node_name
-            for x in val:
-                if isinstance(x, Transform):
-                    next_name = _visualize(x, g)
-                    g.edge(prev_name, next_name)
-                    prev_name = next_name
-        elif val is not None:
-            param_vals[name] = repr(val)
-
-    param_vals_fmt = ",\n".join([" = ".join([k, v]) for k, v in param_vals.items()])
-    g.node(node_name, label=f"--- {node_name} ---\n{param_vals_fmt}")
-    return node_name
-
-
-def visualize(transform: Transform, **digraph_kwargs):
-    g = graphviz.Digraph(**digraph_kwargs)
-    _visualize(transform, g)
-    return g
