@@ -32,6 +32,17 @@ _LOG = logging.getLogger(__name__)
 # StatelessPipeline
 
 
+def is_iterable(obj):
+    """
+    Utility function to test if an object is iterable.
+    """
+    try:
+        iter(obj)
+    except TypeError:
+        return False
+    return True
+
+
 class Dataset(ABC):
     """
     Abstract base class of a dataset.
@@ -339,10 +350,27 @@ class Transform(ABC):
         raise NotImplementedError
 
     def find_by_tag(self, tag: str):
-        result = _find_Transform_by_tag(self, tag)
-        if result is not None:
-            return result
-        raise ValueError(f"No child transform found with tag: {tag}")
+        # base implementation checks params that are transforms or iterables of
+        # transforms. Subclasses should override if they have other ways of keeping
+        # child transforms.
+        if self.tag == tag:
+            return self
+        for name in self.params():
+            val = getattr(self, name)
+            if isinstance(val, Transform):
+                try:
+                    return val.find_by_tag(tag)
+                except KeyError:
+                    pass
+            elif is_iterable(val):
+                for x in val:
+                    if isinstance(x, Transform):
+                        try:
+                            return x.find_by_tag(tag)
+                        except KeyError:
+                            pass
+
+        raise KeyError(f"No child Transform found with tag: {tag}")
 
     def fit(
         self, data_fit: Data, bindings: Optional[dict[str, object]] = None
@@ -578,10 +606,29 @@ class FitTransform(ABC):
         return self.__state
 
     def find_by_tag(self, tag: str):
-        result = _find_FitTransform_by_tag(self, tag)
-        if result is not None:
-            return result
-        raise ValueError(f"No child FitTransform found with tag: {tag}")
+        # Base implementation checks the state object if it is a FitTransform or an
+        # iterable of FitTransforms. Subclasses should override if they have other ways
+        # of keeping child FitTransforms.
+        # TODO: how can subclasses override this, given that they are created implicitly
+        # by metprogramming?
+        if self.tag == tag:
+            return self
+
+        val = self.state()
+        if isinstance(val, FitTransform):
+            try:
+                return val.find_by_tag(tag)
+            except KeyError:
+                pass
+        elif is_iterable(val):
+            for x in val:
+                if isinstance(x, FitTransform):
+                    try:
+                        return x.find_by_tag(tag)
+                    except KeyError:
+                        pass
+
+        raise KeyError(f"No child Transform found with tag: {tag}")
 
     def __init_subclass__(cls, /, transform_class: type = None, **kwargs):
         # TODO: futz with base classes so that super() works like normal in the user's
@@ -875,46 +922,6 @@ def _next_id_num(class_name):
     n += 1
     _id_num[class_name] = n
     return n
-
-
-def _find_Transform_by_tag(transform: Transform, tag: str):
-    # XXX: this is kind of brittle because we assume the only way to have child
-    # transforms is via Transform-valued or list-of-Transform-valued parameters
-    if transform.tag == tag:
-        return transform
-    for name in transform.params():
-        val = getattr(transform, name)
-        if isinstance(val, Transform):
-            result = _find_Transform_by_tag(val, tag)
-            if result is not None:
-                return result
-        elif isinstance(val, list) and len(val) > 0:
-            for x in val:
-                if isinstance(x, Transform):
-                    result = _find_Transform_by_tag(x, tag)
-                    if result is not None:
-                        return result
-    return None
-
-
-def _find_FitTransform_by_tag(transform: FitTransform, tag: str):
-    # XXX: this is kind of brittle because we assume the only way to have child
-    # transforms is via Transform-valued or list-of-Transform-valued parameters
-    if transform.tag == tag:
-        return transform
-
-    val = transform.state()
-    if isinstance(val, FitTransform):
-        result = _find_FitTransform_by_tag(val, tag)
-        if result is not None:
-            return result
-    elif isinstance(val, list) and len(val) > 0:
-        for x in val:
-            if isinstance(x, FitTransform):
-                result = _find_FitTransform_by_tag(x, tag)
-                if result is not None:
-                    return result
-    return None
 
 
 def _visualize(transform: Transform, g: graphviz.Digraph):

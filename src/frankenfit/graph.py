@@ -547,7 +547,7 @@ class GroupBy(ffc.Transform):
     :param fitting_schedule: How to determine the fitting data of each group. The
         default schedule is :meth:`fit_group_on_self`. Use this to implement workflows
         like cross-validation and sequential fitting.
-    :type fitting_schedule: Callable[dict[str, object], np.array[bool]]
+    :type fitting_schedule: Callable[[dict[str, object]], np.array[bool]]
 
     .. SEEALSO::
         :meth:`Pipeline.group_by`
@@ -558,7 +558,7 @@ class GroupBy(ffc.Transform):
     cols: str | ffc.HP | list[str | ffc.HP] = ffc.columns_field()
     transform: ffc.HP | ffc.Transform = field()
     # TODO: what about hyperparams in the fitting schedule? that's a thing.
-    fitting_schedule: Callable[dict[str, object], np.array[bool]] = field(
+    fitting_schedule: Callable[[dict[str, object]], np.array[bool]] = field(
         default=fit_group_on_self
     )
 
