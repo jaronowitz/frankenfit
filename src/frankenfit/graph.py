@@ -574,7 +574,7 @@ class GroupBy(ffc.Transform):
 
     # TODO: what about grouping by index?
     cols: str | ffc.HP | list[str | ffc.HP] = ffc.columns_field()
-    transform: ffc.HP | ffc.Transform = field()
+    transform: ffc.HP | ffc.Transform = field()  # type: ignore
     # TODO: what about hyperparams in the fitting schedule? that's a thing.
     fitting_schedule: Callable[[dict[str, object]], np.array[bool]] = field(
         default=fit_group_on_self

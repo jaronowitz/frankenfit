@@ -203,7 +203,7 @@ class StatefulLambda(Transform):
 
 @define
 class Pipe(StatelessTransform, ColumnsTransform):
-    apply_fun: Callable  # df[, bindings] -> df
+    apply_fun: Callable[[pd.DataFrame], pd.DataFrame]  # type: ignore
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         result = self.apply_fun(df_apply[self.cols])
@@ -230,7 +230,7 @@ class Clip(StatelessTransform, ColumnsTransform):
 @define
 class Winsorize(ColumnsTransform):
     # assume symmetric, i.e. trim the upper and lower `limit` percent of observations
-    limit: float
+    limit: float  # type: ignore
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if not isinstance(self.limit, float):
@@ -262,7 +262,7 @@ class Winsorize(ColumnsTransform):
 
 @define
 class ImputeConstant(StatelessTransform, ColumnsTransform):
-    value: object
+    value: object  # type: ignore
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         return df_apply.assign(
