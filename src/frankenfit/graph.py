@@ -379,7 +379,7 @@ class Pipeline(Transform, CallChainingMixin):
         return len(self.transforms)
 
     def fit_and_apply(
-        self, data_fit: ffc.Data, bindings: Optional[dict[str, object]] = None
+        self, data_fit: ffc.Data = None, bindings: Optional[dict[str, object]] = None
     ) -> pd.DataFrame:
         """
         An efficient alternative to ``self.fit(df).apply(df)`` specific to
