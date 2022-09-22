@@ -1,5 +1,9 @@
 """
 Provides a library of basic Transform subclasses.
+
+Ordinarily, users should never need to import this module directly. Instead, they access
+the classes and functions defined here through the public API exposed as
+``frankenfit.*``.
 """
 from __future__ import annotations
 import inspect
