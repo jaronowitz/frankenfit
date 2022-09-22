@@ -384,7 +384,7 @@ class Transform(ABC):
         raise KeyError(f"No child Transform found with tag: {tag}")
 
     def fit(
-        self, data_fit: Data, bindings: Optional[dict[str, object]] = None
+        self, data_fit: Data = None, bindings: Optional[dict[str, object]] = None
     ) -> FitTransform:
         """
         Fit this Transform on some data and return a :class:`FitTransform` object. The
@@ -399,6 +399,8 @@ class Transform(ABC):
         :return: _description_
         :rtype: FitTransform
         """
+        if data_fit is None:
+            data_fit = pd.DataFrame()
         dsc = DatasetCollection.from_data(data_fit)
         fit_class: FitTransform = getattr(self, self._fit_class_name)
         return fit_class(self, dsc, bindings)
@@ -672,11 +674,13 @@ class FitTransform(ABC):
     def _apply(self, df_apply: pd.DataFrame, state=None) -> pd.DataFrame:
         raise NotImplementedError
 
-    def apply(self, data_apply: Data) -> pd.DataFrame:
+    def apply(self, data_apply: Data = None) -> pd.DataFrame:
         """
         Return the result of applying this fit Transform to the given DataFrame.
         """
         # materialize data for user _apply function.
+        if data_apply is None:
+            data_apply = pd.DataFrame()
         dsc_apply = DatasetCollection.from_data(data_apply)
         df_apply = dsc_apply.to_dataframe(self.dataset_name)
         # but also keep the original collection around (temporarily) in case the user
@@ -766,7 +770,7 @@ class StatelessTransform(Transform):
         return None
 
     def apply(
-        self, data_apply: Data, bindings: dict[str, object] = None
+        self, data_apply: Data = None, bindings: dict[str, object] = None
     ) -> pd.DataFrame:
         """
         Convenience function allowing one to apply a StatelessTransform without an
