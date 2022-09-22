@@ -653,6 +653,25 @@ def test_Join(diamonds_df):
         assert len(w) == 1
         assert issubclass(w[-1].category, RuntimeWarning)
 
+    deviances = (
+        ff.Pipeline()[["cut", "price"]]
+        .join(
+            (
+                ff.Pipeline()
+                .group_by("cut")
+                .stateless_lambda(lambda df: df[["price"]].mean())
+                .rename({"price": "mean_price"})
+            ),
+            on="cut",
+            how="left",
+        )
+        .stateless_lambda(
+            lambda df: df.assign(price_deviance=df["price"] - df["mean_price"])
+        )
+    )
+    result = deviances.fit_and_apply(diamonds_df)
+    assert np.abs(result["price_deviance"].mean()) < 1e-10
+
 
 def test_SKLearn(diamonds_df):
     ds = ff.Dataset.from_pandas(diamonds_df)
