@@ -57,7 +57,7 @@ _LOG = logging.getLogger(__name__)
 # - the notion that a pipeline may fit and apply on a collection of datasets, not just
 # one. graph "branches" may begin with a Dataset node, whose fit/apply methods take a
 # DataSpec rather than DFs and produce a DF. User can then fit/apply the whole pipeline
-# ona DataSpec to employ a collection of datasets at fit/apply-time.
+# on a DataSpec to employ a collection of datasets at fit/apply-time.
 # ... kinda neat, then you could imagine a Timeseries subclass of Dataset which allows
 # users to call fit/apply just on time-ranges (like context)
 
@@ -633,7 +633,7 @@ class GroupBy(ffc.Transform):
 
         return (
             df_apply.merge(state, how="left", on=self.cols)
-            .groupby(self.cols, as_index=False, sort=False)
+            .groupby(self.cols, as_index=False, sort=False, group_keys=False)
             .apply(apply_on_group)
         )
 

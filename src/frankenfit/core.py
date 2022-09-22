@@ -42,26 +42,6 @@ import pandas as pd
 
 _LOG = logging.getLogger(__name__)
 
-# DAG of transforms should be lightweight, immutable, unbound.
-# Fitting process then binds parameters, concretizes nodes into "fit nodes" with
-# bound params and heavyweight state
-# It's these fit nodes that can be applied.
-# Kind of like dcat's StreamingTableFactory vs StreamingTable
-# Writing a new transform should be a breeze, no boilerplate.
-
-# Transform has fit() but no apply()
-# Subclasser defines _fit(df) -> state and _apply(df, state) -> df
-# Transform.__init_subclass__:
-#   Makes SubClass an attrs class
-#   Creates Subclass.FitSubClass with:
-#       mirror of attrs attributes from SubClass (meant to be given bound values)
-#       plus a state attribute
-#       apply() method that routes to original _apply
-#   SubClass.fit(df) -> SubClass.FitSubClass: binds params, gets state from
-#       original _fit, constructs new FitSubClass with bound params and state
-# StatelessTransform changes behavior to allow apply() directly on transform
-# StatelessPipeline
-
 
 def is_iterable(obj):
     """
