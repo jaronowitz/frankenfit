@@ -1,3 +1,7 @@
+wheel
+setuptools
+setuptools_scm~=7.0.3
+
 # For enforcement of pre-commit hooks
 pre-commit ~= 2.19
 
