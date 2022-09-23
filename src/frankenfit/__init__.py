@@ -68,12 +68,7 @@ except _PNFE:
 # - aplifit
 
 from frankenfit.core import (
-    UnknownDatasetError,
     UnresolvedHyperparameterError,
-    Dataset,
-    PandasDataset,
-    DatasetCollection,
-    Data,
     Transform,
     FitTransform,
     StatelessTransform,
@@ -125,6 +120,7 @@ from frankenfit.graph import (
 
 from frankenfit.io import (
     DataReader,
+    ReadDataFrame,
     ReadPandasCSV,
     WritePandasCSV,
     ReadDataset,

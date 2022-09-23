@@ -180,19 +180,18 @@ class Join(Transform):
     # TODO: (when on distributed compute) context extension
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
-        dsc = self.dataset_collection | {"__pass__": df_fit}
         bindings = self.bindings()
         return (
-            self.left.fit(dsc, bindings=bindings),
-            self.right.fit(dsc, bindings=bindings),
+            self.left.fit(df_fit, bindings=bindings),
+            self.right.fit(df_fit, bindings=bindings),
         )
 
     def _apply(
         self, df_apply: pd.DataFrame, state: tuple[ffc.FitTransform]
     ) -> pd.DataFrame:
         fit_left, fit_right = state
-        dsc = self.dataset_collection | {"__pass__": df_apply}
-        df_left, df_right = fit_left.apply(dsc), fit_right.apply(dsc)
+        # TODO: parallelize
+        df_left, df_right = fit_left.apply(df_apply), fit_right.apply(df_apply)
         return pd.merge(
             left=df_left,
             right=df_right,
@@ -235,16 +234,11 @@ def method_wrapping_transform(
 
 
 def _convert_pipeline_transforms(value):
-    # "coalesce" Pipelines if they are pass-through
-    if isinstance(value, Pipeline) and value.dataset_name == "__pass__":
+    # "coalesce" Pipelines
+    if isinstance(value, Pipeline):
         return list(value.transforms)
 
-    if (
-        isinstance(value, list)
-        and len(value) == 1
-        and isinstance(value[0], Pipeline)
-        and value[0].dataset_name == "__pass__"
-    ):
+    if isinstance(value, list) and len(value) == 1 and isinstance(value[0], Pipeline):
         return list(value[0].transforms)
 
     if isinstance(value, Transform):
@@ -316,13 +310,13 @@ class CallChainingMixin(ABC):
     read_pandas_csv = _pipeline_method_wrapping_transform(
         "read_pandas_csv", ffio.ReadPandasCSV
     )
+    read_data_frame = _pipeline_method_wrapping_transform(
+        "read_data_frame", ffio.ReadDataFrame
+    )
 
 
 @define
 class Pipeline(Transform, CallChainingMixin):
-    # Already defined in the Transform base class, but declare again here so that attrs
-    # makes it the first (optional) __init__ argument.
-    dataset_name: str = "__pass__"
 
     transforms: list[Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
@@ -337,9 +331,8 @@ class Pipeline(Transform, CallChainingMixin):
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t} (type {type(t)})"
                 )
-            # warning if an "constant Transform" is non-initial. E.g., Join, or
-            # any Transform with dataset_name != "__pass__"
-            if (not t_is_first) and ffc.is_constant(t):
+            # warning if a "constant Transform" is non-initial
+            if (not t_is_first) and t.is_constant:
                 warnings.warn(
                     f"A constant Transform is non-initial in a Pipeline: {t!r}. "
                     "This is likely unintentional because the output of all "
@@ -350,29 +343,27 @@ class Pipeline(Transform, CallChainingMixin):
             t_is_first = False
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
-        dsc = self.dataset_collection | {"__pass__": df_fit}
         fit_transforms = []
         bindings = self.bindings()
         for t in self.transforms:
-            ft = t.fit(dsc, bindings=bindings)
-            df = ft.apply(dsc)
-            dsc |= {"__pass__": df}
+            ft = t.fit(df_fit, bindings=bindings)
+            df_fit = ft.apply(df_fit)
             fit_transforms.append(ft)
         return fit_transforms
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        dsc = self.dataset_collection | {"__pass__": df_apply}
-        df = df_apply  # in case we are an empty Pipeline
+        df = df_apply
         for fit_transform in state:
-            df = fit_transform.apply(dsc)
-            dsc |= {"__pass__": df}
+            df = fit_transform.apply(df)
         return df
 
     def __len__(self):
         return len(self.transforms)
 
     def apply(
-        self, data_fit: ffc.Data = None, bindings: Optional[dict[str, object]] = None
+        self,
+        data_fit: Optional[pd.DataFrame] = None,
+        bindings: Optional[dict[str, object]] = None,
     ) -> pd.DataFrame:
         """
         An efficient alternative to ``self.fit(df).apply(df)`` specific to
@@ -388,12 +379,10 @@ class Pipeline(Transform, CallChainingMixin):
         :return: The result of fitting this :class:`Pipeline` and applying it to its own
             fitting data.
         """
-        dsc = ffc.DatasetCollection.from_data(data_fit)
         for t in self.transforms:
-            ft = t.fit(dsc, bindings=bindings)
-            df = ft.apply(dsc)
-            dsc |= {"__pass__": df}
-        return df
+            ft = t.fit(data_fit, bindings=bindings)
+            data_fit = ft.apply(data_fit)
+        return data_fit
 
     def then(self, other: Transform | list[Transform]) -> Pipeline:
         """
@@ -455,7 +444,7 @@ class Pipeline(Transform, CallChainingMixin):
             ``Transform``\\ s.
         :rtype: :class:`Pipeline`
         """
-        if isinstance(other, Pipeline) and other.dataset_name == "__pass__":
+        if isinstance(other, Pipeline):
             # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
         elif isinstance(other, Transform):
@@ -467,7 +456,7 @@ class Pipeline(Transform, CallChainingMixin):
                 f"I don't know how to extend a Pipeline with {other}, which is of "
                 f"type {type(other)}, bases = {type(other).__bases__}. "
             )
-        return Pipeline(dataset_name=self.dataset_name, transforms=transforms)
+        return Pipeline(transforms=transforms)
 
     def join(
         self, right, how, on=None, left_on=None, right_on=None, suffixes=("_x", "_y")
@@ -603,10 +592,9 @@ class GroupBy(ffc.Transform):
             group_col_map = {c: df_group[c].iloc[0] for c in self.cols}
             df_group_fit = df_fit.loc[self.fitting_schedule(group_col_map)]
             # fit the transform on the fitting data for this group
-            dsc = self.dataset_collection | {"__pass__": df_group_fit}
             # TODO: new per-group tags for the FitTransforms? How should find_by_tag()
             # work on FitGroupBy?
-            return self.transform.fit(dsc, bindings=bindings)
+            return self.transform.fit(df_group_fit, bindings=bindings)
 
         return (
             df_fit.groupby(self.cols, as_index=False, sort=False)
@@ -616,13 +604,11 @@ class GroupBy(ffc.Transform):
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         def apply_on_group(df_group: pd.DataFrame):
-            dsc = self.dataset_collection | {
-                "__pass__": df_group.drop(["__state__"], axis=1)
-            }
+            df_group_apply = df_group.drop(["__state__"], axis=1)
             # values of __state__ ought to be identical within the group
             group_state: ffc.FitTransform = df_group["__state__"].iloc[0]
             # TODO: what if this group was not seen at fit-time?
-            return group_state.apply(dsc)
+            return group_state.apply(df_group_apply)
 
         return (
             df_apply.merge(state, how="left", on=self.cols)

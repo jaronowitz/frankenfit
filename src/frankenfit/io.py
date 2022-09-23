@@ -20,6 +20,9 @@
 # OR IMPLY ANY RIGHTS TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, NOR TO
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
+"""
+Transforms related to reading and writing stored data.
+"""
 
 from __future__ import annotations
 
@@ -44,6 +47,14 @@ _LOG = logging.getLogger(__name__)
 @define
 class DataReader(StatelessTransform):
     is_constant = True
+
+
+@define
+class ReadDataFrame(DataReader):
+    df: pd.DataFrame
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return self.df
 
 
 @define

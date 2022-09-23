@@ -507,139 +507,38 @@ def test_Pipeline_callchaining(diamonds_df):
     )
 
 
-def test_Dataset(diamonds_df):
-    assert ff.Dataset.from_pandas(diamonds_df).to_dataframe().equals(diamonds_df)
-    ds = ff.PandasDataset(diamonds_df)
-    assert ds.to_dataframe().equals(diamonds_df)
-    dsc = ff.DatasetCollection({"__pass__": ds})
-    assert dsc.to_dataframe().equals(diamonds_df)
-    dsc2 = ff.DatasetCollection({"__pass__": diamonds_df})
-    assert dsc2.to_dataframe().equals(diamonds_df)
-
-    assert (
-        ff.DatasetCollection.from_data(diamonds_df).to_dataframe().equals(diamonds_df)
-    )
-    assert ff.DatasetCollection.from_data(ds).to_dataframe().equals(diamonds_df)
-    assert ff.DatasetCollection.from_data(dsc).to_dataframe().equals(diamonds_df)
-    assert ff.DatasetCollection.from_data(dsc2).to_dataframe().equals(diamonds_df)
-
-
-def test_data_selection(diamonds_df):
-    ds = ff.PandasDataset(diamonds_df)
-    dsc = ff.DatasetCollection({"__pass__": ds})
-    iddy = ff.Identity()
-    diddy = ff.Pipeline("foo")  # Identity, but selects "foo" dataset
-
-    for arg in (diamonds_df, ds, dsc):
-        assert iddy.apply(arg).equals(diamonds_df)
-
-    for arg in (diamonds_df, ds, dsc):
-        # diddy is looking for 'foo', not the default '__pass__'
-        with pytest.raises(ff.UnknownDatasetError):
-            diddy.fit(arg).apply(arg)
-
-    dsc_with_foo = ff.DatasetCollection({"foo": ds})
-    assert diddy.fit(dsc_with_foo).apply(dsc_with_foo).equals(diamonds_df)
-
-    dsc_with_foo = ff.DatasetCollection({"foo": diamonds_df})
-    assert diddy.fit(dsc_with_foo).apply(dsc_with_foo).equals(diamonds_df)
-
-
-def test_data_selection_in_pipeline(diamonds_df):
-    df = diamonds_df
-    index_all = set(df.index)
-    index_in = set(np.random.choice(df.index, size=int(len(df) / 2), replace=False))
-    index_out = index_all - index_in
-    df_in = df.loc[list(index_in)]
-    df_out = df.loc[list(index_out)]
-    dsc = ff.DatasetCollection({"in": df_in, "out": df_out})
-
-    cols = ["carat", "x", "y", "z", "depth", "table"]
-    pipeline_con = ff.Pipeline(
-        transforms=[
-            ff.Pipe(["carat"], np.log1p),
-            ff.Winsorize(cols, limit=0.05),
-            ff.ZScore(cols),
-            ff.ImputeConstant(cols, 0.0),
-            ff.Clip(cols, upper=2, lower=-2),
-        ]
-    )
-    # with pytest.raises(ff.UnknownDatasetError):
-    #     # pipeline_con is just looking for dataset "foo", which our dsc doesn't have
-    #     pipeline_con.fit(dsc)
-
-    pipeline_con_in = ff.Pipeline(
-        "in",
-        [
-            ff.Pipe(["carat"], np.log1p),
-            ff.Winsorize(cols, limit=0.05),
-            ff.ZScore(cols),
-            ff.ImputeConstant(cols, 0.0),
-            ff.Clip(cols, upper=2, lower=-2),
-        ],
-    )
-    result_in = pipeline_con_in.fit(dsc).apply(dsc)
-    assert result_in.equals(pipeline_con.fit(df_in).apply(df_in))
-
-    pipeline_con_out = ff.Pipeline(
-        "out",
-        [
-            ff.Pipe(["carat"], np.log1p),
-            ff.Winsorize(cols, limit=0.05),
-            ff.ZScore(cols),
-            ff.ImputeConstant(cols, 0.0),
-            ff.Clip(cols, upper=2, lower=-2),
-        ],
-    )
-    result_out = pipeline_con_out.fit(dsc).apply(dsc)
-    assert result_out.equals(pipeline_con.fit(df_out).apply(df_out))
-
-    pipeline_chain_in = (
-        ff.Pipeline("in")
-        .pipe(["carat"], np.log1p)
-        .winsorize(cols, limit=0.05)
-        .z_score(cols)
-        .impute_constant(cols, 0.0)
-        .clip(cols, upper=2, lower=-2)
-    )
-    result_in = pipeline_chain_in.fit(dsc).apply(dsc)
-    assert result_in.equals(pipeline_con.fit(df_in).apply(df_in))
-
-    with warnings.catch_warnings(record=True) as w:
-        (
-            ff.Pipeline()
-            .pipe(["carat"], np.log1p)
-            .then(
-                # effacing pipeline should issue warning
-                ff.Pipeline("foo").z_score(cols)
-            )
-        )
-        assert len(w) == 1
-        assert issubclass(w[-1].category, RuntimeWarning)
-
-
 def test_Join(diamonds_df):
     diamonds_df = diamonds_df.assign(diamond_id=diamonds_df.index)
     xyz_df = diamonds_df[["diamond_id", "x", "y", "z"]]
     cut_df = diamonds_df[["diamond_id", "cut"]]
     target = pd.merge(xyz_df, cut_df, how="left", on="diamond_id")
 
-    t = ff.Join(ff.Pipeline("xyz"), ff.Pipeline("cut"), how="left", on="diamond_id")
-    dsc = ff.DatasetCollection({"xyz": xyz_df, "cut": cut_df})
-    result = t.fit(dsc).apply(dsc)
+    t = ff.Join(
+        ff.ReadDataFrame(xyz_df), ff.ReadDataFrame(cut_df), how="left", on="diamond_id"
+    )
+    result = t.fit().apply()
     assert result.equals(target)
     # assert result.equals(diamonds_df[["diamond_id", "x", "y", "z", "cut"]])
 
     p = ff.Pipeline(
         transforms=[
-            ff.Join(ff.Pipeline("xyz"), ff.Pipeline("cut"), how="left", on="diamond_id")
+            ff.Join(
+                ff.ReadDataFrame(xyz_df),
+                ff.ReadDataFrame(cut_df),
+                how="left",
+                on="diamond_id",
+            )
         ]
     )
-    result = p.fit(dsc).apply(dsc)
+    result = p.apply()
     assert result.equals(target)
 
-    p = ff.Pipeline("xyz").join(ff.Pipeline("cut"), how="left", on="diamond_id")
-    result = p.fit(dsc).apply(dsc)
+    p = (
+        ff.Pipeline()
+        .read_data_frame(xyz_df)
+        .join(ff.Pipeline().read_data_frame(cut_df), how="left", on="diamond_id")
+    )
+    result = p.apply()
     assert result.equals(target)
 
     deviances = (
@@ -663,7 +562,6 @@ def test_Join(diamonds_df):
 
 
 def test_SKLearn(diamonds_df):
-    ds = ff.Dataset.from_pandas(diamonds_df)
     from sklearn.linear_model import LinearRegression
 
     target_preds = (
@@ -680,7 +578,7 @@ def test_SKLearn(diamonds_df):
         "price_hat",
         class_params={"fit_intercept": True},
     )
-    result = sk.fit(ds).apply(ds)
+    result = sk.fit(diamonds_df).apply(diamonds_df)
     assert result.equals(target)
 
     # TODO: test w_col
@@ -688,7 +586,6 @@ def test_SKLearn(diamonds_df):
 
 
 def test_Statsmodels(diamonds_df):
-    ds = ff.Dataset.from_pandas(diamonds_df)
     from statsmodels.api import OLS
 
     ols = OLS(diamonds_df["price"], diamonds_df[["carat", "depth", "table"]])
@@ -701,7 +598,7 @@ def test_Statsmodels(diamonds_df):
         "price",
         "price_hat",
     )
-    result = sm.fit(ds).apply(ds)
+    result = sm.fit(diamonds_df).apply(diamonds_df)
     assert result.equals(target)
 
     # TODO: test w_col
@@ -851,12 +748,17 @@ def test_tags(diamonds_df):
     assert isinstance(fit.find_by_tag("my-regression").state().coef_, np.ndarray)
 
 
+def test_ReadDataFrame(diamonds_df):
+    df = diamonds_df.reset_index().drop(["index"], axis=1)
+    assert ff.ReadDataFrame(df).apply().equals(df)
+
+
 def test_ReadPandasCSV(diamonds_df, tmp_path):
     df = diamonds_df.reset_index().drop(["index"], axis=1)
     fp = path.join(tmp_path, "diamonds.csv")
     df.to_csv(fp)
 
-    result = ff.Pipeline().read_pandas_csv(fp, dict(index_col=0)).fit_and_apply()
+    result = ff.Pipeline().read_pandas_csv(fp, dict(index_col=0)).apply()
     assert result.equals(df)
 
     with warnings.catch_warnings(record=True) as w:

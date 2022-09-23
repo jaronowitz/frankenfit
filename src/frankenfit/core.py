@@ -34,7 +34,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 import logging
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 from attrs import define, field, fields_dict, Factory
 import graphviz
@@ -52,111 +52,6 @@ def is_iterable(obj):
     except TypeError:
         return False
     return True
-
-
-class Dataset(ABC):
-    """
-    Abstract base class of a dataset.
-    """
-
-    @abstractmethod
-    def to_dataframe(self) -> pd.DataFrame:
-        """
-        Get a DataFrame.
-        """
-        raise NotImplementedError
-
-    @staticmethod
-    def from_pandas(df: pd.DataFrame) -> Dataset:
-        """
-        Convenienice static method returns a :class:`PandasDataset` wrapping the given
-        pandas DataFrame.
-        """
-        return PandasDataset(df)
-
-
-@define
-class PandasDataset(Dataset):
-    df: pd.DataFrame
-    """
-    That darn dataframe.
-    """
-
-    def to_dataframe(self):
-        """
-        Returns the wrapped `DataFrame` instance directly.
-        """
-        return self.df
-
-
-class UnknownDatasetError(KeyError):
-    """
-    Thrown by DatasetCollection.get_dataset() if the requested dataset name is not
-    found.
-    """
-
-
-def _dataset_collection_converter(map: dict[str, pd.DataFrame | Dataset]):
-    map = {
-        name: PandasDataset(value) if isinstance(value, pd.DataFrame) else value
-        for name, value in map.items()
-    }
-    # let's say that every dsc implicitly has a __pass__ dataset, which is an empty
-    # dataframe if no dataset was provided with that name
-    if "__pass__" not in map:
-        map["__pass__"] = PandasDataset(pd.DataFrame())
-    return map
-
-
-@define
-class DatasetCollection:
-
-    map: dict[str, Dataset] = field(converter=_dataset_collection_converter)
-
-    def get_dataset(self, name):
-        if name not in self.map:
-            if name == "__pass__":
-                return PandasDataset(pd.DataFrame())
-            raise UnknownDatasetError(
-                f"Asked for a Dataset named {name!r} but this DatasetCollection only "
-                f"has: {list(self.map.keys())}"
-            )
-        return self.map[name]
-
-    def to_dataframe(self, name="__pass__"):
-        return self.get_dataset(name).to_dataframe()
-
-    @classmethod
-    def from_data(cls, data: Optional[Data]):
-        if data is None:
-            dsc = cls({"__pass__": PandasDataset(pd.DataFrame())})
-        elif isinstance(data, pd.DataFrame):
-            dsc = cls({"__pass__": PandasDataset(data)})
-        elif isinstance(data, Dataset):
-            dsc = cls({"__pass__": data})
-        elif isinstance(data, cls):
-            dsc = data
-        else:
-            raise TypeError(
-                f"Expected {Data} but got {data} which has type {type(data)}"
-            )
-        return dsc
-
-    def __getitem__(self, dataset_name):
-        return self.get_dataset(dataset_name)
-
-    def __or__(self, other):
-        if isinstance(other, dict):
-            return DatasetCollection(self.map | other)
-        if isinstance(other, DatasetCollection):
-            return DatasetCollection(self.map | other.map)
-        raise TypeError(
-            f"Don't know how to union a DatasetCollection with a {type(other)}"
-        )
-
-
-# Type alias for the primary argument to Transform.fit() and .apply()
-Data = Union[pd.DataFrame, Dataset, DatasetCollection]
 
 
 def _next_auto_tag(partial_self):
@@ -250,36 +145,6 @@ class Transform(ABC):
 
     is_constant = False
 
-    # Special (and default) value "__pass__" means give me give me the output of the
-    # preceding Transform in a Pipeline, or the user's unnamed DataFrame/Dataset arg to
-    # fit()/apply()
-    dataset_name = "__pass__"
-    """
-    When part of a larger pipeline of transformations, the ``__dataset_name__``
-    attribute determines how data is passed to a Transform at fit- and
-    apply-time.
-
-    The default value ``"__pass__"`` means that this ``Transform``'s
-    :meth:`_fit()` and :meth:`_apply()` methods will receive the output of the Transform
-    preceding it, or the user-provided data if being called outside of a Pipeline.
-
-    Any other value will cause the :meth:`_fit()` and :meth:`_apply()` methods to
-    receive the dataset with that name in the active :class:`DatasetCollection`.
-
-    .. NOTE::
-        Most subclasses of :class:`Transform` don't need to worry about doing anything
-        with this attribute. The main exceptions would be if you are writing your own
-        customized kind of :class:`Pipeline` class, or any Transform that needs to be
-        able to introduce a new "branch" of dataflow into a Pipeline, originating from
-        some data other than the output of the preceding Transform.
-
-    .. SEEALSO::
-        :attr:`~FitTransform.dataset_collection`, :meth:`_fit`, :meth:`_apply`,
-        :class:`Pipeline`.
-
-    :type: ``str``
-    """
-
     tag: str = field(
         init=True,
         eq=False,
@@ -323,13 +188,8 @@ class Transform(ABC):
           is specific to your :class:`Transform` subclass), which is being constructed
           and will store the state that your method returns.
         - TODO: Params all available on self, concrete values, hyperparams resolved.
-        - You have access to additional information beyond the training data
-          (``df_fit``) via the attributes :attr:`self.dataset_name
-          <Transform.dataset_name>`, :attr:`self.dataset_collection
-          <FitTransform.dataset_collection>` and method :meth:`self.bindings()
+        - You have access to hyperparameter bindings via :meth:`self.bindings()
           <FitTransform.bindings>`.
-
-        TODO: examples of using dataset_name, etc.
 
         :param df_fit: A pandas ``DataFrame`` of training data.
         :type df_fit: ``pd.DataFrame``
@@ -386,7 +246,9 @@ class Transform(ABC):
         raise KeyError(f"No child Transform found with tag: {tag}")
 
     def fit(
-        self, data_fit: Data = None, bindings: Optional[dict[str, object]] = None
+        self,
+        data_fit: pd.DataFrame = None,
+        bindings: Optional[dict[str, object]] = None,
     ) -> FitTransform:
         """
         Fit this Transform on some data and return a :class:`FitTransform` object. The
@@ -403,9 +265,8 @@ class Transform(ABC):
         """
         if data_fit is None:
             data_fit = pd.DataFrame()
-        dsc = DatasetCollection.from_data(data_fit)
         fit_class: FitTransform = getattr(self, self._fit_class_name)
-        return fit_class(self, dsc, bindings)
+        return fit_class(self, data_fit, bindings)
 
     def params(self) -> list[str]:
         """
@@ -578,13 +439,6 @@ class Transform(ABC):
         cls._fit_class_name = fit_class_name
 
 
-# TODO: delete me once dataset names are gone
-def is_constant(transform: Transform):
-    if transform.dataset_name != "__pass__":
-        return True
-    return transform.is_constant
-
-
 class SentinelDict(dict):
     keys_checked = None
 
@@ -622,12 +476,7 @@ class FitTransform(ABC):
     state that will be used at apply-time.
     """
 
-    dataset_collection: DatasetCollection = None
-    """
-    Some docs about this.
-    """
-
-    def __init__(self, transform: Transform, dsc_fit: DatasetCollection, bindings=None):
+    def __init__(self, transform: Transform, df_fit: pd.DataFrame, bindings=None):
         "Docstr for FitTransform.__init__"
         bindings = bindings or {}
         self._field_names = transform.params()
@@ -637,25 +486,20 @@ class FitTransform(ABC):
             # print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
             setattr(self, name, bound_val)
         self.__bindings = bindings
-        self.dataset_name: str = transform.dataset_name
         self.tag: str = transform.tag
         # freak out if any hyperparameters failed to bind
         self._check_hyperparams()
 
         # materialize data for user _fit function.
-        df_fit = dsc_fit.to_dataframe(self.dataset_name)
+        df_fit = df_fit
         self.__nrows = len(df_fit)
         # but also keep the original collection around (temporarily) in case the user
         # _fit function wants it
-        self.dataset_collection = dsc_fit
         _LOG.debug(
             "Fitting %s on %d rows: %r", self.__class__.__name__, len(df_fit), self
         )
         # run user _fit function
         self.__state = transform._fit.__func__(self, df_fit)
-        # now that fitting is done, we don't want to carry around a reference to all the
-        # data
-        self.dataset_collection = None
 
     def _check_hyperparams(self):
         unresolved = []
@@ -683,18 +527,15 @@ class FitTransform(ABC):
     def _apply(self, df_apply: pd.DataFrame, state=None) -> pd.DataFrame:
         raise NotImplementedError
 
-    def apply(self, data_apply: Data = None) -> pd.DataFrame:
+    def apply(self, df_apply: pd.DataFrame = None) -> pd.DataFrame:
         """
         Return the result of applying this fit Transform to the given DataFrame.
         """
         # materialize data for user _apply function.
-        if data_apply is None:
-            data_apply = pd.DataFrame()
-        dsc_apply = DatasetCollection.from_data(data_apply)
-        df_apply = dsc_apply.to_dataframe(self.dataset_name)
+        if df_apply is None:
+            df_apply = pd.DataFrame()
         # but also keep the original collection around (temporarily) in case the user
         # _apply function wants it
-        self.dataset_collection = dsc_apply
         _LOG.debug(
             "Applying %s to %d rows: %r",
             self.__class__.__qualname__,
@@ -702,9 +543,6 @@ class FitTransform(ABC):
             self,
         )
         result = self._apply(df_apply, state=self.__state)
-        # now that application is done, we don't want to carry around a reference to all
-        # the data
-        self.dataset_collection = None
         return result
 
     # TODO: refit()
@@ -779,7 +617,7 @@ class StatelessTransform(Transform):
         return None
 
     def apply(
-        self, data_apply: Data = None, bindings: dict[str, object] = None
+        self, df_apply: pd.DataFrame = None, bindings: dict[str, object] = None
     ) -> pd.DataFrame:
         """
         Convenience function allowing one to apply a StatelessTransform without an
@@ -787,7 +625,7 @@ class StatelessTransform(Transform):
         with optional hyperparameter bindings as provided) and then returning the result
         of applying the resulting FitTransform to the given DataFrame.
         """
-        return self.fit(None, bindings=bindings).apply(data_apply)
+        return self.fit(None, bindings=bindings).apply(df_apply)
 
 
 @define
