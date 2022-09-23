@@ -640,19 +640,6 @@ def test_Join(diamonds_df):
     result = p.fit(dsc).apply(dsc)
     assert result.equals(target)
 
-    with warnings.catch_warnings(record=True) as w:
-        ff.Pipeline(
-            transforms=[
-                ff.Select(["foo", "bar"]),
-                # should trigger effacement warning
-                ff.Join(
-                    ff.Pipeline("xyz"), ff.Pipeline("cut"), how="left", on="diamond_id"
-                ),
-            ]
-        )
-        assert len(w) == 1
-        assert issubclass(w[-1].category, RuntimeWarning)
-
     deviances = (
         ff.Pipeline()[["cut", "price"]]
         .join(
