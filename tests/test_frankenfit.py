@@ -332,8 +332,8 @@ def test_Pipeline(diamonds_df):
     df = p.fit(diamonds_df).apply(diamonds_df)
     assert df.equals(target_df)
 
-    # fit_and_apply() gives same result
-    df = p.fit_and_apply(diamonds_df)
+    # apply() gives same result
+    df = p.apply(diamonds_df)
     assert df.equals(target_df)
 
     # pipeline of pipeline is coalesced
@@ -669,7 +669,7 @@ def test_Join(diamonds_df):
             lambda df: df.assign(price_deviance=df["price"] - df["mean_price"])
         )
     )
-    result = deviances.fit_and_apply(diamonds_df)
+    result = deviances.apply(diamonds_df)
     assert np.abs(result["price_deviance"].mean()) < 1e-10
 
 
@@ -771,7 +771,7 @@ def test_GroupBy(diamonds_df):
 
     # A sttaeful transform
     pip = ff.Pipeline().group_by("cut").de_mean(["price"])[["cut", "price"]]
-    result = pip.fit_and_apply(df)
+    result = pip.apply(df)
     assert np.abs(result["price"].mean()) < 1e-10
     assert all(np.abs(result.groupby("cut")["price"].mean()) < 1e-10)
 
@@ -781,13 +781,13 @@ def test_GroupBy(diamonds_df):
         .group_by("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
         .de_mean(["price"])[["cut", "price"]]
     )
-    result = pip.fit_and_apply(df)
+    result = pip.apply(df)
     assert all(np.abs(result.groupby("cut")["price"].mean()) > 4)
 
     pip = (
         ff.Pipeline().group_by("cut").stateless_lambda(lambda df: df[["price"]].mean())
     )
-    result = pip.fit_and_apply(df).set_index("cut").sort_index().reset_index()
+    result = pip.apply(df).set_index("cut").sort_index().reset_index()
     target = df.groupby("cut")[["price"]].mean().sort_index().reset_index()
     assert result.equals(target)
 
@@ -796,7 +796,7 @@ def test_GroupBy(diamonds_df):
         .group_by("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
         .de_mean("price")[["cut", "price"]]
     )
-    result = pip.fit_and_apply(df)
+    result = pip.apply(df)
     cuts = pd.Series(df["cut"].unique(), name="cut")
     cut_means = pd.DataFrame(
         dict(cut=cuts, price=cuts.map(lambda v: df.loc[df["cut"] != v]["price"].mean()))

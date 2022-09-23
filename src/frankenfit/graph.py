@@ -378,17 +378,17 @@ class Pipeline(Transform, CallChainingMixin):
     def __len__(self):
         return len(self.transforms)
 
-    def fit_and_apply(
+    def apply(
         self, data_fit: ffc.Data = None, bindings: Optional[dict[str, object]] = None
     ) -> pd.DataFrame:
         """
         An efficient alternative to ``self.fit(df).apply(df)`` specific to
         :class:`Pipeline` objects. When the fit-time data and apply-time data are
-        identical, it is more efficient to use a single call to ``fit_and_apply()`` than
+        identical, it is more efficient to use a single call to ``apply()`` than
         it is to call :meth:`~Transform.fit()` followed by a separate call to
         :meth:`~FitTransform.apply()`, both on the same data argument. This is because
         ``fit()`` itself must already apply every transform in the pipeline, in orer to
-        produce the fitting data for the following transform. ``fit_and_apply()``
+        produce the fitting data for the following transform. ``apply()``
         captures the result of these fit-time applications, avoiding their unnecessary
         recomputation.
 
