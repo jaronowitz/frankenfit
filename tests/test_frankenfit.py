@@ -3,6 +3,7 @@ from io import StringIO
 from attrs import define
 import pytest
 import numpy as np
+from os import path
 import pandas as pd
 import warnings
 
@@ -847,3 +848,17 @@ def test_tags(diamonds_df):
     )
     assert isinstance(fit.find_by_tag("my-regression"), ff.SKLearn.FitSKLearn)
     assert isinstance(fit.find_by_tag("my-regression").state().coef_, np.ndarray)
+
+
+def test_ReadPandasCSV(diamonds_df, tmp_path):
+    df = diamonds_df.reset_index().drop(["index"], axis=1)
+    fp = path.join(tmp_path, "diamonds.csv")
+    df.to_csv(fp)
+
+    result = ff.Pipeline().read_pandas_csv(fp, dict(index_col=0)).fit_and_apply()
+    assert result.equals(df)
+
+    with warnings.catch_warnings(record=True) as w:
+        (ff.Pipeline()[["foo"]].read_pandas_csv("foo"))
+        assert len(w) == 1
+        assert issubclass(w[-1].category, RuntimeWarning)

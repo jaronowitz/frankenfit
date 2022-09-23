@@ -122,3 +122,8 @@ from frankenfit.graph import (
     fit_group_on_self,
     fit_group_on_all_other_groups,
 )
+
+from frankenfit.io import (
+    DataReader,
+    ReadPandasCSV,
+)

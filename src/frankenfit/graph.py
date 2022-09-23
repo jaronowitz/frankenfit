@@ -46,6 +46,7 @@ from typing import Callable, Optional
 
 from . import transforms as fft
 from . import core as ffc
+from . import io as ffio
 from .core import Transform
 
 _LOG = logging.getLogger(__name__)
@@ -312,6 +313,9 @@ class CallChainingMixin(ABC):
     sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
     statsmodels = _pipeline_method_wrapping_transform("statsmodels", fft.Statsmodels)
     correlation = _pipeline_method_wrapping_transform("correlation", fft.Correlation)
+    read_pandas_csv = _pipeline_method_wrapping_transform(
+        "read_pandas_csv", ffio.ReadPandasCSV
+    )
 
 
 @define
@@ -337,7 +341,7 @@ class Pipeline(Transform, CallChainingMixin):
             # any Transform with dataset_name != "__pass__"
             if (not t_is_first) and ffc.is_constant(t):
                 warnings.warn(
-                    f"An constant Transform is non-initial in a Pipeline: {t!r}. "
+                    f"A constant Transform is non-initial in a Pipeline: {t!r}. "
                     "This is likely unintentional because the output of all "
                     "preceding Transforms, once computed, will be discarded by "
                     "the constant Transform.",
@@ -367,6 +371,7 @@ class Pipeline(Transform, CallChainingMixin):
     def __len__(self):
         return len(self.transforms)
 
+    # TODO: rename to simply apply()
     def fit_and_apply(
         self, data_fit: ffc.Data = None, bindings: Optional[dict[str, object]] = None
     ) -> pd.DataFrame:
