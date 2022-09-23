@@ -248,6 +248,8 @@ class Transform(ABC):
 
     # Note the following are regular attributes, NOT managed by attrs
 
+    is_constant = False
+
     # Special (and default) value "__pass__" means give me give me the output of the
     # preceding Transform in a Pipeline, or the user's unnamed DataFrame/Dataset arg to
     # fit()/apply()
@@ -574,6 +576,13 @@ class Transform(ABC):
         cls.fit.__annotations__["return"] = fit_class.__qualname__
         setattr(cls, fit_class_name, fit_class)
         cls._fit_class_name = fit_class_name
+
+
+# TODO: delete me once dataset names are gone
+def is_constant(transform: Transform):
+    if transform.dataset_name != "__pass__":
+        return True
+    return transform.is_constant
 
 
 class SentinelDict(dict):

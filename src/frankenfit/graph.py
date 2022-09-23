@@ -314,17 +314,6 @@ class CallChainingMixin(ABC):
     correlation = _pipeline_method_wrapping_transform("correlation", fft.Correlation)
 
 
-EFFACING_TRANSFORM_CLASSES = [
-    Join,
-]
-
-
-def is_effacing(transform: Transform):
-    if transform.dataset_name != "__pass__":
-        return True
-    return any(isinstance(transform, C) for C in EFFACING_TRANSFORM_CLASSES)
-
-
 @define
 class Pipeline(Transform, CallChainingMixin):
     # Already defined in the Transform base class, but declare again here so that attrs
@@ -344,14 +333,14 @@ class Pipeline(Transform, CallChainingMixin):
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t} (type {type(t)})"
                 )
-            # warning if an "effacing Transform" is non-initial. E.g., Join, or
+            # warning if an "constant Transform" is non-initial. E.g., Join, or
             # any Transform with dataset_name != "__pass__"
-            if (not t_is_first) and is_effacing(t):
+            if (not t_is_first) and ffc.is_constant(t):
                 warnings.warn(
-                    f"An effacing Transform is non-initial in a Pipeline: {t!r}. "
-                    "This is likely unintentional because the effects of all "
-                    "preceding Transforms will be discarded by the effacing "
-                    "Transform.",
+                    f"An constant Transform is non-initial in a Pipeline: {t!r}. "
+                    "This is likely unintentional because the output of all "
+                    "preceding Transforms, once computed, will be discarded by "
+                    "the constant Transform.",
                     RuntimeWarning,
                 )
             t_is_first = False
