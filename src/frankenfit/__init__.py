@@ -104,6 +104,7 @@ from frankenfit.transforms import (
     SKLearn,
     Statsmodels,
     Correlation,
+    Assign,
 )
 
 from frankenfit.graph import (

@@ -6,6 +6,7 @@ the classes and functions defined here through the public API exposed as
 ``frankenfit.*``.
 """
 from __future__ import annotations
+from functools import partial
 import inspect
 import logging
 from logging import Logger
@@ -517,3 +518,43 @@ class Correlation(StatelessTransform):
             method=self.method, min_periods=self.min_obs
         )
         return cm.loc[self.left_cols, self.right_cols]
+
+
+@define
+class Assign(StatelessTransform):
+    # TODO: keys as fmt str hyperparams
+    assignments: dict[str, Callable] = dict_field()
+
+    # Assign([assignment_dict][, tag=][, kwarg1=][, kwarg2][...])
+    # ... with only one of assigment_dict or kwargs
+    def __init__(self, *args, tag=None, **kwargs):
+        if len(args) > 0:
+            if len(kwargs) > 0:
+                raise ValueError(
+                    f"Expected only one of args or kwargs to be non-empty, "
+                    f"but both are: args={args!r}, kwargs={kwargs!r}"
+                )
+            if len(args) > 1:
+                raise ValueError(
+                    "Expected only a single dict-typed positional argument"
+                )
+            assignments = args[0]
+        else:
+            assignments = kwargs
+        self.__attrs_init__(tag=tag, assignments=assignments)
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        kwargs = {}
+        for k, v in self.assignments.items():
+            kwargs[k] = v
+            if callable(v):
+                sig = inspect.signature(v).parameters
+                if len(sig) == 2:
+                    # expose self to bivalent lambdas as first arg
+                    kwargs[k] = partial(v, self)
+                elif len(sig) > 2:
+                    raise TypeError(
+                        f"Expected lambda with 1 or 2 parameters, found {len(sig)}"
+                    )
+
+        return df_apply.assign(**kwargs)

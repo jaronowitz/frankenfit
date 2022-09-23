@@ -310,9 +310,11 @@ class CallChainingMixin(ABC):
     read_pandas_csv = _pipeline_method_wrapping_transform(
         "read_pandas_csv", ffio.ReadPandasCSV
     )
+    read_dataset = _pipeline_method_wrapping_transform("read_dataset", ffio.ReadDataset)
     read_data_frame = _pipeline_method_wrapping_transform(
         "read_data_frame", ffio.ReadDataFrame
     )
+    assign = _pipeline_method_wrapping_transform("assign", fft.Assign)
 
 
 @define

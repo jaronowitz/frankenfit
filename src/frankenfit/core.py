@@ -664,6 +664,9 @@ class HP:
             return v.resolve(bindings)
         return v
 
+    def __hash__(self):
+        return hash(repr(self))
+
 
 class HPFmtStr(HP):
     """_summary_

@@ -818,3 +818,31 @@ def test_read_write_dataset(diamonds_df, tmp_path):
         .apply()
     )
     assert result.equals(target)
+
+
+def test_Assign(diamonds_df):
+    ff.Assign(foo=1, bar=2, logprice=lambda df: np.log1p(df["price"]), tag="boo")
+
+    result = (
+        ff.Pipeline().assign(
+            intercept=1,
+            grp=lambda df: df.index % 5,
+            grp_2=lambda self, df: df.index % self.bindings()["k"],
+        )
+    ).apply(diamonds_df, bindings={"k": 3})
+    assert (result["intercept"] == 1).all()
+    assert (result["grp"] == (diamonds_df.index % 5)).all()
+    assert (result["grp_2"] == (diamonds_df.index % 3)).all()
+
+    result = (
+        ff.Pipeline().assign(
+            {
+                "intercept": 1,
+                ff.HPFmtStr("grp_{k}"): lambda self, df: df.index
+                % self.bindings()["k"],
+            },
+            tag="foo",
+        )
+    ).apply(diamonds_df, bindings={"k": 3})
+    assert (result["intercept"] == 1).all()
+    assert (result["grp_3"] == (diamonds_df.index % 3)).all()
