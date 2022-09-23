@@ -17,5 +17,6 @@ requires-python = ">=3.9"
 dependencies = [
     'attrs',
     'pandas',
+    'pyarrow',
     'graphviz',
 ]
