@@ -52,23 +52,6 @@ MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 ## Writing a `Transform` subclass
 Foobar.
 
-## Datasets and dataset collections
-
-```{eval-rst}
-.. autoclass:: Dataset
-    :members:
-
-.. autoclass:: PandasDataset
-    :show-inheritance:
-    :members:
-
-.. autoclass:: DatasetCollection
-    :members:
-
-.. autoexception:: UnknownDatasetError
-    :show-inheritance:
-```
-
 ## Hyperparameters
 Foobar.
 
