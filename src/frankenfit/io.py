@@ -24,17 +24,23 @@
 from __future__ import annotations
 
 import logging
-from attrs import define
+from attrs import define, field
 import pandas as pd
 
 from typing import Optional
 
-from .core import StatelessTransform, HP, fmt_str_field
+from pyarrow import dataset
+
+from .core import StatelessTransform, HP, fmt_str_field, columns_field, HPCols
+
+from .transforms import (
+    Identity,
+)
 
 _LOG = logging.getLogger(__name__)
 
 
-# A DataReader is simply an constant, stateless transform, duh.
+# A DataReader is nothing more than a constant, stateless transform, duh.
 @define
 class DataReader(StatelessTransform):
     is_constant = True
@@ -46,5 +52,40 @@ class ReadPandasCSV(DataReader):
     read_csv_args: Optional[dict] = None
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        df = pd.read_csv(self.filepath, **(self.read_csv_args or {}))
-        return df
+        return pd.read_csv(self.filepath, **(self.read_csv_args or {}))
+
+
+@define
+class WritePandasCSV(Identity):
+    path: str | HP = fmt_str_field()
+    index_label: str | HP = fmt_str_field()
+    to_csv_kwargs: Optional[dict] = None
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None):
+        df_apply.to_csv(
+            self.path, index_label=self.index_label, **(self.to_csv_kwargs or {})
+        )
+        return df_apply
+
+
+@define
+class ReadDataset(DataReader):
+    paths: list[str] = columns_field()
+    format: Optional[str] = None
+    columns: list[str] = field(default=None, converter=HPCols.maybe_from_value)
+    filter: Optional[HP | dataset.Expression] = None
+    index_col: Optional[str | int] = None
+    dataset_kwargs: Optional[dict] = None
+    scanner_kwargs: Optional[dict] = None
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        ds = dataset.dataset(
+            self.paths, format=self.format, **(self.dataset_kwargs or {})
+        )
+        df_out = ds.to_table(
+            columns=self.columns, filter=self.filter, **(self.scanner_kwargs or {})
+        ).to_pandas()
+        # can we tell arrow this?
+        if self.index_col is not None:
+            df_out = df_out.set_index(self.index_col)
+        return df_out

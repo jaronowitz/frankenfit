@@ -921,6 +921,8 @@ class HPCols(HP):
             return x
         if isinstance(x, str):
             return cls([x])
+        if x is None:
+            return None
         return cls(list(x))
 
     def resolve(self, bindings):

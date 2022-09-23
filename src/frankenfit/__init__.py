@@ -126,4 +126,6 @@ from frankenfit.graph import (
 from frankenfit.io import (
     DataReader,
     ReadPandasCSV,
+    WritePandasCSV,
+    ReadDataset,
 )

@@ -8,6 +8,7 @@ import pandas as pd
 import warnings
 
 from pydataset import data
+import pyarrow.dataset as ds
 
 import frankenfit as ff
 
@@ -862,3 +863,56 @@ def test_ReadPandasCSV(diamonds_df, tmp_path):
         (ff.Pipeline()[["foo"]].read_pandas_csv("foo"))
         assert len(w) == 1
         assert issubclass(w[-1].category, RuntimeWarning)
+
+
+def test_read_write_csv(diamonds_df, tmp_path):
+    df = diamonds_df.reset_index().set_index("index")
+    ff.WritePandasCSV(
+        # TODO: in core, define a field type for pathlib.PosixPath's containing
+        # hyperparameter format strings
+        str(tmp_path / "diamonds.csv"),
+        index_label="index",
+    ).apply(df)
+
+    result = ff.ReadPandasCSV(
+        str(tmp_path / "diamonds.csv"), dict(index_col="index")
+    ).apply()
+    assert result.equals(df)
+
+    result = ff.ReadDataset(
+        str(tmp_path / "diamonds.csv"), format="csv", index_col="index"
+    ).apply()
+    assert result.equals(df)
+
+
+def test_read_write_dataset(diamonds_df, tmp_path):
+    df = diamonds_df.reset_index().set_index("index")
+    path = str(tmp_path / "diamonds.csv")
+    ff.WritePandasCSV(
+        path,
+        index_label="index",
+    ).apply(df)
+
+    target = df.loc[3:6]
+
+    result = ff.ReadDataset(
+        path,
+        format="csv",
+        filter=(ds.field("index") > 2) & (ds.field("index") < 7),
+        index_col="index",
+    ).apply()
+    assert result.equals(target)
+
+    bindings = {"filter": (ds.field("index") > 2) & (ds.field("index") < 7)}
+
+    result = (
+        ff.ReadDataset(
+            path,
+            format="csv",
+            filter=ff.HP("filter"),
+            index_col="index",
+        )
+        .fit(bindings=bindings)
+        .apply()
+    )
+    assert result.equals(target)
