@@ -133,7 +133,7 @@ ResampleBy transform, with the default training schedule being in-sample.
 
 ## Interesting potential equivalencies
 
-```
+```python
 transform.fit(df) == Pipeline().read_data_frame(df).then(transform).fit()
 transform.fit(df) == (ReadDataFrame(df) + transform).fit()
 transform.fit(df) == ReadDataFrame(df).then(transform).fit()
@@ -147,10 +147,10 @@ Take-aways:
   passing logic. ``Pipeline`` would have to become a core class.
 
   One could even imagine the call-chain API hanging on ``Transform`` rather
-  than ``Pipeline``... you'd longer need to begin a de-novo call-chain with an empty
-  ``ff.Pipeline()``... but by having the call-chain API on the super class of
-  all Transforms, we'd severely interfere with the namespaces of all Transforms'
-  parameters.
+  than on ``Pipeline``... you'd no longer need to begin a de-novo call-chain
+  with an empty ``ff.Pipeline()``... but by having the call-chain API on the
+  super class of all Transforms, we'd severely interfere with the namespaces of
+  all Transforms' parameters.
 
 * ``Transform.fit(df)``, ``StatelessTransform.apply(df)``,
   ``Pipeline.apply(df)`` could be implemented by prepending a ``ReadDataFrame`` to
@@ -163,3 +163,252 @@ Take-aways:
 ``ConstantTransform``, which is a ``StatelessTransform`` with special
 ``fit()``/``apply()`` implementations that warn about non-empty df args before
 calling super.
+
+## A tale of two APIs
+
+We have the class-based API:
+
+```python
+ff.Pipeline([
+  ff.ReadDataset(...),
+  ff.GroupBy(
+    "x",
+    ff.ZScore("y")
+  ),
+  ff.Select(["x", "y"]),
+])
+
+# Or:
+(
+  ff.ReadDataSet(...)
+  + ff.GroupBy(
+    "x",
+    ff.ZScore("y")
+  )
+  + ff.Select(["x", "y"])
+)
+```
+
+And we have the Pandas-inspired call-chain API:
+
+```python
+(
+  ff.Pipeline()
+  .read_dataset(...)
+  .group_by("x")
+    .z_score("y")
+  [["x", "y"]]
+)
+```
+
+Does it make sense to have both around?
+
+The Transforms and FitTransforms really do need to be objects in a class
+hierarchy, so we need the classes.
+
+Incorporation of user-defined Transforms: happens naturally in the class-based
+API:
+```python
+ff.Pipeline([
+  ff.ReadDataset(...),
+  ff.GroupBy(
+    "x",
+    ff.ZScore("y")
+  ),
+  ff.Select(["x", "y"]),
+  MyTransform(42),
+])
+```
+
+For the call-chain API, there are some options:
+
+* Interrupt the call-chaining to manually append the user-defined Transform:
+  ```python
+  (
+    (
+      ff.Pipeline()
+      .read_dataset(...)
+      .group_by("x")
+        .z_score("y")
+      [["x", "y"]]
+    )
+    + MyTransform(42)
+    + (
+      ff.Pipeline()
+      ...
+    )
+  )
+  ```
+
+* Use a special call-chain method that appends an arbitrary Transform to the Pipeline:
+  ```python
+  (
+    ff.Pipeline()
+    .read_dataset(...)
+    .group_by("x")
+      .z_score("y")
+    [["x", "y"]]
+    .then(
+      MyTransform()
+    )
+  )
+  ```
+
+  This ``then()`` method is useful to have around anyway for grouping
+  sub-pipelines even without user-defined Transforms, e.g.:
+
+  ```python
+  (
+    ff.Pipeline()
+    .group_by("x")
+      .then(
+        ff.Pipeline()
+        .winsorize("y")
+        .z_score("y")
+      )
+  )
+  ```
+
+* Provide a mechanism for authors of new Transforms to register new
+  call-chainable methods on Pipeline objects. This has a bad code smell; it will
+  get confusing and frustrating when the public API of a frequently used class
+  like Pipeline is effectively mutable and dependent on what sequence of user
+  code has been run.
+  ```python
+  @Pipeline.register_transform("my_transform")
+  @define
+  class MyTransform(Transform):
+    foo: int
+    # ...
+
+  (
+    ff.Pipeline()
+    .read_dataset(...)
+    .group_by("x")
+      .z_score("y")
+    [["x", "y"]]
+    .my_transform(42)
+  )
+  ```
+* Provide an easy way for the user to create his own derived Pipeline subclasses that
+  have additional call-chain methods, and build all of his data pipelines from
+  those.
+  ```python
+  class MyPipeline(Pipeline):
+    pass
+
+  MyPipeline.register_transform("my_transform", MyTransform)
+  # or even
+  @MyPipeline.register_transform("my_transform")
+  @define
+  class MyTransform(Transform):
+    foo: int
+
+  (
+    MyPipeline()
+    .read_dataset(...)
+    .group_by("x")
+      .z_score("y")
+    [["x", "y"]]
+    .my_transform(42)
+  )
+
+  # or with a class method that creates new derived classes:
+  MyPipeline = ff.Pipeline.with_new_methods(my_transform=MyTransform)
+  (
+    MyPipeline()
+    ...
+  )
+
+  # or inlined (assume available as an instance method, too):
+  (
+    ff.Pipeline().with_new_methods(
+      my_transform=MyTransform
+    )
+    .read_dataset(...)
+    .group_by("x")
+      .z_score("y")
+    [["x", "y"]]
+    .my_transform(42)
+  )
+
+  # We could even use this ourselves to define various specializations of Pipeline:
+  TimeseriesPipeline = ff.Pipeline.with_methods(
+    cross_sectionally=CrossSectionally,
+    longitudinally=Longitudinally,
+    add_windows=AddWindows,
+    read_dataset=ReadTimeseriesDataset,
+  )
+  # Even with new behaviors:
+  class TimeseriesPipeline(ff.Pipeline.with_methods(
+    cross_sectionally=CrossSectionally,
+    longitudinally=Longitudinally,
+    add_windows=AddWindows,
+    read_dataset=ReadTimeseriesDataset,
+  )):
+    def asof_join(self, other, ...):
+      ...
+      return TimeseriesPipeline([AsOfJoin(self, other, ...)])
+  ```
+
+  In general this could be useful to establish conventions about dataset shape
+  for some problem domain (e.g. an ordered "time" index) and to work with
+  a set of transformations that only make sense on datasets with those
+  conventions.
+
+Would it make sense to reduce the duplicity of class names and method names by
+changing all of the class names to lower_snake_case, making them the same as the
+call-chain methods?
+
+```python
+ff.pipeline().then(ff.z_score())
+```
+
+Or what if we still had the CamelCase classes, but each was accompanied by a
+global method that returns a pipeline containing it?
+```
+ff.z_score("y") -> ff.Pipeline([ff.ZScore("y")])
+```
+
+We could then commence pipelines without the Pipeline() heading:
+```
+(
+  ff
+  .read_dataset()
+  .group_by("x")
+    .z_score("y")
+  [["x", "y"]]
+)
+```
+
+Presumably it would be up to the author of a user-defined Transform to provide
+his own such global method, and there's still the question of how to fit into
+call-chaining. And how would this play with specializations of Pipeline?
+
+Pipeline specialization is a cool idea. We could even reframe our current
+functionality as ``DataFramePipeline``, which is a specialization of the root
+``ObjectPipeline``.
+
+* ``ObjectPipeline``: the arguments to fit and apply are arbitrary objects, with
+  no convention. Call-chain methods are exposed only for the core set of
+  Transforms that don't assume anything about the type of the data: ``then()``,
+  ``stateless_lambda()``, ``stateful_lambda()``, ``print()``, ``log_message()``,
+  ``group_by_bindings()``(but actually how to combine results?),
+  ``if_hyperparam_is_true()``, ``if_hyperparam_lambda()``,
+  ``if_fitting_data_lambda()``....
+
+* ``DataFramePipeline``: the arguments to fit and apply are Pandas dataframes,
+  but with no assumptions about index or column schema. Maybe just that they are
+  2-d? This inherits the methods of ``ObjectPipeline`` and adds ``select()``,
+  ``rename()``, ``drop()``, ``assign()``, ``group_by()``, etc.
+  ``TimeSeriesPipeline`` is a subclass.
+
+* Could actually have Mixins then for various other thematic sets of Transforms
+  (normalizers, smoothers, windowers).  Have to think about how they'd
+  coordinate compatible/incompatible data conventions.
+
+* Could imagine specializations for other problem domains: ``ImagePipeline``,
+  ``TextPipeline``.
+
+
+Rename ``group_by_bindings()`` to ``for_each_binding()``?
