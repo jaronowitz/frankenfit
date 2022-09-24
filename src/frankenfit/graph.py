@@ -554,6 +554,11 @@ def fit_group_on_all_other_groups(group_col_map):
     )
 
 
+class UnfitGroupError(ValueError):
+    """Exception raised when a group-by-like transform is applied to data
+    containing groups on which it was not fit."""
+
+
 @define
 class GroupBy(ffc.Transform):
     """
@@ -609,7 +614,15 @@ class GroupBy(ffc.Transform):
             df_group_apply = df_group.drop(["__state__"], axis=1)
             # values of __state__ ought to be identical within the group
             group_state: ffc.FitTransform = df_group["__state__"].iloc[0]
-            # TODO: what if this group was not seen at fit-time?
+            if not isinstance(group_state, ffc.FitTransform):
+                # if this group was not seen at fit-time
+                raise UnfitGroupError(
+                    f"GroupBy: tried to apply to a group not seen at fit-time:\n"
+                    f"{df_group_apply[self.cols].iloc[0]}"
+                )
+                # returning untransformed group data is undesirable because
+                # corruption will silently propagate through a pipeline
+                # return df_group_apply
             return group_state.apply(df_group_apply)
 
         return (

@@ -114,6 +114,7 @@ from frankenfit.graph import (
     IfTrainingDataHasProperty,
     Join,
     GroupBy,
+    UnfitGroupError,
     PipelineGrouper,
     fit_group_on_self,
     fit_group_on_all_other_groups,

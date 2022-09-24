@@ -692,6 +692,10 @@ def test_GroupBy(diamonds_df):
     )[["cut", "price"]]
     assert result.equals(target)
 
+    pip = ff.Pipeline().group_by("cut").de_mean(["price"])
+    with pytest.raises(ff.UnfitGroupError):
+        pip.fit(df.loc[df["cut"] != "Fair"]).apply(df)
+
 
 def test_Correlation(diamonds_df):
     target = diamonds_df[["price", "carat"]].corr()
