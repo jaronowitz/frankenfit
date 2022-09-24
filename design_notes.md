@@ -130,3 +130,36 @@ data of the model that goes with each apply-time chunk.
 ```
 ... we could even just add a `training_schedule=` arg to GroupBy instead of a new
 ResampleBy transform, with the default training schedule being in-sample.
+
+## Interesting potential equivalencies
+
+```
+transform.fit(df) == Pipeline().read_data_frame(df).then(transform).fit()
+transform.fit(df) == (ReadDataFrame(df) + transform).fit()
+transform.fit(df) == ReadDataFrame(df).then(transform).fit()
+```
+Same for ``StatelessTransform.apply()`` and ``Pipeline.apply()``.
+
+Take-aways:
+
+* ``__add__`` and ``then()`` could become methods of ``Transform`` rather than
+  of ``Pipeline``; they would return ``Pipeline``, which still handles the data
+  passing logic. ``Pipeline`` would have to become a core class.
+
+  One could even imagine the call-chain API hanging on ``Transform`` rather
+  than ``Pipeline``... you'd longer need to begin a de-novo call-chain with an empty
+  ``ff.Pipeline()``... but by having the call-chain API on the super class of
+  all Transforms, we'd severely interfere with the namespaces of all Transforms'
+  parameters.
+
+* ``Transform.fit(df)``, ``StatelessTransform.apply(df)``,
+  ``Pipeline.apply(df)`` could be implemented by prepending a ``ReadDataFrame`` to
+  ``self`` in a new ``Pipeline`` and calling its ``fit()``/``apply()`` method
+  with no arguments. ``ReadDataFrame`` would have to become a core class.
+
+## Constant transforms
+
+``DataReader``s/constant transforms should be subclasses of some
+``ConstantTransform``, which is a ``StatelessTransform`` with special
+``fit()``/``apply()`` implementations that warn about non-empty df args before
+calling super.

@@ -756,6 +756,11 @@ def test_ReadDataFrame(diamonds_df):
     df = diamonds_df.reset_index().drop(["index"], axis=1)
     assert ff.ReadDataFrame(df).apply().equals(df)
 
+    pip = ff.Pipeline().group_by("cut").de_mean("price")[["cut", "price"]]
+    # here's a spiffy equivalence... at some point we could even consider making
+    # fit(df), apply(df), syntactic sugar for prepending a ReadDataFrame.
+    assert pip.apply(df).equals(ff.Pipeline().read_data_frame(df).then(pip).apply())
+
 
 def test_ReadPandasCSV(diamonds_df, tmp_path):
     df = diamonds_df.reset_index().drop(["index"], axis=1)
