@@ -34,7 +34,7 @@ from typing import Optional
 
 from pyarrow import dataset
 
-from .core import StatelessTransform, HP, fmt_str_field, columns_field, HPCols
+from .core import ConstantTransform, HP, fmt_str_field, columns_field, HPCols
 
 from .transforms import (
     Identity,
@@ -45,8 +45,8 @@ _LOG = logging.getLogger(__name__)
 
 # A DataReader is nothing more than a constant, stateless transform, duh.
 @define
-class DataReader(StatelessTransform):
-    is_constant = True
+class DataReader(ConstantTransform):
+    pass
 
 
 @define

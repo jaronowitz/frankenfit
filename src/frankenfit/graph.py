@@ -333,14 +333,14 @@ class Pipeline(Transform, CallChainingMixin):
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t} (type {type(t)})"
                 )
-            # warning if a "constant Transform" is non-initial
-            if (not t_is_first) and t.is_constant:
+            # warning if a "Constant Transform" is non-initial
+            if (not t_is_first) and isinstance(t, ffc.ConstantTransform):
                 warnings.warn(
-                    f"A constant Transform is non-initial in a Pipeline: {t!r}. "
+                    f"A ConstantTransform is non-initial in a Pipeline: {t!r}. "
                     "This is likely unintentional because the output of all "
                     "preceding Transforms, once computed, will be discarded by "
-                    "the constant Transform.",
-                    RuntimeWarning,
+                    "the ConstantTransform.",
+                    ffc.NonInitialConstantTransformWarning,
                 )
             t_is_first = False
 
@@ -665,6 +665,33 @@ class PipelineGrouper(CallChainingMixin):
             fitting_schedule=self.fitting_schedule,
         )
         return self.pipeline_upstream + groupby
+
+
+@define
+class GroupByBindings(ffc.Transform):
+    bindings_sequence: iter[dict]
+    transform: ffc.Transform
+    include_binding: bool = True
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        # TODO: parallelize
+        # bindings from above
+        base_bindings = self.bindings()
+        fits = {}
+        for bindings in self.bindings_sequence:
+            frozen_bindings = tuple(bindings.items())
+            fits[frozen_bindings] = self.transform.fit(
+                df_fit, bindings=base_bindings | bindings
+            )
+        return fits
+
+    def _apply(self, df_apply: pd.DataFrame, state: dict) -> pd.DataFrame:
+        # TODO: parallelize
+        dfs = []
+        for frozen_bindings, fit in state:
+            bindings_df = fit.apply(df_apply).assign(**dict(frozen_bindings))
+            dfs.append(bindings_df)
+            return pd.concat(dfs, axis=0)
 
 
 # @define

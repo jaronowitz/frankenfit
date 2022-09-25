@@ -72,6 +72,8 @@ from frankenfit.core import (
     Transform,
     FitTransform,
     StatelessTransform,
+    ConstantTransform,
+    NonInitialConstantTransformWarning,
     HP,
     HPFmtStr,
     HPLambda,

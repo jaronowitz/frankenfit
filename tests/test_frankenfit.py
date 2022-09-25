@@ -771,9 +771,14 @@ def test_ReadPandasCSV(diamonds_df, tmp_path):
     assert result.equals(df)
 
     with warnings.catch_warnings(record=True) as w:
-        (ff.Pipeline()[["foo"]].read_pandas_csv("foo"))
+        pip = ff.Pipeline()[["price"]].read_pandas_csv(fp)
         assert len(w) == 1
-        assert issubclass(w[-1].category, RuntimeWarning)
+        assert issubclass(w[-1].category, ff.NonInitialConstantTransformWarning)
+
+    with warnings.catch_warnings(record=True) as w:
+        pip.fit(df)
+        assert len(w) == 1
+        assert issubclass(w[-1].category, ff.NonInitialConstantTransformWarning)
 
 
 def test_read_write_csv(diamonds_df, tmp_path):

@@ -35,6 +35,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 import logging
 from typing import Callable, Optional
+import warnings
 
 from attrs import define, field, fields_dict, Factory
 import graphviz
@@ -457,8 +458,10 @@ class SentinelDict(dict):
 
 
 class UnresolvedHyperparameterError(NameError):
-    """Exception thrown when a Transform is not able to resolve all of its
-    hyperparameters at fit-time."""
+    """
+    Exception raised when a Transform is not able to resolve all of its
+    hyperparameters at fit-time.
+    """
 
 
 class FitTransform(ABC):
@@ -473,7 +476,8 @@ class FitTransform(ABC):
 
     The fit state of the transformation, as returned by {transform_class_name}'s
     ``_fit()`` method at fit-time, is available from :meth:`state()`, and this is the
-    state that will be used at apply-time.
+    state that will be used at apply-time (i.e., passed as the ``state``
+    argument of the user's ``_fit()`` method).
     """
 
     def __init__(self, transform: Transform, df_fit: pd.DataFrame, bindings=None):
@@ -607,10 +611,15 @@ class FitTransform(ABC):
 
 
 class StatelessTransform(Transform):
-    """_summary_
+    """
+    Abstract base class of Transforms that have no state to fit. ``fit()`` is a
+    null op on a ``StatelessTransform``, and the ``state()`` of its fit is
+    always ``None``. Subclasses must not implement ``_fit()``.
 
-    :param Transform: _description_
-    :type Transform: _type_
+    As a convenience, ``StatelessTransform`` has an ``apply()`` method
+    (ordinarily only the corresponding fit would). For any
+    ``StatelessTransform`` ``t``, ``t.apply(df, bindings)`` is equivalent to
+    ``t.fit(df, bindings=bindings).apply(df)``.
     """
 
     def _fit(self, df_fit: pd.DataFrame):
@@ -626,6 +635,52 @@ class StatelessTransform(Transform):
         of applying the resulting FitTransform to the given DataFrame.
         """
         return self.fit(None, bindings=bindings).apply(df_apply)
+
+
+class NonInitialConstantTransformWarning(RuntimeWarning):
+    """
+    An instance of :class:`ConstantTransform` was found to be non-initial in a
+    :class:`Pipeline`, or the user provided it with non-empty input data. This
+    is usually unintentional.
+
+    .. SEEALSO::
+        :class:`ConstantTransform`
+    """
+
+
+class ConstantTransform(StatelessTransform):
+    """
+    Abstract base class of Transforms that have no state to fit, and, at apply
+    time, produce output data that is independent of the input data.
+    Usually, a ``ConstantTransform`` is some kind of data reader or data generator.
+    Its parameters and bindings may influence its output, but it takes no input
+    data to be transformed per se.
+
+    Because it has the effect of discarding the output of all preceding
+    computations in a :class:`Pipeline`, a warning is emited
+    (:class:`NonInitialConstantTransformWarning`) whenever a
+    ``ConstantTransform`` is fit on non-empty input data, or found to be
+    non-initial in a Pipeline.
+    """
+
+    def fit(
+        self,
+        data_fit: pd.DataFrame = None,
+        bindings: Optional[dict[str, object]] = None,
+    ) -> FitTransform:
+        if data_fit is not None and not data_fit.empty:
+            warnings.warn(
+                "A ConstantTransform's fit method received non-empty input data. "
+                "Tihs is likely unintentional because that input data will be "
+                "ignored and discarded.\n"
+                f"transform={self!r}\n"
+                f"data_fit.head(5)=\n{data_fit.head(5)!r}",
+                NonInitialConstantTransformWarning,
+            )
+        return super().fit(data_fit, bindings)
+
+    # TODO: emit a similar warning from apply(), but that requires futzing with
+    # FitTransform
 
 
 @define
