@@ -331,15 +331,19 @@ class Pipeline(Transform, CallChainingMixin):
             if not isinstance(t, Transform):
                 raise TypeError(
                     "Pipeline sequence must comprise Transform instances; found "
-                    f"non-Transform {t} (type {type(t)})"
+                    f"non-Transform {t!r} (type {type(t)})"
                 )
-            # warning if a "Constant Transform" is non-initial
+            # warning if a ConstantTransform is non-initial
             if (not t_is_first) and isinstance(t, ffc.ConstantTransform):
-                warnings.warn(
+                warning_msg = (
                     f"A ConstantTransform is non-initial in a Pipeline: {t!r}. "
                     "This is likely unintentional because the output of all "
                     "preceding Transforms, once computed, will be discarded by "
-                    "the ConstantTransform.",
+                    "the ConstantTransform."
+                )
+                _LOG.warning(warning_msg)
+                warnings.warn(
+                    warning_msg,
                     ffc.NonInitialConstantTransformWarning,
                 )
             t_is_first = False

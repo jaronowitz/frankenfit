@@ -669,12 +669,16 @@ class ConstantTransform(StatelessTransform):
         bindings: Optional[dict[str, object]] = None,
     ) -> FitTransform:
         if data_fit is not None and not data_fit.empty:
-            warnings.warn(
+            warning_msg = (
                 "A ConstantTransform's fit method received non-empty input data. "
                 "Tihs is likely unintentional because that input data will be "
                 "ignored and discarded.\n"
                 f"transform={self!r}\n"
-                f"data_fit.head(5)=\n{data_fit.head(5)!r}",
+                f"data_fit.head(5)=\n{data_fit.head(5)!r}"
+            )
+            _LOG.warning(warning_msg)
+            warnings.warn(
+                warning_msg,
                 NonInitialConstantTransformWarning,
             )
         return super().fit(data_fit, bindings)
