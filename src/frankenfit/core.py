@@ -34,7 +34,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, TypeVar
 import warnings
 
 from attrs import define, field, fields_dict, Factory
@@ -42,6 +42,8 @@ import graphviz
 import pandas as pd
 
 _LOG = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 
 def is_iterable(obj):
@@ -690,34 +692,76 @@ class ConstantTransform(StatelessTransform):
 @define
 class HP:
     """
-    A transformation parameter whose concrete value is deferred until fit-time, at which
-    point its value is "resolved" by a dict of "bindings" provided to the fit() call.
-    ...
+    A hyperparameter; that is, a transformation parameter whose concrete value
+    is deferred until fit-time, at which point its value is "resolved" by a dict
+    of "bindings" provided to the :meth:`~Transform.fit()` call.
+
+    A :class:`FitTransform` cannot be created unless all of its parent
+    ``Transform``'s hyperparameters resolved to concrete values. The resolved
+    parameter set, together with the fit state, are then used by the
+    :meth:`~FitTransform.apply()` method.
+
+    Within the implementations of user-defined :meth:`~Transform._fit()` and
+    :meth:`~Transform._apply()` methods, all parameters on ``self`` have already
+    been resolved to concrete values if they were initially specified as
+    hyperparameters, and the fit-time bindings dict itself is available as
+    ``self.bindings()``.
+
+    .. NOTE::
+        The author of ``frankenfit`` has attempted to strike a balance between
+        clarity and brevity in the naming of classes and functions. ``HP`` was
+        chosen instead of ``Hyperparameter``, and similarly brief names given to
+        its subclasses, because of the anticipated frequency with which
+        hyperparameters are written into pipelines in the context of an
+        interactive research environment.
+
+    :param name: All hyperparameters have a name. By default (i.e., for instances
+        of the ``HP`` base class) this is interepreted as the key mapping to a
+        concrete value in the bindings dict.
+    :type name: ``str``
+
+    .. SEEALSO::
+        Subclasses: :class:`HPFmtStr`, :class:`HPCols`, :class:`HPLambda`,
+        :class:`HPDict`.
     """
 
     name: str
 
-    def resolve(self, bindings: dict[str, object]) -> object:
-        """_summary_
+    def resolve(self, bindings: dict[str, T]) -> T | HP:
+        """
+        Return the concrete value of this hyperparameter according to the
+        provided fit-time bindings. Exactly how the bindings determine the
+        concrete value will vary among subclasses of HP. By default, the name of
+        the hyperparam (its ``self.name``) is treated as a key in the ``bindings``
+        dict, whose value is the concrete value.
 
-        :param bindings: _description_
+        :param bindings: The fit-time bindings dictionary with respect to which
+            to resolve this hyperparameter.
         :type bindings: dict[str, object]
-        :return: _description_
+        :return: Either the concrete value, or ``self`` (i.e., the
+            still-unresolved hyperparameter) if resolution is not possible with
+            the given bindings. After ``resolve()``-ing all of its
+            hyperparameters, a the caller may check for any parameters that are
+            still HP objects to determine which, if any, hyperparameters could
+            not be resolved. The base implementation of :meth:`Transform.fit()`
+            raises an :class:`UnresolvedHyperparameterError` if any of the
+            Transform's (or its children's) hyperparameters fail to resolve.
         :rtype: object
+
+        .. SEEALSO::
+            :class:`UnresolvedHyperparameterError`, :meth:`Transform.fit`,
+            :meth:`StatelessTransform.apply`, :meth:`Pipeline.apply`.
         """
         # default: treat hp name as key into bindings
         return bindings.get(self.name, self)
 
     @staticmethod
-    def resolve_maybe(v, bindings: dict[str, object]) -> object:
-        """_summary_
-
-        :param v: _description_
-        :type v: _type_
-        :param bindings: _description_
-        :type bindings: dict[str, object]
-        :return: _description_
-        :rtype: object
+    def resolve_maybe(v: object, bindings: dict[str, T]) -> T:
+        """
+        A static utility method, that, if ``v`` is a hyperparameter (:class:`HP`
+        instance or subclass), returns the result of resolving it on the given
+        ``bindings``, otherwise returns ``v`` itself, as it must already be
+        concrete.
         """
         if isinstance(v, HP):
             return v.resolve(bindings)
