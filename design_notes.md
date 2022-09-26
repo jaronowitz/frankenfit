@@ -159,6 +159,8 @@ Take-aways:
 
 ## Constant transforms
 
+``Done.``
+
 ``DataReader``s/constant transforms should be subclasses of some
 ``ConstantTransform``, which is a ``StatelessTransform`` with special
 ``fit()``/``apply()`` implementations that warn about non-empty df args before
@@ -314,15 +316,15 @@ For the call-chain API, there are some options:
   )
 
   # or with a class method that creates new derived classes:
-  MyPipeline = ff.Pipeline.with_new_methods(my_transform=MyTransform)
+  MyPipeline = ff.Pipeline.with_methods(my_transform=MyTransform)
   (
     MyPipeline()
     ...
   )
 
-  # or inlined (assume available as an instance method, too):
+  # or inlined
   (
-    ff.Pipeline().with_new_methods(
+    ff.Pipeline(
       my_transform=MyTransform
     )
     .read_dataset(...)
