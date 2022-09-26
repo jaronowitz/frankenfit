@@ -6,35 +6,200 @@ the classes and functions defined here through the public API exposed as
 ``frankenfit.*``.
 """
 from __future__ import annotations
-from functools import partial
+from functools import partial, reduce
 import inspect
 import logging
-from logging import Logger
+import operator
 
-from typing import Callable, Optional, TextIO
-from attrs import define
+from typing import Callable, Iterable, Optional, TypeVar
+from attrs import define, field
+import numpy as np
 import pandas as pd
+from pyarrow import dataset
 
 from .core import (
     Transform,
-    columns_field,
+    FitTransform,
     StatelessTransform,
+    Identity,
+    Pipeline,
+    CallChainMixin,
     HP,
     dict_field,
     fmt_str_field,
+    DataReader,
 )
 
 _LOG = logging.getLogger(__name__)
 
 
-class Identity(StatelessTransform):
-    """
-    The stateless Transform that, at apply-time, simply returns the input data
-    unaltered.
-    """
+@define
+class ReadPandasCSV(DataReader):
+    filepath: str | HP = fmt_str_field()
+    read_csv_args: Optional[dict] = None
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return pd.read_csv(self.filepath, **(self.read_csv_args or {}))
+
+
+@define
+class WritePandasCSV(Identity):
+    path: str | HP = fmt_str_field()
+    index_label: str | HP = fmt_str_field()
+    to_csv_kwargs: Optional[dict] = None
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None):
+        df_apply.to_csv(
+            self.path, index_label=self.index_label, **(self.to_csv_kwargs or {})
+        )
         return df_apply
+
+
+@define
+class HPCols(HP):
+    """_summary_
+
+    :param HP: _description_
+    :type HP: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+
+    cols: list[str | HP]
+    name: str = None
+
+    C = TypeVar("C", bound="HPCols")
+    X = TypeVar("X", bound=str | HP | None | Iterable[str | HP])
+
+    @classmethod
+    def maybe_from_value(cls: C, x: X) -> C | X:
+        """_summary_
+
+        :param x: _description_
+        :type x: str | HP | Iterable[str  |  HP]
+        :return: _description_
+        :rtype: HPCols | HP
+        """
+        if isinstance(x, HP):
+            return x
+        if isinstance(x, str):
+            return cls([x])
+        if x is None:
+            return None
+        return cls(list(x))
+
+    def resolve(self, bindings):
+        return [
+            c.resolve(bindings)
+            if isinstance(c, HP)
+            else c.format_map(bindings)
+            if isinstance(c, str)
+            else c
+            for c in self.cols
+        ]
+
+    def __repr__(self):
+        return repr(self.cols)
+
+    def __len__(self):
+        return len(self.cols)
+
+    def __iter__(self):
+        return iter(self.cols)
+
+
+def _validate_not_empty(instance, attribute, value):
+    """
+    attrs field validator that throws a ValueError if the field value is empty.
+    """
+    if hasattr(value, "__len__"):
+        if len(value) < 1:
+            raise ValueError(f"{attribute.name} must not be empty but got {value}")
+    elif isinstance(value, HP):
+        return
+    else:
+        raise TypeError(f"{attribute.name} value has no length: {value}")
+
+
+def columns_field(**kwargs):
+    """_summary_
+
+    :return: _description_
+    :rtype: _type_
+    """
+    return field(
+        validator=_validate_not_empty, converter=HPCols.maybe_from_value, **kwargs
+    )
+
+
+def optional_columns_field(**kwargs):
+    """_summary_
+
+    :return: _description_
+    :rtype: _type_
+    """
+    return field(factory=list, converter=HPCols.maybe_from_value, **kwargs)
+
+
+@define
+class ReadDataset(DataReader):
+    paths: list[str] = columns_field()
+    format: Optional[str] = None
+    columns: list[str] = field(default=None, converter=HPCols.maybe_from_value)
+    filter: Optional[HP | dataset.Expression] = None
+    index_col: Optional[str | int] = None
+    dataset_kwargs: Optional[dict] = None
+    scanner_kwargs: Optional[dict] = None
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        ds = dataset.dataset(
+            self.paths, format=self.format, **(self.dataset_kwargs or {})
+        )
+        df_out = ds.to_table(
+            columns=self.columns, filter=self.filter, **(self.scanner_kwargs or {})
+        ).to_pandas()
+        # can we tell arrow this?
+        if self.index_col is not None:
+            df_out = df_out.set_index(self.index_col)
+        return df_out
+
+
+@define
+class Join(Transform):
+    left: Pipeline
+    right: Pipeline
+    how: str
+
+    on: Optional[str] = None
+    left_on: Optional[str] = None
+    right_on: Optional[str] = None
+    suffixes: tuple[str] = ("_x", "_y")
+
+    # TODO: more merge params like left_index etc.
+    # TODO: (when on distributed compute) context extension
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        bindings = self.bindings()
+        return (
+            self.left.fit(df_fit, bindings=bindings),
+            self.right.fit(df_fit, bindings=bindings),
+        )
+
+    def _apply(
+        self, df_apply: pd.DataFrame, state: tuple[FitTransform]
+    ) -> pd.DataFrame:
+        fit_left, fit_right = state
+        # TODO: parallelize
+        df_left, df_right = fit_left.apply(df_apply), fit_right.apply(df_apply)
+        return pd.merge(
+            left=df_left,
+            right=df_right,
+            how=self.how,
+            on=self.on,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            suffixes=self.suffixes,
+        )
 
 
 @define(slots=False)
@@ -57,6 +222,140 @@ class ColumnsTransform(Transform):
     """
 
     cols: list[str | HP] = columns_field()
+
+
+def fit_group_on_self(group_col_map):
+    """
+    The default fitting schedule for :class:`GroupBy`: for each group, the grouped-by
+    transform is fit on the data belonging to that group.
+    """
+    return lambda df: reduce(
+        operator.and_, (df[c] == v for (c, v) in group_col_map.items())
+    )
+
+
+def fit_group_on_all_other_groups(group_col_map):
+    """
+    A built-in fitting schedule for :class:`GroupBy`: for each group, the grouped-by
+    transform is fit on the data belonging to all other groups. This is similar to
+    k-fold cross-validation if the groups are viewed as folds.
+    """
+    return lambda df: reduce(
+        operator.or_, (df[c] != v for (c, v) in group_col_map.items())
+    )
+
+
+class UnfitGroupError(ValueError):
+    """Exception raised when a group-by-like transform is applied to data
+    containing groups on which it was not fit."""
+
+
+@define
+class GroupBy(Transform):
+    """
+    Group the fitting and application of a :class:`Transform` by the distinct values of
+    some column or combination of columns.
+
+    :param cols: The column(s) by which to group. ``transform`` will be fit and applied
+        separately on each subset of data with a distinct combination of values in
+        ``cols``.
+    :type cols: str | HP | list[str | HP]
+
+    :param transform: The :class:`Transform` to group.
+    :type transform: HP | Transform
+
+    :param fitting_schedule: How to determine the fitting data of each group. The
+        default schedule is :meth:`fit_group_on_self`. Use this to implement workflows
+        like cross-validation and sequential fitting.
+    :type fitting_schedule: Callable[[dict[str, object]], np.array[bool]]
+
+    .. SEEALSO::
+        :meth:`Pipeline.group_by`
+
+    """
+
+    # TODO: what about grouping by index?
+    cols: str | HP | list[str | HP] = columns_field()
+    transform: HP | Transform = field()  # type: ignore
+    # TODO: what about hyperparams in the fitting schedule? that's a thing.
+    fitting_schedule: Callable[[dict[str, object]], np.array[bool]] = field(
+        default=fit_group_on_self
+    )
+
+    def _fit(self, df_fit: pd.DataFrame) -> object:
+        bindings = self.bindings()
+
+        def fit_on_group(df_group: pd.DataFrame):
+            # select the fitting data for this group
+            group_col_map = {c: df_group[c].iloc[0] for c in self.cols}
+            df_group_fit = df_fit.loc[self.fitting_schedule(group_col_map)]
+            # fit the transform on the fitting data for this group
+            # TODO: new per-group tags for the FitTransforms? How should find_by_tag()
+            # work on FitGroupBy?
+            return self.transform.fit(df_group_fit, bindings=bindings)
+
+        return (
+            df_fit.groupby(self.cols, as_index=False, sort=False)
+            .apply(fit_on_group)
+            .rename(columns={None: "__state__"})
+        )
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        def apply_on_group(df_group: pd.DataFrame):
+            df_group_apply = df_group.drop(["__state__"], axis=1)
+            # values of __state__ ought to be identical within the group
+            group_state: FitTransform = df_group["__state__"].iloc[0]
+            if not isinstance(group_state, FitTransform):
+                # if this group was not seen at fit-time
+                raise UnfitGroupError(
+                    f"GroupBy: tried to apply to a group not seen at fit-time:\n"
+                    f"{df_group_apply[self.cols].iloc[0]}"
+                )
+                # returning untransformed group data is undesirable because
+                # corruption will silently propagate through a pipeline
+                # return df_group_apply
+            return group_state.apply(df_group_apply)
+
+        return (
+            df_apply.merge(state, how="left", on=self.cols)
+            .groupby(self.cols, as_index=False, sort=False, group_keys=False)
+            .apply(apply_on_group)
+        )
+
+
+class PipelineGrouper(CallChainMixin):
+    """
+    An intermediate "grouper" object returned by :meth:`Pipeline.group_by()` (analogous
+    to pandas ``DataFrameGroupBy`` objects), which is not a :class:`Pipeline`, but has
+    the same call-chain methods as a Pipeline, and consumes the next call to finally
+    create the :class:`GroupBy` Transform and return the result of appending that to the
+    matrix Pipeline. It enables this style of ``group_by()`` call-chaining syntax::
+
+        (
+            ff.Pipeline()
+            # ...
+            .group_by("cut")  # -> PipelineGrouper
+                .z_score(cols)  # -> Pipeline
+        )
+    """
+
+    def __init__(self, groupby_cols, pipeline_upstream, fitting_schedule):
+        self.groupby_cols = groupby_cols
+        self.pipeline_upstream = pipeline_upstream
+        self.fitting_schedule = fitting_schedule
+
+    def __repr__(self):
+        return "PipelineGrouper(%r, %r)" % (self.groupby_cols, self.pipeline_upstream)
+
+    def then(self, other: Transform | list[Transform]) -> Pipeline:
+        if isinstance(other, list):
+            other = Pipeline(other)
+        groupby = GroupBy(
+            self.groupby_cols,
+            other,
+            fitting_schedule=self.fitting_schedule,
+        )
+        return self.pipeline_upstream + groupby
 
 
 @define(slots=False)
@@ -163,47 +462,6 @@ class Rename(StatelessTransform):
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         return df_apply.rename(columns=self.how)
-
-
-@define
-class StatelessLambda(StatelessTransform):
-    apply_fun: Callable  # df[, bindings] -> df
-
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        sig = inspect.signature(self.apply_fun).parameters
-        if len(sig) == 1:
-            return self.apply_fun(df_apply)
-        elif len(sig) == 2:
-            return self.apply_fun(df_apply, self.bindings())
-        else:
-            # TODO: raise this earlier in field validator
-            raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
-
-
-@define
-class StatefulLambda(Transform):
-    fit_fun: Callable  # df[, bindings] -> state
-    apply_fun: Callable  # df, state[, bindings] -> df
-
-    def _fit(self, df_fit: pd.DataFrame) -> object:
-        sig = inspect.signature(self.fit_fun).parameters
-        if len(sig) == 1:
-            return self.fit_fun(df_fit)
-        elif len(sig) == 2:
-            return self.fit_fun(df_fit, self.bindings())
-        else:
-            # TODO: raise this earlier in field validator
-            raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
-
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        sig = inspect.signature(self.apply_fun).parameters
-        if len(sig) == 2:
-            return self.apply_fun(df_apply, state)
-        elif len(sig) == 3:
-            return self.apply_fun(df_apply, state, self.bindings())
-        else:
-            # TODO: raise this earlier in field validator
-            raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
 
 
 @define
@@ -321,81 +579,6 @@ class ZScore(WeightedTransform, ColumnsTransform):
         return df_apply.assign(
             **{c: (df_apply[c] - means[c]) / stddevs[c] for c in self.cols}
         )
-
-
-@define
-class Print(Identity):
-    """
-    An identity transform that has the side-effect of printing a message at fit- and/or
-    apply-time.
-
-    :param fit_msg: Message to print at fit-time.
-    :param apply_msg: Message to print at apply-time.
-    :param dest: File object to which to print, or the name of a file to open in append
-        mode. If ``None`` (default), print to stdout.
-    """
-
-    fit_msg: Optional[str] = None
-    apply_msg: Optional[str] = None
-    dest: Optional[TextIO | str] = None  # if str, will be opened in append mode
-
-    def _fit(self, df_fit: pd.DataFrame):
-        if self.fit_msg is None:
-            return
-        if isinstance(self.dest, str):
-            with open(self.dest, "a") as dest:
-                print(self.fit_msg, file=dest)
-        else:
-            print(self.fit_msg, file=self.dest)
-
-        # Idiomatic super() doesn't work because at call time self is a FitPrint
-        # instance, which inherits directly from FitTransform, and not from
-        # Print/Identity. Could maybe FIXME by futzing with base classes in the
-        # metaprogramming that goes on in core.py
-        # return super()._fit(df_fit)
-
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        if self.apply_msg is None:
-            return df_apply
-        if isinstance(self.dest, str):
-            with open(self.dest, "a") as dest:
-                print(self.apply_msg, file=dest)
-        else:
-            print(self.apply_msg, file=self.dest)
-        return df_apply
-        # Same issue with super() as in _fit().
-        # return super()._apply(df_apply)
-
-
-@define
-class LogMessage(Identity):
-    """
-    An identity transform that has the side-effect of logging a message at fit- and/or
-    apply-time. The message string(s) must be fully known at construction-time.
-
-    :param fit_msg: Message to log at fit-time.
-    :param apply_msg: Message to log at apply-time.
-    :param logger: Logger instance to which to log. If None (default), use
-        ``logging.getLogger("frankenfit.transforms")``
-    :param level: Level at which to log, default ``INFO``.
-    """
-
-    fit_msg: Optional[str] = None
-    apply_msg: Optional[str] = None
-    logger: Optional[Logger] = None
-    level: int = logging.INFO
-
-    def _fit(self, df_fit: pd.DataFrame):
-        if self.fit_msg is not None:
-            logger = self.logger or _LOG
-            logger.log(self.level, self.fit_msg)
-        return Identity._fit(self, df_fit)
-
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        if self.apply_msg is not None:
-            logger = self.logger or _LOG
-            logger.log(self.level, self.apply_msg)
-        return Identity._apply(self, df_apply, state=state)
 
 
 @define(slots=False)

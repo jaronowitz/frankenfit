@@ -55,18 +55,6 @@ except _PNFE:
     # package is not installed
     pass
 
-# Names:
-# - flitterbop (so glam)
-# - fitbop (too random?)
-# - fitapply
-#       fitapply.io, fitapp.ly
-# - fitbits (too similar to fitbit)
-# - fapple (too fappy)
-# - ply
-# - fapply (too fappy)
-# - getfit (too similar to getit? too generic?)
-# - aplifit
-
 from frankenfit.core import (
     UnresolvedHyperparameterError,
     Transform,
@@ -77,55 +65,61 @@ from frankenfit.core import (
     HP,
     HPFmtStr,
     HPLambda,
-    HPCols,
+    #    HPCols,
     HPDict,
-    columns_field,
+    #    columns_field,
     fmt_str_field,
     dict_field,
 )
 
-from frankenfit.transforms import (
+from frankenfit.universal_transforms import (
     Identity,
-    ColumnsTransform,
-    WeightedTransform,
-    Copy,
-    Select,
-    Rename,
-    Drop,
-    StatelessLambda,
-    StatefulLambda,
-    Pipe,
-    Clip,
-    Winsorize,
-    ImputeConstant,
-    ImputeMean,
-    DeMean,
-    ZScore,
-    Print,
-    LogMessage,
-    SKLearn,
-    Statsmodels,
-    Correlation,
-    Assign,
-)
-
-from frankenfit.graph import (
-    Pipeline,
+    GroupByBindings,
     IfHyperparamIsTrue,
     IfHyperparamLambda,
     IfTrainingDataHasProperty,
-    Join,
-    GroupBy,
-    UnfitGroupError,
-    PipelineGrouper,
-    fit_group_on_self,
-    fit_group_on_all_other_groups,
+    #    ColumnsTransform,
+    #    WeightedTransform,
+    #    Copy,
+    #    Select,
+    #    Rename,
+    #    Drop,
+    StatelessLambda,
+    StatefulLambda,
+    #    Pipe,
+    #    Clip,
+    #    Winsorize,
+    #    ImputeConstant,
+    #    ImputeMean,
+    #    DeMean,
+    #    ZScore,
+    Print,
+    LogMessage,
+    #    SKLearn,
+    #    Statsmodels,
+    #    Correlation,
+    #    Assign,
 )
 
-from frankenfit.io import (
-    DataReader,
-    ReadDataFrame,
-    ReadPandasCSV,
-    WritePandasCSV,
-    ReadDataset,
-)
+#
+# from frankenfit.graph import (
+#     Pipeline,
+#     IfHyperparamIsTrue,
+#     IfHyperparamLambda,
+#     IfTrainingDataHasProperty,
+#     Join,
+#     GroupBy,
+#     UnfitGroupError,
+#     PipelineGrouper,
+#     fit_group_on_self,
+#     fit_group_on_all_other_groups,
+# )
+#
+# from frankenfit.io import (
+#     DataReader,
+#     ReadDataFrame,
+#     ReadPandasCSV,
+#     WritePandasCSV,
+#     ReadDataset,
+# )
+#
