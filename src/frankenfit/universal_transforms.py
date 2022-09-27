@@ -32,16 +32,37 @@ import logging
 from attrs import define
 import pandas as pd
 
-from typing import Callable, Optional, TextIO
+from typing import Callable, Optional, TextIO, TypeVar
 
 from . import core as ffc
-from .core import Transform, StatelessTransform, Identity
+from .core import Transform, StatelessTransform, BasePipeline
 
 _LOG = logging.getLogger(__name__)
 
+U = TypeVar("U", bound="UniversalTransform")
+
 
 @define
-class IfHyperparamIsTrue(Transform):
+class UniversalTransform(Transform):
+    def then(
+        self: UniversalTransform, other: Transform | list[Transform]
+    ) -> "Pipeline":
+        result = super().then(other)
+        return Pipeline(tag=self.tag, transforms=result.transforms)
+
+
+class Identity(StatelessTransform, UniversalTransform):
+    """
+    The stateless Transform that, at apply-time, simply returns the input data
+    unaltered.
+    """
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None):
+        return df_apply
+
+
+@define
+class IfHyperparamIsTrue(UniversalTransform):
     name: str
     then: Transform
     otherwise: Optional[Transform] = None
@@ -78,7 +99,7 @@ class IfHyperparamIsTrue(Transform):
 
 
 @define
-class IfHyperparamLambda(Transform):
+class IfHyperparamLambda(UniversalTransform):
     fun: Callable  # dict[str, object] -> bool
     then: Transform
     otherwise: Optional[Transform] = None
@@ -112,7 +133,7 @@ class IfHyperparamLambda(Transform):
 
 
 @define
-class IfTrainingDataHasProperty(Transform):
+class IfTrainingDataHasProperty(UniversalTransform):
     fun: Callable  # df -> bool
     then: Transform
     otherwise: Optional[Transform] = None
@@ -137,7 +158,7 @@ class IfTrainingDataHasProperty(Transform):
 
 
 @define
-class GroupByBindings(ffc.Transform):
+class GroupByBindings(UniversalTransform):
     bindings_sequence: iter[dict]
     transform: ffc.Transform
     include_binding: bool = True
@@ -164,7 +185,7 @@ class GroupByBindings(ffc.Transform):
 
 
 @define
-class StatelessLambda(StatelessTransform):
+class StatelessLambda(StatelessTransform, UniversalTransform):
     apply_fun: Callable  # df[, bindings] -> df
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
@@ -179,7 +200,7 @@ class StatelessLambda(StatelessTransform):
 
 
 @define
-class StatefulLambda(Transform):
+class StatefulLambda(UniversalTransform):
     fit_fun: Callable  # df[, bindings] -> state
     apply_fun: Callable  # df, state[, bindings] -> df
 
@@ -277,3 +298,21 @@ class LogMessage(Identity):
             logger = self.logger or _LOG
             logger.log(self.level, self.apply_msg)
         return Identity._apply(self, df_apply, state=state)
+
+
+class Pipeline(
+    BasePipeline.with_methods(
+        identity=Identity,
+        if_hyperparam_is_true=IfHyperparamIsTrue,
+        if_hyperparam_lambda=IfHyperparamLambda,
+        if_training_data_has_property=IfTrainingDataHasProperty,
+        stateless_lambda=StatelessLambda,
+        stateful_lambda=StatefulLambda,
+        print=Print,
+        log_message=LogMessage,
+    )
+):
+    pass
+
+
+# UniversalTransform.pipeline_type = Pipeline

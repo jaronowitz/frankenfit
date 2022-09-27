@@ -27,6 +27,9 @@ def test_Identity(diamonds_df):
     d2 = ff.Identity().apply(diamonds_df)
     assert d2.equals(diamonds_df)
 
+    result = (ff.Identity() + ff.Identity()).apply(diamonds_df)
+    assert result.equals(diamonds_df)
+
 
 def test_Transform(diamonds_df):
     class DeMean(ff.ColumnsTransform):

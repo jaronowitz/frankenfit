@@ -45,6 +45,8 @@ import pandas as pd
 _LOG = logging.getLogger(__name__)
 
 T = TypeVar("T")
+P = TypeVar("P", bound="BasePipeline")
+R = TypeVar("R", bound="Transform")
 
 
 def is_iterable(obj):
@@ -167,8 +169,6 @@ class Transform(ABC):
 
     # Note the following are regular attributes, NOT managed by attrs
 
-    is_constant = False
-
     tag: str = field(
         init=True,
         eq=False,
@@ -187,11 +187,6 @@ class Transform(ABC):
 
     :type: ``str``
     """
-
-    # def __attrs_post_init__(self):
-    #     class_name = self.__class__.__qualname__
-    #     node_id = str(_next_id_num(class_name))
-    #     self.tag = f"{class_name}#{node_id}"
 
     @abstractmethod
     def _fit(self, df_fit: pd.DataFrame) -> object:
@@ -332,6 +327,19 @@ class Transform(ABC):
                         sub_transform_results |= x.hyperparams()
 
         return (sd.keys_checked or set()) | sub_transform_results
+
+    def then(self: Transform, other: Transform | list[Transform]) -> BasePipeline:
+        if isinstance(other, list):
+            transforms = [self] + other
+        elif isinstance(other, Transform):
+            transforms = [self, other]
+        else:
+            raise TypeError(f"then(): other must be Transform or list, got: {other!r}")
+
+        return BasePipeline(tag=self.tag, transforms=transforms)
+
+    def __add__(self, other):
+        return self.then(other)
 
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
         # out of the box, handle three common cases:
@@ -662,16 +670,6 @@ class StatelessTransform(Transform):
         return self.fit(None, bindings=bindings).apply(df_apply)
 
 
-class Identity(StatelessTransform):
-    """
-    The stateless Transform that, at apply-time, simply returns the input data
-    unaltered.
-    """
-
-    def _apply(self, df_apply: pd.DataFrame, state: object = None):
-        return df_apply
-
-
 class NonInitialConstantTransformWarning(RuntimeWarning):
     """
     An instance of :class:`ConstantTransform` was found to be non-initial in a
@@ -720,6 +718,20 @@ class ConstantTransform(StatelessTransform):
 
     # TODO: emit a similar warning from apply(), but that requires futzing with
     # FitTransform
+
+
+# A DataReader is nothing more than a constant, stateless transform, duh.
+@define
+class DataReader(ConstantTransform):
+    pass
+
+
+@define
+class ReadDataFrame(DataReader):
+    df: pd.DataFrame
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return self.df
 
 
 @define
@@ -938,8 +950,8 @@ def dict_field(**kwargs):
 
 def method_wrapping_transform(
     class_qualname: str, method_name: str, transform_class: type
-) -> Callable[..., Pipeline]:
-    def method_impl(self, *args, **kwargs) -> Pipeline:
+) -> Callable[..., BasePipeline]:
+    def method_impl(self, *args, **kwargs) -> BasePipeline:
         return self + transform_class(*args, **kwargs)
 
     method_impl.__annotations__.update(
@@ -967,17 +979,27 @@ def method_wrapping_transform(
 
 
 def _convert_pipeline_transforms(value):
-    # "coalesce" Pipelines
-    if isinstance(value, Pipeline):
-        return list(value.transforms)
+    result = []
+    if isinstance(value, BasePipeline):
+        # "coalesce" Pipelines
+        tf_seq = value.transforms
+    elif isinstance(value, Transform):
+        tf_seq = [value]
+    elif value is None:
+        tf_seq = []
+    else:
+        tf_seq = list(value)
 
-    if isinstance(value, list) and len(value) == 1 and isinstance(value[0], Pipeline):
-        return list(value[0].transforms)
+    for tf_elem in tf_seq:
+        if isinstance(tf_elem, BasePipeline):
+            # "coalesce" Pipelines
+            result.extend(tf_elem.transforms)
+        elif isinstance(tf_elem, Transform):
+            result.append(tf_elem)
+        else:
+            raise TypeError(f"Pipeline cannot contain a non-Transform: {value!r}")
 
-    if isinstance(value, Transform):
-        return [value]
-
-    return list(value)
+    return result
 
 
 _pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeline")
@@ -991,7 +1013,7 @@ class CallChainMixin(ABC):
     """
 
     @abstractmethod
-    def then(self, other: Transform | list[Transform]) -> Pipeline:
+    def then(self, other: Transform | list[Transform]) -> BasePipeline:
         """
         Return the result of appending the given :class:`Transform` to the current
         call-chaining object.
@@ -1052,7 +1074,41 @@ class CallChainMixin(ABC):
 
 
 @define
-class Pipeline(Transform, CallChainMixin):
+class BasePipeline(Transform):
+    @classmethod
+    def with_methods(cls: type, **kwargs) -> type:
+        subclass_name = f"{cls.__name__}WithMethods"
+
+        class Subclass(cls):
+            pass
+
+        Subclass.__name__ = subclass_name
+        qualname_parts = Subclass.__qualname__.split(".")
+        qualname_parts[-1] = subclass_name
+        subclass_qualname = ".".join(qualname_parts)
+        Subclass.__qualname__ = subclass_qualname
+
+        caller_globals = inspect.stack()[1][0].f_globals
+
+        for method_name, transform_class_or_name in kwargs.items():
+            if isinstance(transform_class_or_name, str):
+                # string names a class *in the caller's globals at method call-time*
+                def transform_class(*args, **kwargs):
+                    return caller_globals[transform_class_or_name](*args, **kwargs)
+
+            else:
+                transform_class = transform_class_or_name
+
+            setattr(
+                Subclass,
+                method_name,
+                method_wrapping_transform(
+                    Subclass.__qualname__, method_name, transform_class
+                ),
+            )
+            # TODO: grouper methods!
+
+        return Subclass
 
     transforms: list[Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
@@ -1081,6 +1137,9 @@ class Pipeline(Transform, CallChainMixin):
                     NonInitialConstantTransformWarning,
                 )
             t_is_first = False
+
+    def __init__(self, tag=None, transforms=None):
+        self.__attrs_init__(tag=tag, transforms=transforms)
 
     def _fit(self, df_fit: pd.DataFrame) -> object:
         fit_transforms = []
@@ -1124,7 +1183,7 @@ class Pipeline(Transform, CallChainMixin):
             data_fit = ft.apply(data_fit)
         return data_fit
 
-    def then(self, other: Transform | list[Transform]) -> Pipeline:
+    def then(self: P, other: Transform | list[Transform]) -> P:
         """
         Return the result of appending the given :class:`Transform` instance(s) to this
         :class:`Pipeline`. The addition operator on Pipeline objects is an alias for
@@ -1184,7 +1243,7 @@ class Pipeline(Transform, CallChainMixin):
             ``Transform``\\ s.
         :rtype: :class:`Pipeline`
         """
-        if isinstance(other, Pipeline):
+        if isinstance(other, BasePipeline):
             # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
         elif isinstance(other, Transform):
@@ -1196,7 +1255,7 @@ class Pipeline(Transform, CallChainMixin):
                 f"I don't know how to extend a Pipeline with {other}, which is of "
                 f"type {type(other)}, bases = {type(other).__bases__}. "
             )
-        return Pipeline(transforms=transforms)
+        return self.__class__(tag=self.tag, transforms=transforms)
 
     # def join(
     #     self, right, how, on=None, left_on=None, right_on=None, suffixes=("_x", "_y")
@@ -1270,17 +1329,3 @@ class Pipeline(Transform, CallChainMixin):
 
 
 # Pipeline.join.__doc__ = Pipeline.join.__doc__.format(join_docs=Join.__doc__)
-
-
-# A DataReader is nothing more than a constant, stateless transform, duh.
-@define
-class DataReader(ConstantTransform):
-    pass
-
-
-@define
-class ReadDataFrame(DataReader):
-    df: pd.DataFrame
-
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return self.df

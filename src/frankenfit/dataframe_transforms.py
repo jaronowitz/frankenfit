@@ -21,8 +21,6 @@ from .core import (
     Transform,
     FitTransform,
     StatelessTransform,
-    Identity,
-    Pipeline,
     CallChainMixin,
     HP,
     dict_field,
@@ -30,7 +28,21 @@ from .core import (
     DataReader,
 )
 
+from .universal_transforms import (
+    Pipeline,
+    Identity,
+)
+
 _LOG = logging.getLogger(__name__)
+
+
+@define
+class DataFrameTransform(Transform):
+    def then(
+        self: DataFrameTransform, other: Transform | list[Transform]
+    ) -> "DataFramePipeline":
+        result = super().then(other)
+        return DataFramePipeline(tag=self.tag, transforms=result.transforms)
 
 
 @define
@@ -741,3 +753,12 @@ class Assign(StatelessTransform):
                     )
 
         return df_apply.assign(**kwargs)
+
+
+class DataFramePipeline(
+    Pipeline.with_methods(
+        select=Select,
+        __getitem__=Select,
+    )
+):
+    pass
