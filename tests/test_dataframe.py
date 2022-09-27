@@ -204,6 +204,7 @@ def test_ZScore(diamonds_df):
     )
 
 
+@pytest.mark.skip(reason="pending refactor")
 def test_Join(diamonds_df):
     diamonds_df = diamonds_df.assign(diamond_id=diamonds_df.index)
     xyz_df = diamonds_df[["diamond_id", "x", "y", "z"]]
@@ -340,6 +341,7 @@ def test_complex_pipeline_1(diamonds_df):
     # TODO: test more stuff with this pipeline
 
 
+@pytest.mark.skip(reason="pending refactor")
 def test_GroupBy(diamonds_df):
     df: pd.DataFrame = diamonds_df.reset_index().drop(["index"], axis=1)
     target = df.groupby("cut", as_index=False, sort=False).apply(len)
