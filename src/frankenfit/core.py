@@ -40,12 +40,11 @@ import warnings
 
 from attrs import define, field, fields_dict, Factory
 import graphviz
-import pandas as pd
 
 _LOG = logging.getLogger(__name__)
 
 T = TypeVar("T")
-P = TypeVar("P", bound="BasePipeline")
+P = TypeVar("P", bound="ObjectPipeline")
 R = TypeVar("R", bound="Transform")
 
 
@@ -189,7 +188,7 @@ class Transform(ABC):
     """
 
     @abstractmethod
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: object) -> object:
         """
         Implements subclass-specific fitting logic.
 
@@ -221,7 +220,7 @@ class Transform(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: object = None) -> object:
         """
         Implements subclass-specific logic to apply the tansformation after being fit.
 
@@ -241,7 +240,7 @@ class Transform(ABC):
         """
         raise NotImplementedError
 
-    def find_by_tag(self, tag: str):
+    def find_by_tag(self, tag: str) -> Transform:
         # base implementation checks params that are transforms or iterables of
         # transforms. Subclasses should override if they have other ways of keeping
         # child transforms.
@@ -266,7 +265,7 @@ class Transform(ABC):
 
     def fit(
         self,
-        data_fit: pd.DataFrame = None,
+        data_fit: object = None,
         bindings: Optional[dict[str, object]] = None,
     ) -> FitTransform:
         """
@@ -282,8 +281,6 @@ class Transform(ABC):
         :return: _description_
         :rtype: FitTransform
         """
-        if data_fit is None:
-            data_fit = pd.DataFrame()
         fit_class: FitTransform = getattr(self, self._fit_class_name)
         return fit_class(self, data_fit, bindings)
 
@@ -328,7 +325,11 @@ class Transform(ABC):
 
         return (sd.keys_checked or set()) | sub_transform_results
 
-    def then(self: Transform, other: Transform | list[Transform]) -> BasePipeline:
+    def then(
+        self: Transform, other: Optional[Transform | list[Transform]] = None
+    ) -> ObjectPipeline:
+        if other is None:
+            transforms = [self]
         if isinstance(other, list):
             transforms = [self] + other
         elif isinstance(other, Transform):
@@ -336,9 +337,9 @@ class Transform(ABC):
         else:
             raise TypeError(f"then(): other must be Transform or list, got: {other!r}")
 
-        return BasePipeline(tag=self.tag, transforms=transforms)
+        return ObjectPipeline(transforms=transforms)
 
-    def __add__(self, other):
+    def __add__(self, other: Optional[Transform | list[Transform]]):
         return self.then(other)
 
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
@@ -435,11 +436,15 @@ class Transform(ABC):
         self._visualize(digraph, ("lightgrey", "white"))
         return digraph
 
+    @classmethod
     def __init_subclass__(cls, /, no_magic=False, **kwargs):
         """
         Implements black magic to help with writing Transform subclasses.
         """
         super().__init_subclass__(**kwargs)
+
+        super_cls = super().__self__
+        print(dir(super_cls))
         if no_magic:
             return
 
@@ -469,6 +474,11 @@ class Transform(ABC):
         cls.fit.__annotations__["return"] = fit_class.__qualname__
         setattr(cls, fit_class_name, fit_class)
         cls._fit_class_name = fit_class_name
+
+        # TODO: clean up trail of inner classes left behind. E.g.,
+        # DataFramePipeline has extraneous inner classes: FitObjectPipeline,
+        # FitPipeline, FitSubclass. Identity has extraneous inner classes:
+        # FitUniversalTransform, FitStatelessTransform
 
 
 class SentinelDict(dict):
@@ -511,7 +521,7 @@ class FitTransform(ABC):
     argument of the user's ``_fit()`` method).
     """
 
-    def __init__(self, transform: Transform, df_fit: pd.DataFrame, bindings=None):
+    def __init__(self, transform: Transform, data_fit: object, bindings=None):
         "Docstr for FitTransform.__init__"
         bindings = bindings or {}
         self._field_names = transform.params()
@@ -525,16 +535,15 @@ class FitTransform(ABC):
         # freak out if any hyperparameters failed to bind
         self._check_hyperparams()
 
-        # materialize data for user _fit function.
-        df_fit = df_fit
-        self.__nrows = len(df_fit)
-        # but also keep the original collection around (temporarily) in case the user
-        # _fit function wants it
-        _LOG.debug(
-            "Fitting %s on %d rows: %r", self.__class__.__name__, len(df_fit), self
-        )
+        # TODO: move into DataFrameTransform.fit()
+        # self.__nrows = len(data_fit)
+        # # but also keep the original collection around (temporarily) in case the user
+        # # _fit function wants it
+        # _LOG.debug(
+        #     "Fitting %s on %d rows: %r", self.__class__.__name__, len(data_fit), self
+        # )
         # run user _fit function
-        self.__state = transform._fit.__func__(self, df_fit)
+        self.__state = transform._fit.__func__(self, data_fit)
 
     def _check_hyperparams(self):
         unresolved = []
@@ -559,25 +568,24 @@ class FitTransform(ABC):
         return f"{self.__class__.__name__}({data_str})"
 
     @abstractmethod
-    def _apply(self, df_apply: pd.DataFrame, state=None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state=None) -> object:
         raise NotImplementedError
 
-    def apply(self, df_apply: pd.DataFrame = None) -> pd.DataFrame:
+    def apply(self, data_apply: object = None) -> object:
         """
         Return the result of applying this fit Transform to the given DataFrame.
         """
         # materialize data for user _apply function.
-        if df_apply is None:
-            df_apply = pd.DataFrame()
-        # but also keep the original collection around (temporarily) in case the user
-        # _apply function wants it
-        _LOG.debug(
-            "Applying %s to %d rows: %r",
-            self.__class__.__qualname__,
-            len(df_apply),
-            self,
-        )
-        result = self._apply(df_apply, state=self.__state)
+        # TODO: move to FitDataFrame.apply()?
+        # if data_apply is None:
+        #     data_apply = pd.DataFrame()
+        # _LOG.debug(
+        #     "Applying %s to %d rows: %r",
+        #     self.__class__.__qualname__,
+        #     len(data_apply),
+        #     self,
+        # )
+        result = self._apply(data_apply, state=self.__state)
         return result
 
     # TODO: refit()
@@ -655,19 +663,19 @@ class StatelessTransform(Transform):
     ``t.fit(df, bindings=bindings).apply(df)``.
     """
 
-    def _fit(self, df_fit: pd.DataFrame):
+    def _fit(self, data_fit: object):
         return None
 
     def apply(
-        self, df_apply: pd.DataFrame = None, bindings: dict[str, object] = None
-    ) -> pd.DataFrame:
+        self, data_apply: object = None, bindings: dict[str, object] = None
+    ) -> object:
         """
         Convenience function allowing one to apply a StatelessTransform without an
         explicit preceding call to fit. Implemented by calling fit() on no data (but
         with optional hyperparameter bindings as provided) and then returning the result
-        of applying the resulting FitTransform to the given DataFrame.
+        of applying the resulting FitTransform to the given object.
         """
-        return self.fit(None, bindings=bindings).apply(df_apply)
+        return self.fit(None, bindings=bindings).apply(data_apply)
 
 
 class NonInitialConstantTransformWarning(RuntimeWarning):
@@ -698,16 +706,16 @@ class ConstantTransform(StatelessTransform):
 
     def fit(
         self,
-        data_fit: pd.DataFrame = None,
+        data_fit: object = None,
         bindings: Optional[dict[str, object]] = None,
     ) -> FitTransform:
-        if data_fit is not None and not data_fit.empty:
+        if data_fit is not None:
             warning_msg = (
                 "A ConstantTransform's fit method received non-empty input data. "
                 "Tihs is likely unintentional because that input data will be "
                 "ignored and discarded.\n"
                 f"transform={self!r}\n"
-                f"data_fit.head(5)=\n{data_fit.head(5)!r}"
+                f"data_fit=\n{data_fit!r}"
             )
             _LOG.warning(warning_msg)
             warnings.warn(
@@ -724,14 +732,6 @@ class ConstantTransform(StatelessTransform):
 @define
 class DataReader(ConstantTransform):
     pass
-
-
-@define
-class ReadDataFrame(DataReader):
-    df: pd.DataFrame
-
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return self.df
 
 
 @define
@@ -950,8 +950,8 @@ def dict_field(**kwargs):
 
 def method_wrapping_transform(
     class_qualname: str, method_name: str, transform_class: type
-) -> Callable[..., BasePipeline]:
-    def method_impl(self, *args, **kwargs) -> BasePipeline:
+) -> Callable[..., ObjectPipeline]:
+    def method_impl(self, *args, **kwargs) -> ObjectPipeline:
         return self + transform_class(*args, **kwargs)
 
     method_impl.__annotations__.update(
@@ -980,7 +980,7 @@ def method_wrapping_transform(
 
 def _convert_pipeline_transforms(value):
     result = []
-    if isinstance(value, BasePipeline):
+    if isinstance(value, ObjectPipeline):
         # "coalesce" Pipelines
         tf_seq = value.transforms
     elif isinstance(value, Transform):
@@ -991,7 +991,7 @@ def _convert_pipeline_transforms(value):
         tf_seq = list(value)
 
     for tf_elem in tf_seq:
-        if isinstance(tf_elem, BasePipeline):
+        if isinstance(tf_elem, ObjectPipeline):
             # "coalesce" Pipelines
             result.extend(tf_elem.transforms)
         elif isinstance(tf_elem, Transform):
@@ -1005,76 +1005,79 @@ def _convert_pipeline_transforms(value):
 _pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeline")
 
 
-class CallChainMixin(ABC):
-    """
-    Abstract base class used internally to implement Frankenfit classes that provide a
-    standardized call-chaining API, e.g. :class:`Pipeline` and :class:`PipelineGrouper`.
-    Concrete subclasses must implement :meth:`then()`.
-    """
-
-    @abstractmethod
-    def then(self, other: Transform | list[Transform]) -> BasePipeline:
-        """
-        Return the result of appending the given :class:`Transform` to the current
-        call-chaining object.
-        """
-        raise NotImplementedError
-
-    def __add__(self, other):
-        return self.then(other)
-
-    ####################
-    # call-chaining API:
-
-    # copy = _pipeline_method_wrapping_transform("copy", fft.Copy)
-    # select = _pipeline_method_wrapping_transform("select", fft.Select)
-    # __getitem__ = select
-    # rename = _pipeline_method_wrapping_transform("rename", fft.Rename)
-    # drop = _pipeline_method_wrapping_transform("drop", fft.Drop)
-    # stateless_lambda = _pipeline_method_wrapping_transform(
-    #     "stateless_lambda", fft.StatelessLambda
-    # )
-    # stateful_lambda = _pipeline_method_wrapping_transform(
-    #     "stateful_lambda", fft.StatefulLambda
-    # )
-    # pipe = _pipeline_method_wrapping_transform("pipe", fft.Pipe)
-    # clip = _pipeline_method_wrapping_transform("clip", fft.Clip)
-    # winsorize = _pipeline_method_wrapping_transform("winsorize", fft.Winsorize)
-    # impute_constant = _pipeline_method_wrapping_transform(
-    #     "impute_constant", fft.ImputeConstant
-    # )
-    # impute_mean = _pipeline_method_wrapping_transform("impute_mean", fft.ImputeMean)
-    # de_mean = _pipeline_method_wrapping_transform("de_mean", fft.DeMean)
-    # z_score = _pipeline_method_wrapping_transform("z_score", fft.ZScore)
-    # print = _pipeline_method_wrapping_transform("print", fft.Print)
-    # log_message = _pipeline_method_wrapping_transform("log_message", fft.LogMessage)
-
-    # if_hyperparam_is_true = _pipeline_method_wrapping_transform(
-    #     "if_hyperparam_is_true", IfHyperparamIsTrue
-    # )
-    # if_hyperparam_lambda = _pipeline_method_wrapping_transform(
-    #     "if_hyperparam_lambda", IfHyperparamLambda
-    # )
-    # if_training_data_has_property = _pipeline_method_wrapping_transform(
-    #     "if_training_data_has_property", IfTrainingDataHasProperty
-    # )
-
-    # sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
-    # statsmodels = _pipeline_method_wrapping_transform("statsmodels", fft.Statsmodels)
-    # correlation = _pipeline_method_wrapping_transform("correlation", fft.Correlation)
-    # read_pandas_csv = _pipeline_method_wrapping_transform(
-    #     "read_pandas_csv", ffio.ReadPandasCSV
-    # )
-    # read_dataset = _pipeline_method_wrapping_transform("read_dataset",
-    # ffio.ReadDataset)
-    # read_data_frame = _pipeline_method_wrapping_transform(
-    #     "read_data_frame", ffio.ReadDataFrame
-    # )
-    # assign = _pipeline_method_wrapping_transform("assign", fft.Assign)
+# class CallChainMixin(ABC):
+#     """
+#     Abstract base class used internally to implement Frankenfit classes that provide a
+#     standardized call-chaining API, e.g. :class:`Pipeline` and
+#     :class:`PipelineGrouper`.
+#     Concrete subclasses must implement :meth:`then()`.
+#     """
+#
+#     @abstractmethod
+#     def then(self, other: Transform | list[Transform]) -> ObjectPipeline:
+#         """
+#         Return the result of appending the given :class:`Transform` to the current
+#         call-chaining object.
+#         """
+#         raise NotImplementedError
+#
+#     def __add__(self, other):
+#         return self.then(other)
+#
+#     ####################
+#     # call-chaining API:
+#
+#     # copy = _pipeline_method_wrapping_transform("copy", fft.Copy)
+#     # select = _pipeline_method_wrapping_transform("select", fft.Select)
+#     # __getitem__ = select
+#     # rename = _pipeline_method_wrapping_transform("rename", fft.Rename)
+#     # drop = _pipeline_method_wrapping_transform("drop", fft.Drop)
+#     # stateless_lambda = _pipeline_method_wrapping_transform(
+#     #     "stateless_lambda", fft.StatelessLambda
+#     # )
+#     # stateful_lambda = _pipeline_method_wrapping_transform(
+#     #     "stateful_lambda", fft.StatefulLambda
+#     # )
+#     # pipe = _pipeline_method_wrapping_transform("pipe", fft.Pipe)
+#     # clip = _pipeline_method_wrapping_transform("clip", fft.Clip)
+#     # winsorize = _pipeline_method_wrapping_transform("winsorize", fft.Winsorize)
+#     # impute_constant = _pipeline_method_wrapping_transform(
+#     #     "impute_constant", fft.ImputeConstant
+#     # )
+#     # impute_mean = _pipeline_method_wrapping_transform("impute_mean", fft.ImputeMean)
+#     # de_mean = _pipeline_method_wrapping_transform("de_mean", fft.DeMean)
+#     # z_score = _pipeline_method_wrapping_transform("z_score", fft.ZScore)
+#     # print = _pipeline_method_wrapping_transform("print", fft.Print)
+#     # log_message = _pipeline_method_wrapping_transform("log_message", fft.LogMessage)
+#
+#     # if_hyperparam_is_true = _pipeline_method_wrapping_transform(
+#     #     "if_hyperparam_is_true", IfHyperparamIsTrue
+#     # )
+#     # if_hyperparam_lambda = _pipeline_method_wrapping_transform(
+#     #     "if_hyperparam_lambda", IfHyperparamLambda
+#     # )
+#     # if_training_data_has_property = _pipeline_method_wrapping_transform(
+#     #     "if_training_data_has_property", IfTrainingDataHasProperty
+#     # )
+#
+#     # sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
+#     # statsmodels = _pipeline_method_wrapping_transform("statsmodels",
+#     fft.Statsmodels)
+#     # correlation = _pipeline_method_wrapping_transform(
+# "correlation", fft.Correlation)
+#     # read_pandas_csv = _pipeline_method_wrapping_transform(
+#     #     "read_pandas_csv", ffio.ReadPandasCSV
+#     # )
+#     # read_dataset = _pipeline_method_wrapping_transform("read_dataset",
+#     # ffio.ReadDataset)
+#     # read_data_frame = _pipeline_method_wrapping_transform(
+#     #     "read_data_frame", ffio.ReadDataFrame
+#     # )
+#     # assign = _pipeline_method_wrapping_transform("assign", fft.Assign)
 
 
 @define
-class BasePipeline(Transform):
+class ObjectPipeline(Transform):
     @classmethod
     def with_methods(cls: type, **kwargs) -> type:
         subclass_name = f"{cls.__name__}WithMethods"
@@ -1108,6 +1111,9 @@ class BasePipeline(Transform):
             )
             # TODO: grouper methods!
 
+        # TODO: clean up trail of inner classes left behind. E.g.,
+        # DataFramePipeline has extraneous inner classes: FitObjectPipeline,
+        # FitPipeline, FitSubclass
         return Subclass
 
     transforms: list[Transform] = field(
@@ -1141,17 +1147,17 @@ class BasePipeline(Transform):
     def __init__(self, tag=None, transforms=None):
         self.__attrs_init__(tag=tag, transforms=transforms)
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: object) -> object:
         fit_transforms = []
         bindings = self.bindings()
         for t in self.transforms:
-            ft = t.fit(df_fit, bindings=bindings)
-            df_fit = ft.apply(df_fit)
+            ft = t.fit(data_fit, bindings=bindings)
+            data_fit = ft.apply(data_fit)
             fit_transforms.append(ft)
         return fit_transforms
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        df = df_apply
+    def _apply(self, data_apply: object, state: object = None) -> object:
+        df = data_apply
         for fit_transform in state:
             df = fit_transform.apply(df)
         return df
@@ -1161,9 +1167,9 @@ class BasePipeline(Transform):
 
     def apply(
         self,
-        data_fit: Optional[pd.DataFrame] = None,
+        data_fit: Optional[object] = None,
         bindings: Optional[dict[str, object]] = None,
-    ) -> pd.DataFrame:
+    ) -> object:
         """
         An efficient alternative to ``self.fit(df).apply(df)`` specific to
         :class:`Pipeline` objects. When the fit-time data and apply-time data are
@@ -1183,7 +1189,7 @@ class BasePipeline(Transform):
             data_fit = ft.apply(data_fit)
         return data_fit
 
-    def then(self: P, other: Transform | list[Transform]) -> P:
+    def then(self: P, other: Optional[Transform | list[Transform]] = None) -> P:
         """
         Return the result of appending the given :class:`Transform` instance(s) to this
         :class:`Pipeline`. The addition operator on Pipeline objects is an alias for
@@ -1243,7 +1249,9 @@ class BasePipeline(Transform):
             ``Transform``\\ s.
         :rtype: :class:`Pipeline`
         """
-        if isinstance(other, BasePipeline):
+        if other is None:
+            transforms = self.transforms
+        if isinstance(other, ObjectPipeline):
             # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
         elif isinstance(other, Transform):

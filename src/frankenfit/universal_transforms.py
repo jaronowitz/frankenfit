@@ -35,17 +35,18 @@ import pandas as pd
 from typing import Callable, Optional, TextIO, TypeVar
 
 from . import core as ffc
-from .core import Transform, StatelessTransform, BasePipeline
+from .core import Transform, StatelessTransform, ObjectPipeline
 
 _LOG = logging.getLogger(__name__)
 
 U = TypeVar("U", bound="UniversalTransform")
+Obj = TypeVar("Obj")
 
 
 @define
 class UniversalTransform(Transform):
     def then(
-        self: UniversalTransform, other: Transform | list[Transform]
+        self: UniversalTransform, other: Optional[Transform | list[Transform]] = None
     ) -> "Pipeline":
         result = super().then(other)
         return Pipeline(tag=self.tag, transforms=result.transforms)
@@ -57,8 +58,8 @@ class Identity(StatelessTransform, UniversalTransform):
     unaltered.
     """
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None):
-        return df_apply
+    def _apply(self, data_apply: Obj, state: object = None) -> Obj:
+        return data_apply
 
 
 @define
@@ -68,7 +69,7 @@ class IfHyperparamIsTrue(UniversalTransform):
     otherwise: Optional[Transform] = None
     allow_unresolved: Optional[bool] = False
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: object) -> object:
         bindings = self.bindings()
         if (not self.allow_unresolved) and self.name not in bindings:
             raise ffc.UnresolvedHyperparameterError(
@@ -76,15 +77,15 @@ class IfHyperparamIsTrue(UniversalTransform):
                 "allow_unresolved is False"
             )
         if bindings.get(self.name):
-            return self.then.fit(df_fit, bindings=bindings)
+            return self.then.fit(data_fit, bindings=bindings)
         elif self.otherwise is not None:
-            return self.otherwise.fit(df_fit, bindings=bindings)
+            return self.otherwise.fit(data_fit, bindings=bindings)
         return None  # act like Identity
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: object = None) -> object:
         if state is not None:
-            return state.apply(df_apply)
-        return df_apply  # act like Identity
+            return state.apply(data_apply)
+        return data_apply  # act like Identity
 
     def hyperparams(self) -> set[str]:
         result = super().hyperparams()
@@ -104,18 +105,18 @@ class IfHyperparamLambda(UniversalTransform):
     then: Transform
     otherwise: Optional[Transform] = None
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: object) -> object:
         bindings = self.bindings()
         if self.fun(bindings):
-            return self.then.fit(df_fit, bindings=bindings)
+            return self.then.fit(data_fit, bindings=bindings)
         elif self.otherwise is not None:
-            return self.otherwise.fit(df_fit, bindings=bindings)
+            return self.otherwise.fit(data_fit, bindings=bindings)
         return None  # act like Identity
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: object = None) -> object:
         if state is not None:
-            return state.apply(df_apply)
-        return df_apply  # act like Identity
+            return state.apply(data_apply)
+        return data_apply  # act like Identity
 
     def hyperparams(self) -> set[str]:
         result = super().hyperparams()
@@ -133,22 +134,22 @@ class IfHyperparamLambda(UniversalTransform):
 
 
 @define
-class IfTrainingDataHasProperty(UniversalTransform):
+class IfFittingDataHasProperty(UniversalTransform):
     fun: Callable  # df -> bool
     then: Transform
     otherwise: Optional[Transform] = None
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
-        if self.fun(df_fit):
-            return self.then.fit(df_fit, bindings=self.bindings())
+    def _fit(self, data_fit: object) -> object:
+        if self.fun(data_fit):
+            return self.then.fit(data_fit, bindings=self.bindings())
         elif self.otherwise is not None:
-            return self.otherwise.fit(df_fit, bindings=self.bindings())
+            return self.otherwise.fit(data_fit, bindings=self.bindings())
         return None  # act like Identity
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: object = None) -> object:
         if state is not None:
-            return state.apply(df_apply)
-        return df_apply  # act like Identity
+            return state.apply(data_apply)
+        return data_apply  # act like Identity
 
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
         entries, exits = super()._visualize(digraph, bg_fg)
@@ -160,10 +161,10 @@ class IfTrainingDataHasProperty(UniversalTransform):
 @define
 class GroupByBindings(UniversalTransform):
     bindings_sequence: iter[dict]
-    transform: ffc.Transform
+    transform: Transform
     include_binding: bool = True
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: object) -> object:
         # TODO: parallelize
         # bindings from above
         base_bindings = self.bindings()
@@ -171,15 +172,16 @@ class GroupByBindings(UniversalTransform):
         for bindings in self.bindings_sequence:
             frozen_bindings = tuple(bindings.items())
             fits[frozen_bindings] = self.transform.fit(
-                df_fit, bindings=base_bindings | bindings
+                data_fit, bindings=base_bindings | bindings
             )
         return fits
 
-    def _apply(self, df_apply: pd.DataFrame, state: dict) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: dict) -> object:
+        # FIXME: make universal
         # TODO: parallelize
         dfs = []
         for frozen_bindings, fit in state:
-            bindings_df = fit.apply(df_apply).assign(**dict(frozen_bindings))
+            bindings_df = fit.apply(data_apply).assign(**dict(frozen_bindings))
             dfs.append(bindings_df)
             return pd.concat(dfs, axis=0)
 
@@ -188,12 +190,12 @@ class GroupByBindings(UniversalTransform):
 class StatelessLambda(StatelessTransform, UniversalTransform):
     apply_fun: Callable  # df[, bindings] -> df
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: object = None) -> object:
         sig = inspect.signature(self.apply_fun).parameters
         if len(sig) == 1:
-            return self.apply_fun(df_apply)
+            return self.apply_fun(data_apply)
         elif len(sig) == 2:
-            return self.apply_fun(df_apply, self.bindings())
+            return self.apply_fun(data_apply, self.bindings())
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
@@ -204,22 +206,22 @@ class StatefulLambda(UniversalTransform):
     fit_fun: Callable  # df[, bindings] -> state
     apply_fun: Callable  # df, state[, bindings] -> df
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: object) -> object:
         sig = inspect.signature(self.fit_fun).parameters
         if len(sig) == 1:
-            return self.fit_fun(df_fit)
+            return self.fit_fun(data_fit)
         elif len(sig) == 2:
-            return self.fit_fun(df_fit, self.bindings())
+            return self.fit_fun(data_fit, self.bindings())
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: object = None) -> object:
         sig = inspect.signature(self.apply_fun).parameters
         if len(sig) == 2:
-            return self.apply_fun(df_apply, state)
+            return self.apply_fun(data_apply, state)
         elif len(sig) == 3:
-            return self.apply_fun(df_apply, state, self.bindings())
+            return self.apply_fun(data_apply, state, self.bindings())
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
@@ -241,7 +243,7 @@ class Print(Identity):
     apply_msg: Optional[str] = None
     dest: Optional[TextIO | str] = None  # if str, will be opened in append mode
 
-    def _fit(self, df_fit: pd.DataFrame):
+    def _fit(self, data_fit: object):
         if self.fit_msg is None:
             return
         if isinstance(self.dest, str):
@@ -254,19 +256,19 @@ class Print(Identity):
         # instance, which inherits directly from FitTransform, and not from
         # Print/Identity. Could maybe FIXME by futzing with base classes in the
         # metaprogramming that goes on in core.py
-        # return super()._fit(df_fit)
+        # return super()._fit(data_fit)
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: object = None) -> object:
         if self.apply_msg is None:
-            return df_apply
+            return data_apply
         if isinstance(self.dest, str):
             with open(self.dest, "a") as dest:
                 print(self.apply_msg, file=dest)
         else:
             print(self.apply_msg, file=self.dest)
-        return df_apply
+        return data_apply
         # Same issue with super() as in _fit().
-        # return super()._apply(df_apply)
+        # return super()._apply(data_apply)
 
 
 @define
@@ -287,25 +289,25 @@ class LogMessage(Identity):
     logger: Optional[logging.Logger] = None
     level: int = logging.INFO
 
-    def _fit(self, df_fit: pd.DataFrame):
+    def _fit(self, data_fit: object):
         if self.fit_msg is not None:
             logger = self.logger or _LOG
             logger.log(self.level, self.fit_msg)
-        return Identity._fit(self, df_fit)
+        return Identity._fit(self, data_fit)
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: object, state: object = None) -> object:
         if self.apply_msg is not None:
             logger = self.logger or _LOG
             logger.log(self.level, self.apply_msg)
-        return Identity._apply(self, df_apply, state=state)
+        return Identity._apply(self, data_apply, state=state)
 
 
 class Pipeline(
-    BasePipeline.with_methods(
+    ObjectPipeline.with_methods(
         identity=Identity,
         if_hyperparam_is_true=IfHyperparamIsTrue,
         if_hyperparam_lambda=IfHyperparamLambda,
-        if_training_data_has_property=IfTrainingDataHasProperty,
+        if_fitting_data_has_property=IfFittingDataHasProperty,
         stateless_lambda=StatelessLambda,
         stateful_lambda=StatefulLambda,
         print=Print,
