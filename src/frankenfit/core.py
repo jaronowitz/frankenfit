@@ -340,7 +340,7 @@ class Transform(ABC):
     ) -> ObjectPipeline:
         if other is None:
             transforms = [self]
-        if isinstance(other, list):
+        elif isinstance(other, list):
             transforms = [self] + other
         elif isinstance(other, Transform):
             transforms = [self, other]
@@ -1252,7 +1252,7 @@ class ObjectPipeline(Transform):
         """
         if other is None:
             transforms = self.transforms
-        if isinstance(other, ObjectPipeline):
+        elif isinstance(other, ObjectPipeline):
             # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
         elif isinstance(other, Transform):
