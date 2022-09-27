@@ -595,7 +595,7 @@ class FitTransform(ABC):
 
     def apply(self, data_apply: Optional[object] = None) -> object:
         """
-        Return the result of applying this fit Transform to the given DataFrame.
+        Return the result of applying this fit Transform to the given data.
         """
         # materialize data for user _apply function.
         # TODO: move to FitDataFrame.apply()?
@@ -671,6 +671,20 @@ class FitTransform(ABC):
 
         field_names = list(fields_dict(transform_class).keys())
         cls._field_names = field_names
+
+        # The subclass's apply() method should automagically reflect the type
+        # signature of its _apply() method
+        orig_apply = cls.apply
+
+        def apply(self, data_apply: Optional[object] = None) -> object:
+            return orig_apply(self, data_apply)
+
+        apply.__doc__ = cls.apply.__doc__
+        apply.__annotations__["return"] = cls._apply.__annotations__.get("return")
+        apply.__annotations__["data_apply"] = cls._apply.__annotations__.get(
+            "data_apply"
+        )
+        setattr(cls, "apply", apply)
 
 
 class StatelessTransform(Transform):
