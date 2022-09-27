@@ -72,7 +72,7 @@ from frankenfit.core import (
     ObjectPipeline,
 )
 
-from frankenfit.universal_transforms import (
+from frankenfit.universal import (
     Pipeline,
     Identity,
     GroupByBindings,
@@ -102,7 +102,7 @@ from frankenfit.universal_transforms import (
     # #    Assign,
 )
 
-from frankenfit.dataframe_transforms import (
+from frankenfit.dataframe import (
     DataFramePipeline,
     ReadDataFrame,
     HPCols,

@@ -85,6 +85,16 @@ def _next_auto_tag(partial_self: Transform) -> str:
     return f"{class_name}#{nonce}"
 
 
+DEFAULT_VISUALIZE_DIGRAPH_KWARGS = {
+    "node_attr": {
+        "shape": "box",
+        "fontsize": "10",
+        "fontname": "Monospace",
+    },
+    "edge_attr": {"fontsize": "10", "fontname": "Monospace"},
+}
+
+
 # TODO: remove need for Transform subclasses to write @define
 @define(slots=False)
 class Transform(ABC):
@@ -418,20 +428,11 @@ class Transform(ABC):
 
         return [self.tag], my_exits
 
-    VISUALIZE_DEFAULT_DIGRAPH_KWARGS = {
-        "node_attr": {
-            "shape": "box",
-            "fontsize": "10",
-            "fontname": "Monospace",
-        },
-        "edge_attr": {"fontsize": "10", "fontname": "Monospace"},
-    }
-
     def visualize(self, **digraph_kwargs):
         # TODO: rework with a _visualize() method that does the actual recursion and can
         # be overridden. have a notion of entry and exit tags for each subgraph
         digraph = graphviz.Digraph(
-            **(self.VISUALIZE_DEFAULT_DIGRAPH_KWARGS | digraph_kwargs)
+            **(DEFAULT_VISUALIZE_DIGRAPH_KWARGS | digraph_kwargs)
         )
         self._visualize(digraph, ("lightgrey", "white"))
         return digraph
@@ -443,8 +444,8 @@ class Transform(ABC):
         """
         super().__init_subclass__(**kwargs)
 
-        super_cls = super().__self__
-        print(dir(super_cls))
+        # super_cls = super().__self__
+        # print(dir(super_cls))
         if no_magic:
             return
 

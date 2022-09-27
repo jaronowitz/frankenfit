@@ -28,7 +28,7 @@ from .core import (
     DataReader,
 )
 
-from .universal_transforms import (
+from .universal import (
     Pipeline,
     Identity,
 )
