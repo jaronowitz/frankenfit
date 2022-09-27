@@ -21,7 +21,7 @@ from .core import (
     Transform,
     FitTransform,
     StatelessTransform,
-    CallChainMixin,
+    # CallChainMixin,
     HP,
     dict_field,
     fmt_str_field,
@@ -43,6 +43,36 @@ class DataFrameTransform(Transform):
     ) -> "DataFramePipeline":
         result = super().then(other)
         return DataFramePipeline(tag=self.tag, transforms=result.transforms)
+
+    def fit(
+        self,
+        data_fit: pd.DataFrame = None,
+        bindings: Optional[dict[str, object]] = None,
+    ) -> FitTransform:
+        return super().fit(data_fit, bindings)
+
+    # TODO: FitDataFrameTransform with DataFrame-typed apply
+    # TODO: perhaps rather than overriding fit() etc. directly just to
+    # specialize their type annotations, we modify Transform such that
+    # subclasses' fit()/apply() automatically have the same type annotations as
+    # their _fit()/_apply(). Same for hypothetical pairs then()/_then(),
+    # children()/_children()?
+
+
+@define
+class StatelessDataFrameTransform(StatelessTransform, DataFrameTransform):
+    def apply(
+        self, data_apply: object = pd.DataFrame, bindings: dict[str, object] = None
+    ) -> pd.DataFrame:
+        return super().apply(data_apply, bindings)
+
+
+@define
+class ReadDataFrame(DataReader):
+    df: pd.DataFrame
+
+    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return self.df
 
 
 @define
@@ -335,7 +365,10 @@ class GroupBy(Transform):
         )
 
 
-class PipelineGrouper(CallChainMixin):
+# TODO: generic core.Grouper that wraps around a given Transform and proxies
+# methods to the upstream pipeline.
+# class PipelineGrouper(CallChainMixin):
+class PipelineGrouper:
     """
     An intermediate "grouper" object returned by :meth:`Pipeline.group_by()` (analogous
     to pandas ``DataFrameGroupBy`` objects), which is not a :class:`Pipeline`, but has

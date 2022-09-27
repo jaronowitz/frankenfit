@@ -63,14 +63,13 @@ from frankenfit.core import (
     ConstantTransform,
     NonInitialConstantTransformWarning,
     DataReader,
-    ReadDataFrame,
     HP,
     HPFmtStr,
     HPLambda,
     HPDict,
     fmt_str_field,
     dict_field,
-    BasePipeline,
+    ObjectPipeline,
 )
 
 from frankenfit.universal_transforms import (
@@ -105,6 +104,7 @@ from frankenfit.universal_transforms import (
 
 from frankenfit.dataframe_transforms import (
     DataFramePipeline,
+    ReadDataFrame,
     HPCols,
     columns_field,
 )
