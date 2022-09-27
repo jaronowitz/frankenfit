@@ -212,9 +212,9 @@ class ReadDataset(ConstantDataFrameTransform):
 
 
 @define
-class Join(Transform):
-    left: Pipeline
-    right: Pipeline
+class Join(DataFrameTransform):
+    left: DataFrameTransform
+    right: DataFrameTransform
     how: str
 
     on: Optional[str] = None
@@ -794,6 +794,9 @@ class Assign(StatelessDataFrameTransform):
         return df_apply.assign(**kwargs)
 
 
+DP = TypeVar("DP", bound="DataFramePipeline")
+
+
 class DataFramePipeline(
     Pipeline.with_methods(
         read_data_frame=ReadDataFrame,
@@ -818,13 +821,30 @@ class DataFramePipeline(
         correlation=Correlation,
     )
 ):
-    pass
-    # def fit(
-    #     self,
-    #     data_fit: Optional[pd.DataFrame] = None,
-    #     bindings: Optional[dict[str, object]] = None
-    # ) -> object:
-    #     return super().fit(data_fit, bindings)
-
     # TODO: join(), group_by_cols()
-    # pass
+    def join(
+        self: DP,
+        right: DataFrameTransform,
+        how: str,
+        on=None,
+        left_on=None,
+        right_on=None,
+        suffixes=("_x", "_y"),
+    ) -> DP:
+        """
+        Return a new :class:`DataFramePipeline` (of the same subclass as
+        ``self``) containing a new :class:`Join` transform with this
+        pipeline as the ``Join``'s ``left`` argument.
+
+        .. SEEALSO:: :class:`Join`:
+        """
+        join = Join(
+            self,
+            right,
+            how,
+            on=on,
+            left_on=left_on,
+            right_on=right_on,
+            suffixes=suffixes,
+        )
+        return type(self)(transforms=join)

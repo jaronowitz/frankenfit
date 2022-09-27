@@ -204,25 +204,27 @@ def test_ZScore(diamonds_df):
     )
 
 
-@pytest.mark.skip(reason="pending refactor")
 def test_Join(diamonds_df):
     diamonds_df = diamonds_df.assign(diamond_id=diamonds_df.index)
     xyz_df = diamonds_df[["diamond_id", "x", "y", "z"]]
     cut_df = diamonds_df[["diamond_id", "cut"]]
     target = pd.merge(xyz_df, cut_df, how="left", on="diamond_id")
 
-    t = ff.Join(
-        ff.ReadDataFrame(xyz_df), ff.ReadDataFrame(cut_df), how="left", on="diamond_id"
+    t = ffdf.Join(
+        ffdf.ReadDataFrame(xyz_df),
+        ffdf.ReadDataFrame(cut_df),
+        how="left",
+        on="diamond_id",
     )
     result = t.fit().apply()
     assert result.equals(target)
     # assert result.equals(diamonds_df[["diamond_id", "x", "y", "z", "cut"]])
 
-    p = ff.Pipeline(
+    p = ff.DataFramePipeline(
         transforms=[
-            ff.Join(
-                ff.ReadDataFrame(xyz_df),
-                ff.ReadDataFrame(cut_df),
+            ffdf.Join(
+                ffdf.ReadDataFrame(xyz_df),
+                ffdf.ReadDataFrame(cut_df),
                 how="left",
                 on="diamond_id",
             )
@@ -232,31 +234,34 @@ def test_Join(diamonds_df):
     assert result.equals(target)
 
     p = (
-        ff.Pipeline()
+        ff.DataFramePipeline()
         .read_data_frame(xyz_df)
-        .join(ff.Pipeline().read_data_frame(cut_df), how="left", on="diamond_id")
+        .join(
+            ff.DataFramePipeline().read_data_frame(cut_df), how="left", on="diamond_id"
+        )
     )
     result = p.apply()
     assert result.equals(target)
 
-    deviances = (
-        ff.Pipeline()[["cut", "price"]]
-        .join(
-            (
-                ff.Pipeline()
-                .group_by("cut")
-                .stateless_lambda(lambda df: df[["price"]].mean())
-                .rename({"price": "mean_price"})
-            ),
-            on="cut",
-            how="left",
-        )
-        .stateless_lambda(
-            lambda df: df.assign(price_deviance=df["price"] - df["mean_price"])
-        )
-    )
-    result = deviances.apply(diamonds_df)
-    assert np.abs(result["price_deviance"].mean()) < 1e-10
+    # TODO: needs group_by
+    # deviances = (
+    #     ff.Pipeline()[["cut", "price"]]
+    #     .join(
+    #         (
+    #             ff.Pipeline()
+    #             .group_by("cut")
+    #             .stateless_lambda(lambda df: df[["price"]].mean())
+    #             .rename({"price": "mean_price"})
+    #         ),
+    #         on="cut",
+    #         how="left",
+    #     )
+    #     .stateless_lambda(
+    #         lambda df: df.assign(price_deviance=df["price"] - df["mean_price"])
+    #     )
+    # )
+    # result = deviances.apply(diamonds_df)
+    # assert np.abs(result["price_deviance"].mean()) < 1e-10
 
 
 def test_SKLearn(diamonds_df):

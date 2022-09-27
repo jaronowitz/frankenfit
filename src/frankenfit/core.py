@@ -1299,26 +1299,6 @@ class ObjectPipeline(Transform):
             )
         return self.__class__(tag=self.tag, transforms=transforms)
 
-    # def join(
-    #     self, right, how, on=None, left_on=None, right_on=None, suffixes=("_x", "_y")
-    # ) -> Pipeline:
-    #     """
-    #     Return a new :class:`Pipeline` containing a new :class:`Join` transform with
-    #     this ``Pipeline`` as the ``Join``'s ``left`` argument.
-
-    #     .. SEEALSO:: :class:`Join`:
-    #     """
-    #     join = Join(
-    #         self,
-    #         right,
-    #         how,
-    #         on=on,
-    #         left_on=left_on,
-    #         right_on=right_on,
-    #         suffixes=suffixes,
-    #     )
-    #     return Pipeline(transforms=join)
-
     # def group_by(self, cols, fitting_schedule=None) -> PipelineGrouper:
     #     """
     #     Return a :class:`PipelineGrouper` object, which will consume the next
@@ -1368,6 +1348,3 @@ class ObjectPipeline(Transform):
     #     :rtype: :class:`PipelineGrouper`
     #     """
     #     return PipelineGrouper(cols, self, fitting_schedule or fit_group_on_self)
-
-
-# Pipeline.join.__doc__ = Pipeline.join.__doc__.format(join_docs=Join.__doc__)
