@@ -56,7 +56,7 @@ class UniversalTransform(Transform):
         return Pipeline(tag=self.tag, transforms=result.transforms)
 
 
-class Identity(StatelessTransform, UniversalTransform):
+class Identity(UniversalTransform, StatelessTransform):
     """
     The stateless Transform that, at apply-time, simply returns the input data
     unaltered.
@@ -191,7 +191,7 @@ class GroupByBindings(UniversalTransform):
 
 
 @define
-class StatelessLambda(StatelessTransform, UniversalTransform):
+class StatelessLambda(UniversalTransform, StatelessTransform):
     apply_fun: Callable  # df[, bindings] -> df
 
     def _apply(self, data_apply: object, state: object = None) -> object:
