@@ -62,7 +62,6 @@ from frankenfit.core import (
     StatelessTransform,
     ConstantTransform,
     NonInitialConstantTransformWarning,
-    DataReader,
     HP,
     HPFmtStr,
     HPLambda,
@@ -121,13 +120,5 @@ from frankenfit.dataframe import (
 #     PipelineGrouper,
 #     fit_group_on_self,
 #     fit_group_on_all_other_groups,
-# )
-#
-# from frankenfit.io import (
-#     DataReader,
-#     ReadDataFrame,
-#     ReadPandasCSV,
-#     WritePandasCSV,
-#     ReadDataset,
 # )
 #

@@ -56,7 +56,7 @@ class UniversalTransform(Transform):
         return Pipeline(tag=self.tag, transforms=result.transforms)
 
 
-class Identity(UniversalTransform, StatelessTransform):
+class Identity(StatelessTransform, UniversalTransform):
     """
     The stateless Transform that, at apply-time, simply returns the input data
     unaltered.

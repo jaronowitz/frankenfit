@@ -198,7 +198,7 @@ class Transform(ABC):
     """
 
     @abstractmethod
-    def _fit(self, data_fit: object) -> object:
+    def _fit(self, data_fit: Optional[object] = None) -> object:
         """
         Implements subclass-specific fitting logic.
 
@@ -230,7 +230,9 @@ class Transform(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(
+        self, data_apply: Optional[object], state: Optional[object] = None
+    ) -> object:
         """
         Implements subclass-specific logic to apply the tansformation after being fit.
 
@@ -275,7 +277,7 @@ class Transform(ABC):
 
     def fit(
         self,
-        data_fit: object = None,
+        data_fit: Optional[object] = None,
         bindings: Optional[dict[str, object]] = None,
     ) -> FitTransform:
         """
@@ -472,18 +474,34 @@ class Transform(ABC):
         fit_class = DerivedFitTransform
         fit_class_name = fit_class.__name__
         fit_class.__qualname__ = ".".join((cls.__qualname__, fit_class_name))
-        cls.fit.__annotations__["return"] = fit_class.__qualname__
         setattr(cls, fit_class_name, fit_class)
         cls._fit_class_name = fit_class_name
 
-        # TODO: clean up trail of inner classes left behind. E.g.,
-        # DataFramePipeline has extraneous inner classes: FitObjectPipeline,
-        # FitPipeline, FitSubclass. Identity has extraneous inner classes:
-        # FitUniversalTransform, FitStatelessTransform
+        # The subclass's fit() method should automagically reflect the argument
+        # signature of its _fit() method, and a return type of fit_class
+        orig_fit = cls.fit
+
+        def fit(
+            self, data_fit: object = None, bindings: Optional[dict[str, object]] = None
+        ) -> object:
+            # print(f"cls={cls!r}, self={self!r}")
+            # return super(cls, self).fit(data_fit, bindings)
+            return orig_fit(self, data_fit, bindings)
+
+        fit.__doc__ = cls.fit.__doc__
+        fit.__annotations__["return"] = fit_class.__qualname__
+        fit.__annotations__["data_fit"] = cls._fit.__annotations__.get("data_fit")
+        setattr(cls, "fit", fit)
 
 
 class SentinelDict(dict):
-    keys_checked = None
+    """
+    Utility class that behaves exactly like an ordinary did, but keeps track of
+    which keys have been read, available in the ``keys_checked`` instance
+    attribute, which is either None if no keys have been read, or the set of keys.
+    """
+
+    keys_checked: Optional[set] = None
 
     def _record_key(self, key):
         if self.keys_checked is None:
@@ -563,16 +581,19 @@ class FitTransform(ABC):
         fields_str = ", ".join(
             ["%s=%r" % (name, getattr(self, name)) for name in self._field_names]
         )
-        data_str = f"<{self.__nrows} rows of fitting data>"
+        # TODO
+        # data_str = f"<{self.__nrows} rows of fitting data>"
         if fields_str:
-            return f'{self.__class__.__name__}({", ".join([fields_str, data_str])})'
-        return f"{self.__class__.__name__}({data_str})"
+            return f"{self.__class__.__name__}({fields_str})"
+            # return f'{self.__class__.__name__}({", ".join([fields_str, data_str])})'
+        # return f"{self.__class__.__name__}({data_str})"
+        return f"{self.__class__.__name__}()"
 
     @abstractmethod
     def _apply(self, data_apply: object, state=None) -> object:
         raise NotImplementedError
 
-    def apply(self, data_apply: object = None) -> object:
+    def apply(self, data_apply: Optional[object] = None) -> object:
         """
         Return the result of applying this fit Transform to the given DataFrame.
         """
@@ -667,8 +688,22 @@ class StatelessTransform(Transform):
     def _fit(self, data_fit: object):
         return None
 
+    def fit(
+        self,
+        data_fit: Optional[object] = None,
+        bindings: Optional[dict[str, object]] = None,
+    ) -> FitTransform:
+        """
+        The ``fit()`` method of a StatelessTransform always returns a
+        ``FitTransform`` with ``None`` state.
+        """
+        print("StatelessTransform.fit")
+        return super().fit(data_fit, bindings)
+
     def apply(
-        self, data_apply: object = None, bindings: dict[str, object] = None
+        self,
+        data_apply: Optional[object] = None,
+        bindings: Optional[dict[str, object]] = None,
     ) -> object:
         """
         Convenience function allowing one to apply a StatelessTransform without an
@@ -707,13 +742,14 @@ class ConstantTransform(StatelessTransform):
 
     def fit(
         self,
-        data_fit: object = None,
+        data_fit: Optional[object] = None,
         bindings: Optional[dict[str, object]] = None,
     ) -> FitTransform:
+        print("ConstantTransform.fit")
         if data_fit is not None:
             warning_msg = (
                 "A ConstantTransform's fit method received non-empty input data. "
-                "Tihs is likely unintentional because that input data will be "
+                "This is likely unintentional because that input data will be "
                 "ignored and discarded.\n"
                 f"transform={self!r}\n"
                 f"data_fit=\n{data_fit!r}"
@@ -727,12 +763,6 @@ class ConstantTransform(StatelessTransform):
 
     # TODO: emit a similar warning from apply(), but that requires futzing with
     # FitTransform
-
-
-# A DataReader is nothing more than a constant, stateless transform, duh.
-@define
-class DataReader(ConstantTransform):
-    pass
 
 
 @define
@@ -965,8 +995,9 @@ def method_wrapping_transform(
     )
     method_impl.__doc__ = f"""
     Return the result of appending a new :class:`{transform_class.__name__}` transform
-    constructed with the given parameters to this :class:`Pipeline`. This method's
-    arguments are passed directly to ``{transform_class.__name__}.__init__()``.
+    constructed with the given parameters to this pipeline.
+    This method's arguments are passed directly to
+    ``{transform_class.__name__}.__init__()``.
 
     .. SEEALSO:: :class:`{transform_class.__qualname__}`
     """
@@ -1092,17 +1123,7 @@ class ObjectPipeline(Transform):
         subclass_qualname = ".".join(qualname_parts)
         Subclass.__qualname__ = subclass_qualname
 
-        caller_globals = inspect.stack()[1][0].f_globals
-
-        for method_name, transform_class_or_name in kwargs.items():
-            if isinstance(transform_class_or_name, str):
-                # string names a class *in the caller's globals at method call-time*
-                def transform_class(*args, **kwargs):
-                    return caller_globals[transform_class_or_name](*args, **kwargs)
-
-            else:
-                transform_class = transform_class_or_name
-
+        for method_name, transform_class in kwargs.items():
             setattr(
                 Subclass,
                 method_name,

@@ -6,6 +6,7 @@ the classes and functions defined here through the public API exposed as
 ``frankenfit.*``.
 """
 from __future__ import annotations
+from abc import abstractmethod
 from functools import partial, reduce
 import inspect
 import logging
@@ -21,11 +22,10 @@ from .core import (
     Transform,
     FitTransform,
     StatelessTransform,
-    # CallChainMixin,
     HP,
     dict_field,
     fmt_str_field,
-    DataReader,
+    ConstantTransform,
 )
 
 from .universal import (
@@ -44,12 +44,9 @@ class DataFrameTransform(Transform):
         result = super().then(other)
         return DataFramePipeline(tag=self.tag, transforms=result.transforms)
 
-    def fit(
-        self,
-        data_fit: pd.DataFrame = None,
-        bindings: Optional[dict[str, object]] = None,
-    ) -> FitTransform:
-        return super().fit(data_fit, bindings)
+    @abstractmethod
+    def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
+        raise NotImplementedError
 
     # TODO: FitDataFrameTransform with DataFrame-typed apply
     # TODO: perhaps rather than overriding fit() etc. directly just to
@@ -60,15 +57,27 @@ class DataFrameTransform(Transform):
 
 
 @define
-class ReadDataFrame(DataFrameTransform, DataReader):
+class StatelessDataFrameTransform(StatelessTransform, DataFrameTransform):
+    def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
+        return None
+
+
+@define
+class ConstantDataFrameTransform(ConstantTransform, DataFrameTransform):
+    def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
+        return None
+
+
+@define
+class ReadDataFrame(ConstantDataFrameTransform):
     df: pd.DataFrame
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         return self.df
 
 
 @define
-class ReadPandasCSV(DataFrameTransform, DataReader):
+class ReadPandasCSV(ConstantDataFrameTransform):
     filepath: str | HP = fmt_str_field()
     read_csv_args: Optional[dict] = None
 
@@ -77,7 +86,7 @@ class ReadPandasCSV(DataFrameTransform, DataReader):
 
 
 @define
-class WritePandasCSV(DataFrameTransform, Identity):
+class WritePandasCSV(Identity, DataFrameTransform):
     path: str | HP = fmt_str_field()
     index_label: str | HP = fmt_str_field()
     to_csv_kwargs: Optional[dict] = None
@@ -176,7 +185,7 @@ def optional_columns_field(**kwargs):
 
 
 @define
-class ReadDataset(DataFrameTransform, DataReader):
+class ReadDataset(ConstantDataFrameTransform):
     paths: list[str] = columns_field()
     format: Optional[str] = None
     columns: list[str] = field(default=None, converter=HPCols.maybe_from_value)
@@ -406,7 +415,7 @@ class WeightedTransform(DataFrameTransform):
 
 
 @define
-class Copy(ColumnsTransform, StatelessTransform):
+class Copy(ColumnsTransform, StatelessDataFrameTransform):
     """
     A stateless Transform that copies values from one or more source columns into
     corresponding destination columns, either creating them or overwriting their
@@ -446,7 +455,8 @@ class Copy(ColumnsTransform, StatelessTransform):
         )
 
 
-class Select(ColumnsTransform, StatelessTransform):
+@define
+class Select(ColumnsTransform, StatelessDataFrameTransform):
     """
     Select the given columns from the data.
 
@@ -477,7 +487,7 @@ class Select(ColumnsTransform, StatelessTransform):
         return df_apply[self.cols]
 
 
-class Drop(ColumnsTransform, StatelessTransform):
+class Drop(ColumnsTransform, StatelessDataFrameTransform):
     """
     Drop the given columns from the data.
     """
@@ -487,7 +497,7 @@ class Drop(ColumnsTransform, StatelessTransform):
 
 
 @define
-class Rename(DataFrameTransform, StatelessTransform):
+class Rename(StatelessDataFrameTransform):
     """
     Rename columns.
 
@@ -502,7 +512,7 @@ class Rename(DataFrameTransform, StatelessTransform):
 
 
 @define
-class Pipe(ColumnsTransform, StatelessTransform):
+class Pipe(ColumnsTransform, StatelessDataFrameTransform):
     apply_fun: Callable[[pd.DataFrame], pd.DataFrame]  # type: ignore
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
@@ -514,7 +524,7 @@ class Pipe(ColumnsTransform, StatelessTransform):
 
 
 @define
-class Clip(ColumnsTransform, StatelessTransform):
+class Clip(ColumnsTransform, StatelessDataFrameTransform):
     upper: Optional[float] = None
     lower: Optional[float] = None
 
@@ -561,7 +571,7 @@ class Winsorize(ColumnsTransform):
 
 
 @define
-class ImputeConstant(ColumnsTransform, StatelessTransform):
+class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
     value: object  # type: ignore
 
     def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
@@ -696,7 +706,7 @@ class Statsmodels(DataFrameTransform):
 
 
 @define
-class Correlation(DataFrameTransform, StatelessTransform):
+class Correlation(StatelessDataFrameTransform):
     """
     Compute the correlation between each pair of columns in the cross-product of
     ``left_cols`` and ``right_cols``.
@@ -741,7 +751,7 @@ class Correlation(DataFrameTransform, StatelessTransform):
 
 
 @define
-class Assign(DataFrameTransform, StatelessTransform):
+class Assign(StatelessDataFrameTransform):
     # TODO: keys as fmt str hyperparams
     assignments: dict[str, Callable] = dict_field()
 
@@ -802,7 +812,8 @@ class DataFramePipeline(
         sk_learn=SKLearn,
         statsmodels=Statsmodels,
         correlation=Correlation,
-    )
+    ),
+    DataFrameTransform,
 ):
     # TODO: join(), group_by_cols()
     pass
