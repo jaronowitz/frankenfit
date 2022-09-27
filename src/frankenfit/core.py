@@ -697,7 +697,6 @@ class StatelessTransform(Transform):
         The ``fit()`` method of a StatelessTransform always returns a
         ``FitTransform`` with ``None`` state.
         """
-        print("StatelessTransform.fit")
         return super().fit(data_fit, bindings)
 
     def apply(
@@ -745,7 +744,6 @@ class ConstantTransform(StatelessTransform):
         data_fit: Optional[object] = None,
         bindings: Optional[dict[str, object]] = None,
     ) -> FitTransform:
-        print("ConstantTransform.fit")
         if data_fit is not None:
             warning_msg = (
                 "A ConstantTransform's fit method received non-empty input data. "

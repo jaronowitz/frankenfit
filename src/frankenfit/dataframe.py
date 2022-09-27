@@ -23,6 +23,7 @@ from .core import (
     FitTransform,
     StatelessTransform,
     HP,
+    UnresolvedHyperparameterError,
     dict_field,
     fmt_str_field,
     ConstantTransform,
@@ -132,14 +133,17 @@ class HPCols(HP):
         return cls(list(x))
 
     def resolve(self, bindings):
-        return [
-            c.resolve(bindings)
-            if isinstance(c, HP)
-            else c.format_map(bindings)
-            if isinstance(c, str)
-            else c
-            for c in self.cols
-        ]
+        try:
+            return [
+                c.resolve(bindings)
+                if isinstance(c, HP)
+                else c.format_map(bindings)
+                if isinstance(c, str)
+                else c
+                for c in self.cols
+            ]
+        except KeyError as e:
+            raise UnresolvedHyperparameterError(e)
 
     def __repr__(self):
         return repr(self.cols)
@@ -812,8 +816,15 @@ class DataFramePipeline(
         sk_learn=SKLearn,
         statsmodels=Statsmodels,
         correlation=Correlation,
-    ),
-    DataFrameTransform,
+    )
 ):
-    # TODO: join(), group_by_cols()
     pass
+    # def fit(
+    #     self,
+    #     data_fit: Optional[pd.DataFrame] = None,
+    #     bindings: Optional[dict[str, object]] = None
+    # ) -> object:
+    #     return super().fit(data_fit, bindings)
+
+    # TODO: join(), group_by_cols()
+    # pass

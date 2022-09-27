@@ -89,6 +89,10 @@ def test_hyperparams(diamonds_df):
     tfit = t.fit(diamonds_df, bindings=bindings)
     assert tfit.some_param == {"price": "price_orig"}
 
+    pipeline = ff.DataFramePipeline().select(["{response_col}"])
+    with pytest.raises(ff.UnresolvedHyperparameterError):
+        pipeline.fit(diamonds_df)
+
 
 def test_Pipeline(diamonds_df):
     p = ff.core.ObjectPipeline()
