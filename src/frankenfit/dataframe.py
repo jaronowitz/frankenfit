@@ -790,8 +790,27 @@ class Assign(StatelessTransform):
 
 class DataFramePipeline(
     Pipeline.with_methods(
+        read_data_frame=ReadDataFrame,
+        read_pandas_csv=ReadPandasCSV,
+        write_pandas_csv=WritePandasCSV,
+        read_dataset=ReadDataset,
         select=Select,
         __getitem__=Select,
+        copy=Copy,
+        drop=Drop,
+        rename=Rename,
+        assign=Assign,
+        pipe=Pipe,
+        clip=Clip,
+        winsorize=Winsorize,
+        impute_constant=ImputeConstant,
+        de_mean=DeMean,
+        impute_mean=ImputeMean,
+        z_score=ZScore,
+        sk_learn=SKLearn,
+        statsmodels=Statsmodels,
+        correlation=Correlation,
     )
 ):
+    # TODO: join(), group_by_cols()
     pass

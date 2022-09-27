@@ -35,7 +35,11 @@ import pandas as pd
 from typing import Callable, Optional, TextIO, TypeVar
 
 from . import core as ffc
-from .core import Transform, StatelessTransform, ObjectPipeline
+from .core import (
+    Transform,
+    StatelessTransform,
+    ObjectPipeline,
+)
 
 _LOG = logging.getLogger(__name__)
 
