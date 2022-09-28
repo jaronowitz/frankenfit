@@ -67,7 +67,7 @@ def test_IfHyperparamIsTrue(diamonds_df):
         .apply(df)
     )
     assert result.equals(target_demean)
-    with pytest.raises(ff.UnresolvedHyperparameterError):
+    with pytest.raises(ff.core.UnresolvedHyperparameterError):
         result = (
             ff.Pipeline()
             .if_hyperparam_is_true("do_it", then=lambda_demean)

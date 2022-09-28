@@ -78,7 +78,7 @@ def test_hyperparams(diamonds_df):
     assert tfit.some_param == "price"
 
     t = TestTransform(some_param=ff.HP("undefined_hyperparam"))
-    with pytest.raises(ff.UnresolvedHyperparameterError):
+    with pytest.raises(core.UnresolvedHyperparameterError):
         tfit = t.fit(diamonds_df, bindings=bindings)
 
     t = TestTransform(
@@ -90,7 +90,7 @@ def test_hyperparams(diamonds_df):
     assert tfit.some_param == {"price": "price_orig"}
 
     pipeline = ff.DataFramePipeline().select(["{response_col}"])
-    with pytest.raises(ff.UnresolvedHyperparameterError):
+    with pytest.raises(core.UnresolvedHyperparameterError):
         pipeline.fit(diamonds_df)
 
 
@@ -101,11 +101,11 @@ def test_Pipeline(diamonds_df):
     assert diamonds_df.equals(p.fit(diamonds_df).apply(diamonds_df))
 
     # bare transform, automatically becomes list of 1
-    p = ff.ObjectPipeline(transforms=ff.Identity())
+    p = core.ObjectPipeline(transforms=ff.Identity())
     assert len(p) == 1
     assert p.fit(diamonds_df).apply(diamonds_df).equals(diamonds_df)
 
-    p = ff.ObjectPipeline(
+    p = core.ObjectPipeline(
         transforms=[
             ff.Identity(),
             ff.Identity(),
@@ -121,18 +121,18 @@ def test_Pipeline(diamonds_df):
     assert df.equals(diamonds_df)
 
     # pipeline of pipeline is coalesced
-    p2 = ff.ObjectPipeline(transforms=p)
+    p2 = core.ObjectPipeline(transforms=p)
     assert len(p2) == len(p)
     assert p2 == p
-    p2 = ff.ObjectPipeline(transforms=[p])
+    p2 = core.ObjectPipeline(transforms=[p])
     assert len(p2) == len(p)
     assert p2 == p
 
     # TypeError for a non-Transform in the pipeline
     with pytest.raises(TypeError):
-        ff.ObjectPipeline(transforms=42)
+        core.ObjectPipeline(transforms=42)
     with pytest.raises(TypeError):
-        ff.ObjectPipeline(transforms=[ff.Identity(), 42])
+        core.ObjectPipeline(transforms=[ff.Identity(), 42])
 
 
 def test_Pipeline_callchaining(diamonds_df):
@@ -149,7 +149,7 @@ def test_Pipeline_callchaining(diamonds_df):
 
 def test_tags(diamonds_df):
     tagged_ident = ff.Identity(tag="mytag")
-    pip = ff.ObjectPipeline(transforms=[ff.Identity(), tagged_ident, ff.Identity()])
+    pip = core.ObjectPipeline(transforms=[ff.Identity(), tagged_ident, ff.Identity()])
     assert pip.find_by_tag("mytag") is tagged_ident
 
     fit = pip.fit(diamonds_df)

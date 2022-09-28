@@ -8,6 +8,7 @@ from pydataset import data
 import pyarrow.dataset as ds
 
 import frankenfit as ff
+import frankenfit.core as ffc
 import frankenfit.dataframe as ffdf
 
 
@@ -429,12 +430,12 @@ def test_ReadPandasCSV(diamonds_df, tmp_path):
     with warnings.catch_warnings(record=True) as w:
         pip = ff.DataFramePipeline()[["price"]].read_pandas_csv(fp)
         assert len(w) == 1
-        assert issubclass(w[-1].category, ff.NonInitialConstantTransformWarning)
+        assert issubclass(w[-1].category, ffc.NonInitialConstantTransformWarning)
 
     with warnings.catch_warnings(record=True) as w:
         pip.fit(df)
         assert len(w) == 1
-        assert issubclass(w[-1].category, ff.NonInitialConstantTransformWarning)
+        assert issubclass(w[-1].category, ffc.NonInitialConstantTransformWarning)
 
 
 def test_read_write_csv(diamonds_df, tmp_path):
