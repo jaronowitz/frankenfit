@@ -66,6 +66,9 @@ from frankenfit.core import (
     HPDict,
     fmt_str_field,
     dict_field,
+    # Exceptions that users can catch
+    UnresolvedHyperparameterError,
+    NonInitialConstantTransformWarning,
 )
 
 from frankenfit.universal import (
@@ -80,5 +83,6 @@ from frankenfit.dataframe import (
     columns_field,
     fit_group_on_self,
     fit_group_on_all_other_groups,
+    # Exceptions that users can catch
     UnfitGroupError,
 )
