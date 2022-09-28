@@ -32,7 +32,6 @@ the classes and functions defined here through the public API exposed as
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from functools import partial
 import inspect
 import logging
 from typing import Callable, Optional, TypeVar
@@ -1055,95 +1054,31 @@ def _convert_pipeline_transforms(value):
     return result
 
 
-_pipeline_method_wrapping_transform = partial(method_wrapping_transform, "Pipeline")
-
-
-# class CallChainMixin(ABC):
-#     """
-#     Abstract base class used internally to implement Frankenfit classes that provide a
-#     standardized call-chaining API, e.g. :class:`Pipeline` and
-#     :class:`PipelineGrouper`.
-#     Concrete subclasses must implement :meth:`then()`.
-#     """
-#
-#     @abstractmethod
-#     def then(self, other: Transform | list[Transform]) -> ObjectPipeline:
-#         """
-#         Return the result of appending the given :class:`Transform` to the current
-#         call-chaining object.
-#         """
-#         raise NotImplementedError
-#
-#     def __add__(self, other):
-#         return self.then(other)
-#
-#     ####################
-#     # call-chaining API:
-#
-#     # copy = _pipeline_method_wrapping_transform("copy", fft.Copy)
-#     # select = _pipeline_method_wrapping_transform("select", fft.Select)
-#     # __getitem__ = select
-#     # rename = _pipeline_method_wrapping_transform("rename", fft.Rename)
-#     # drop = _pipeline_method_wrapping_transform("drop", fft.Drop)
-#     # stateless_lambda = _pipeline_method_wrapping_transform(
-#     #     "stateless_lambda", fft.StatelessLambda
-#     # )
-#     # stateful_lambda = _pipeline_method_wrapping_transform(
-#     #     "stateful_lambda", fft.StatefulLambda
-#     # )
-#     # pipe = _pipeline_method_wrapping_transform("pipe", fft.Pipe)
-#     # clip = _pipeline_method_wrapping_transform("clip", fft.Clip)
-#     # winsorize = _pipeline_method_wrapping_transform("winsorize", fft.Winsorize)
-#     # impute_constant = _pipeline_method_wrapping_transform(
-#     #     "impute_constant", fft.ImputeConstant
-#     # )
-#     # impute_mean = _pipeline_method_wrapping_transform("impute_mean", fft.ImputeMean)
-#     # de_mean = _pipeline_method_wrapping_transform("de_mean", fft.DeMean)
-#     # z_score = _pipeline_method_wrapping_transform("z_score", fft.ZScore)
-#     # print = _pipeline_method_wrapping_transform("print", fft.Print)
-#     # log_message = _pipeline_method_wrapping_transform("log_message", fft.LogMessage)
-#
-#     # if_hyperparam_is_true = _pipeline_method_wrapping_transform(
-#     #     "if_hyperparam_is_true", IfHyperparamIsTrue
-#     # )
-#     # if_hyperparam_lambda = _pipeline_method_wrapping_transform(
-#     #     "if_hyperparam_lambda", IfHyperparamLambda
-#     # )
-#     # if_training_data_has_property = _pipeline_method_wrapping_transform(
-#     #     "if_training_data_has_property", IfTrainingDataHasProperty
-#     # )
-#
-#     # sklearn = _pipeline_method_wrapping_transform("sklearn", fft.SKLearn)
-#     # statsmodels = _pipeline_method_wrapping_transform("statsmodels",
-#     fft.Statsmodels)
-#     # correlation = _pipeline_method_wrapping_transform(
-# "correlation", fft.Correlation)
-#     # read_pandas_csv = _pipeline_method_wrapping_transform(
-#     #     "read_pandas_csv", ffio.ReadPandasCSV
-#     # )
-#     # read_dataset = _pipeline_method_wrapping_transform("read_dataset",
-#     # ffio.ReadDataset)
-#     # read_data_frame = _pipeline_method_wrapping_transform(
-#     #     "read_data_frame", ffio.ReadDataFrame
-#     # )
-#     # assign = _pipeline_method_wrapping_transform("assign", fft.Assign)
-
-
 @define
 class ObjectPipeline(Transform):
     @classmethod
-    def with_methods(cls: type, **kwargs) -> type:
-        subclass_name = f"{cls.__name__}WithMethods"
+    def with_methods(cls: type, subclass_name: str = None, **kwargs) -> type:
+        if subclass_name is None:
+            subclass_name = f"{cls.__name__}WithMethods"
 
         class Subclass(cls):
+            class Grouper(cls.Grouper):
+                pass
+
             pass
 
         Subclass.__name__ = subclass_name
-        qualname_parts = Subclass.__qualname__.split(".")
-        qualname_parts[-1] = subclass_name
-        subclass_qualname = ".".join(qualname_parts)
-        Subclass.__qualname__ = subclass_qualname
+        # qualname_parts = Subclass.__qualname__.split(".")
+        # qualname_parts[-1] = subclass_name
+        # subclass_qualname = ".".join(qualname_parts)
+        # Subclass.__qualname__ = subclass_qualname
+        Subclass.__qualname__ = subclass_name
+        Subclass.Grouper.__qualname__ = Subclass.__qualname__ + ".Grouper"
 
+        pipeline_methods = []
+        if hasattr(cls, "_pipeline_methods"):
+            pipeline_methods.extend(cls._pipeline_methods)
+        Subclass._pipeline_methods = pipeline_methods
         for method_name, transform_class in kwargs.items():
             setattr(
                 Subclass,
@@ -1152,12 +1087,45 @@ class ObjectPipeline(Transform):
                     Subclass.__qualname__, method_name, transform_class
                 ),
             )
-            # TODO: grouper methods!
+            Subclass._pipeline_methods.append(method_name)
+            setattr(
+                Subclass.Grouper,
+                method_name,
+                method_wrapping_transform(
+                    Subclass.__qualname__, method_name, transform_class
+                ),
+            )
 
-        # TODO: clean up trail of inner classes left behind. E.g.,
-        # DataFramePipeline has extraneous inner classes: FitObjectPipeline,
-        # FitPipeline, FitSubclass
         return Subclass
+
+    class Grouper:
+        def __init__(
+            self,
+            pipeline_upstream: ObjectPipeline,
+            wrapper_class: type,
+            wrapper_kwarg_name_for_wrappee: str,
+            **wrapper_other_kwargs,
+        ):
+            self._pipeline_upstream = pipeline_upstream
+            self._wrapper_class = wrapper_class
+            self._wrapper_kwarg_name_for_wrappee = wrapper_kwarg_name_for_wrappee
+            self._wrapper_other_kwargs = wrapper_other_kwargs
+
+        def then(self, other: Transform | list[Transform]) -> ObjectPipeline:
+            if isinstance(other, list):
+                other = type(self._pipeline_upstream)(transforms=other)
+            wrapping_transform = self._wrapper_class(
+                **(
+                    {
+                        self._wrapper_kwarg_name_for_wrappee: other,
+                    }
+                    | self._wrapper_other_kwargs
+                )
+            )
+            return self._pipeline_upstream + wrapping_transform
+
+        def __add__(self, other: Transform | list[Transform]) -> ObjectPipeline:
+            return self.then(other)
 
     transforms: list[Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
@@ -1307,53 +1275,3 @@ class ObjectPipeline(Transform):
                 f"type {type(other)}, bases = {type(other).__bases__}. "
             )
         return self.__class__(tag=self.tag, transforms=transforms)
-
-    # def group_by(self, cols, fitting_schedule=None) -> PipelineGrouper:
-    #     """
-    #     Return a :class:`PipelineGrouper` object, which will consume the next
-    #     Transform
-    #     in the call-chain by wrapping it in a :class:`GroupBy` transform and returning
-    #     the result of appending that ``GroupBy`` to this Pipeline. It enables
-    #     Pandas-style call-chaining with ``GroupBy``.
-
-    #     For example, grouping a single Transform::
-
-    #         (
-    #             ff.Pipeline()
-    #             # ...
-    #             .group_by("cut")  # -> PipelineGrouper
-    #                 .z_score(cols)  # -> Pipeline
-    #         )
-
-    #     Grouping a sequence of Transforms::
-
-    #         (
-    #             ff.Pipeline()
-    #             # ...
-    #             .group_by("cut")
-    #                 .then(
-    #                     ff.Pipeline()
-    #                     .winsorize(cols, limit=0.01)
-    #                     .z_score(cols)
-    #                     .clip(cols, upper=2, lower=-2)
-    #                 )
-    #         )
-
-    #     .. NOTE::
-    #         When using ``group_by()``, by convention we add a level of indentation to
-    #         the next call in the call-chain, to indicate visually that it is being
-    #         consumed by the preceding ``group_by()`` call.
-
-    #     :param cols: The column(s) by which to group. The next Transform in the
-    #         call-chain will be fit and applied separately on each subset of
-    #         data with a distinct combination of values in ``cols``.
-    #     :type cols: str | HP | list[str | HP]
-
-    #     :param fitting_schedule: How to determine the fitting data of each group. The
-    #         default schedule is :meth:`fit_group_on_self`. Use this to implement
-    #         workflows like cross-validation and sequential fitting.
-    #     :type fitting_schedule: Callable[dict[str, object], np.array[bool]]
-
-    #     :rtype: :class:`PipelineGrouper`
-    #     """
-    #     return PipelineGrouper(cols, self, fitting_schedule or fit_group_on_self)

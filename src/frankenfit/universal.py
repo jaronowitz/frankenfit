@@ -308,6 +308,7 @@ class LogMessage(Identity):
 
 class Pipeline(
     ObjectPipeline.with_methods(
+        "Pipeline",
         identity=Identity,
         if_hyperparam_is_true=IfHyperparamIsTrue,
         if_hyperparam_lambda=IfHyperparamLambda,

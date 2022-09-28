@@ -298,18 +298,18 @@ class UnfitGroupError(ValueError):
 
 
 @define
-class GroupBy(Transform):
+class GroupBy(DataFrameTransform):
     """
-    Group the fitting and application of a :class:`Transform` by the distinct values of
-    some column or combination of columns.
+    Group the fitting and application of a :class:`DataFrameTransform` by the
+    distinct values of some column or combination of columns.
 
     :param cols: The column(s) by which to group. ``transform`` will be fit and applied
         separately on each subset of data with a distinct combination of values in
         ``cols``.
     :type cols: str | HP | list[str | HP]
 
-    :param transform: The :class:`Transform` to group.
-    :type transform: HP | Transform
+    :param transform: The :class:`DataFrameTransform` to group.
+    :type transform: HP | DataFrameTransform
 
     :param fitting_schedule: How to determine the fitting data of each group. The
         default schedule is :meth:`fit_group_on_self`. Use this to implement workflows
@@ -317,13 +317,13 @@ class GroupBy(Transform):
     :type fitting_schedule: Callable[[dict[str, object]], np.array[bool]]
 
     .. SEEALSO::
-        :meth:`Pipeline.group_by`
+        :meth:`DataFramePipeline.group_by_cols()`
 
     """
 
-    # TODO: what about grouping by index?
+    # TODO: what about grouping by index? separate transform GroupByRows
     cols: str | HP | list[str | HP] = columns_field()
-    transform: HP | Transform = field()  # type: ignore
+    transform: HP | DataFrameTransform = field()  # type: ignore
     # TODO: what about hyperparams in the fitting schedule? that's a thing.
     fitting_schedule: Callable[[dict[str, object]], np.array[bool]] = field(
         default=fit_group_on_self
@@ -338,7 +338,7 @@ class GroupBy(Transform):
             df_group_fit = df_fit.loc[self.fitting_schedule(group_col_map)]
             # fit the transform on the fitting data for this group
             # TODO: new per-group tags for the FitTransforms? How should find_by_tag()
-            # work on FitGroupBy?
+            # work on FitGroupBy? (By overriding _children())
             return self.transform.fit(df_group_fit, bindings=bindings)
 
         return (
@@ -368,44 +368,6 @@ class GroupBy(Transform):
             .groupby(self.cols, as_index=False, sort=False, group_keys=False)
             .apply(apply_on_group)
         )
-
-
-# TODO: generic core.Grouper that wraps around a given Transform and proxies
-# methods to the upstream pipeline.
-# class PipelineGrouper(CallChainMixin):
-class PipelineGrouper:
-    """
-    An intermediate "grouper" object returned by :meth:`Pipeline.group_by()` (analogous
-    to pandas ``DataFrameGroupBy`` objects), which is not a :class:`Pipeline`, but has
-    the same call-chain methods as a Pipeline, and consumes the next call to finally
-    create the :class:`GroupBy` Transform and return the result of appending that to the
-    matrix Pipeline. It enables this style of ``group_by()`` call-chaining syntax::
-
-        (
-            ff.Pipeline()
-            # ...
-            .group_by("cut")  # -> PipelineGrouper
-                .z_score(cols)  # -> Pipeline
-        )
-    """
-
-    def __init__(self, groupby_cols, pipeline_upstream, fitting_schedule):
-        self.groupby_cols = groupby_cols
-        self.pipeline_upstream = pipeline_upstream
-        self.fitting_schedule = fitting_schedule
-
-    def __repr__(self):
-        return "PipelineGrouper(%r, %r)" % (self.groupby_cols, self.pipeline_upstream)
-
-    def then(self, other: Transform | list[Transform]) -> Pipeline:
-        if isinstance(other, list):
-            other = Pipeline(other)
-        groupby = GroupBy(
-            self.groupby_cols,
-            other,
-            fitting_schedule=self.fitting_schedule,
-        )
-        return self.pipeline_upstream + groupby
 
 
 @define(slots=False)
@@ -799,6 +761,7 @@ DP = TypeVar("DP", bound="DataFramePipeline")
 
 class DataFramePipeline(
     Pipeline.with_methods(
+        "DataFramePipeline",
         read_data_frame=ReadDataFrame,
         read_pandas_csv=ReadPandasCSV,
         write_pandas_csv=WritePandasCSV,
@@ -821,7 +784,6 @@ class DataFramePipeline(
         correlation=Correlation,
     )
 ):
-    # TODO: group_by_cols()
     def join(
         self: DP,
         right: DataFrameTransform,
@@ -848,3 +810,58 @@ class DataFramePipeline(
             suffixes=suffixes,
         )
         return type(self)(transforms=join)
+
+    def group_by(self: DP, cols, fitting_schedule=None) -> DP.Grouper:
+        """
+        Return a :class:`Grouper` object, which will consume the next Transform
+        in the call-chain by wrapping it in a :class:`GroupBy` transform and returning
+        the result of appending that ``GroupBy`` to this pipeline. It enables
+        Pandas-style call-chaining with ``GroupBy``.
+
+        For example, grouping a single Transform::
+
+            (
+                ff.DataFramePipeline()
+                # ...
+                .group_by("cut")  # -> PipelineGrouper
+                    .z_score(cols)  # -> Pipeline
+            )
+
+        Grouping a sequence of Transforms::
+
+            (
+                ff.DataFramePipeline()
+                # ...
+                .group_by("cut")
+                    .then(
+                        ff.DataFramePipeline()
+                        .winsorize(cols, limit=0.01)
+                        .z_score(cols)
+                        .clip(cols, upper=2, lower=-2)
+                    )
+            )
+
+        .. NOTE::
+            When using ``group_by()``, by convention we add a level of indentation to
+            the next call in the call-chain, to indicate visually that it is being
+            consumed by the preceding ``group_by()`` call.
+
+        :param cols: The column(s) by which to group. The next Transform in the
+            call-chain will be fit and applied separately on each subset of
+            data with a distinct combination of values in ``cols``.
+        :type cols: str | HP | list[str | HP]
+
+        :param fitting_schedule: How to determine the fitting data of each group. The
+            default schedule is :meth:`fit_group_on_self`. Use this to implement
+            workflows like cross-validation and sequential fitting.
+        :type fitting_schedule: Callable[dict[str, object], np.array[bool]]
+
+        :rtype: :class:`DataFramePipeline.Grouper`
+        """
+        return type(self).Grouper(
+            self,
+            GroupBy,
+            "transform",
+            cols=cols,
+            fitting_schedule=(fitting_schedule or fit_group_on_self),
+        )

@@ -243,25 +243,24 @@ def test_Join(diamonds_df):
     result = p.apply()
     assert result.equals(target)
 
-    # TODO: needs group_by
-    # deviances = (
-    #     ff.Pipeline()[["cut", "price"]]
-    #     .join(
-    #         (
-    #             ff.Pipeline()
-    #             .group_by("cut")
-    #             .stateless_lambda(lambda df: df[["price"]].mean())
-    #             .rename({"price": "mean_price"})
-    #         ),
-    #         on="cut",
-    #         how="left",
-    #     )
-    #     .stateless_lambda(
-    #         lambda df: df.assign(price_deviance=df["price"] - df["mean_price"])
-    #     )
-    # )
-    # result = deviances.apply(diamonds_df)
-    # assert np.abs(result["price_deviance"].mean()) < 1e-10
+    deviances = (
+        ff.DataFramePipeline()[["cut", "price"]]
+        .join(
+            (
+                ff.DataFramePipeline()
+                .group_by("cut")
+                .stateless_lambda(lambda df: df[["price"]].mean())
+                .rename({"price": "mean_price"})
+            ),
+            on="cut",
+            how="left",
+        )
+        .stateless_lambda(
+            lambda df: df.assign(price_deviance=df["price"] - df["mean_price"])
+        )
+    )
+    result = deviances.apply(diamonds_df)
+    assert np.abs(result["price_deviance"].mean()) < 1e-10
 
 
 def test_SKLearn(diamonds_df):
@@ -346,28 +345,27 @@ def test_complex_pipeline_1(diamonds_df):
     # TODO: test more stuff with this pipeline
 
 
-@pytest.mark.skip(reason="pending refactor")
 def test_GroupBy(diamonds_df):
     df: pd.DataFrame = diamonds_df.reset_index().drop(["index"], axis=1)
     target = df.groupby("cut", as_index=False, sort=False).apply(len)
-    pip = ff.Pipeline().stateless_lambda(len)
+    pip = ff.DataFramePipeline().stateless_lambda(len)
     assert pip.fit(df).apply(df) == len(df)
 
-    result = ff.GroupBy("cut", pip).fit(df).apply(df)
+    result = ffdf.GroupBy("cut", pip).fit(df).apply(df)
     assert result.equals(target)
 
-    pip = ff.Pipeline().group_by("cut").stateless_lambda(len)
+    pip = ff.DataFramePipeline().group_by("cut").stateless_lambda(len)
     assert pip.fit(df).apply(df).equals(target)
 
     # A sttaeful transform
-    pip = ff.Pipeline().group_by("cut").de_mean(["price"])[["cut", "price"]]
+    pip = ff.DataFramePipeline().group_by("cut").de_mean(["price"])[["cut", "price"]]
     result = pip.apply(df)
     assert np.abs(result["price"].mean()) < 1e-10
     assert all(np.abs(result.groupby("cut")["price"].mean()) < 1e-10)
 
     # "cross-validated" de-meaning hah
     pip = (
-        ff.Pipeline()
+        ff.DataFramePipeline()
         .group_by("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
         .de_mean(["price"])[["cut", "price"]]
     )
@@ -375,14 +373,16 @@ def test_GroupBy(diamonds_df):
     assert all(np.abs(result.groupby("cut")["price"].mean()) > 4)
 
     pip = (
-        ff.Pipeline().group_by("cut").stateless_lambda(lambda df: df[["price"]].mean())
+        ff.DataFramePipeline()
+        .group_by("cut")
+        .stateless_lambda(lambda df: df[["price"]].mean())
     )
     result = pip.apply(df).set_index("cut").sort_index().reset_index()
     target = df.groupby("cut")[["price"]].mean().sort_index().reset_index()
     assert result.equals(target)
 
     pip = (
-        ff.Pipeline()
+        ff.DataFramePipeline()
         .group_by("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
         .de_mean("price")[["cut", "price"]]
     )
@@ -396,7 +396,7 @@ def test_GroupBy(diamonds_df):
     )[["cut", "price"]]
     assert result.equals(target)
 
-    pip = ff.Pipeline().group_by("cut").de_mean(["price"])
+    pip = ff.DataFramePipeline().group_by("cut").de_mean(["price"])
     with pytest.raises(ff.UnfitGroupError):
         pip.fit(df.loc[df["cut"] != "Fair"]).apply(df)
 

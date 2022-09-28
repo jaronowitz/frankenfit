@@ -106,6 +106,9 @@ from frankenfit.dataframe import (
     ReadDataFrame,
     HPCols,
     columns_field,
+    fit_group_on_self,
+    fit_group_on_all_other_groups,
+    UnfitGroupError,
 )
 
 #
