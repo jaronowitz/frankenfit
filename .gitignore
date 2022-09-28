@@ -15,3 +15,4 @@ requirements.txt
 .ipynb_checkpoints/
 docs/_build
 docs/conf.py
+diamonds.csv
