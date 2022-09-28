@@ -34,7 +34,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import inspect
 import logging
-from typing import Callable, Optional, TypeVar
+from typing import Callable, Iterable, Optional, TypeVar
 import warnings
 
 from attrs import define, field, fields_dict, Factory, NOTHING
@@ -260,29 +260,6 @@ class Transform(ABC):
         """
         raise NotImplementedError
 
-    def find_by_tag(self, tag: str) -> Transform:
-        # base implementation checks params that are transforms or iterables of
-        # transforms. Subclasses should override if they have other ways of keeping
-        # child transforms.
-        if self.tag == tag:
-            return self
-        for name in self.params():
-            val = getattr(self, name)
-            if isinstance(val, Transform):
-                try:
-                    return val.find_by_tag(tag)
-                except KeyError:
-                    pass
-            elif is_iterable(val):
-                for x in val:
-                    if isinstance(x, Transform):
-                        try:
-                            return x.find_by_tag(tag)
-                        except KeyError:
-                            pass
-
-        raise KeyError(f"No child Transform found with tag: {tag}")
-
     def fit(
         self,
         data_fit: Optional[object] = None,
@@ -361,6 +338,33 @@ class Transform(ABC):
 
     def __add__(self, other: Optional[Transform | list[Transform]]):
         return self.then(other)
+
+    def _children(self) -> Iterable[Transform]:
+        """
+        Base implementation checks params that are transforms or iterables of
+        transforms. Subclasses should override this if they have other ways of keeping
+        child transforms.
+        """
+        yield self
+        for name in self.params():
+            val = getattr(self, name)
+            if isinstance(val, Transform):
+                yield from val._children()
+            elif is_iterable(val) and not isinstance(val, str):
+                for x in val:
+                    if isinstance(x, Transform):
+                        yield from x._children()
+
+    def find_by_tag(self, tag: str) -> Transform:
+        """
+        Recurse through child transforms (i.e., transforms that are, or are
+        contained in, this transform's params) and return the first one with the
+        given tag. If not found, raise KeyError.
+        """
+        for child in self._children():
+            if child.tag == tag:
+                return child
+        raise KeyError(f"No child Transform found with tag: {tag}")
 
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
         # out of the box, handle three common cases:
