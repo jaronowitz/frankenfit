@@ -38,7 +38,7 @@ import logging
 from typing import Callable, Optional, TypeVar
 import warnings
 
-from attrs import define, field, fields_dict, Factory
+from attrs import define, field, fields_dict, Factory, NOTHING
 import graphviz
 
 _LOG = logging.getLogger(__name__)
@@ -178,6 +178,8 @@ class Transform(ABC):
 
     # Note the following are regular attributes, NOT managed by attrs
 
+    # TODO: do we really want tag to be a hyperparam? shouldn't they be
+    # invariant wrt fit-time data including bindings?
     tag: str = field(
         init=True,
         eq=False,
@@ -196,6 +198,13 @@ class Transform(ABC):
 
     :type: ``str``
     """
+
+    @tag.validator
+    def _check_tag(self, attribute, value):
+        if not isinstance(value, str):
+            raise TypeError(
+                f"tag must be a str-like; but got a {type(value)}: {value!r}"
+            )
 
     @abstractmethod
     def _fit(self, data_fit: Optional[object] = None) -> object:
@@ -1178,7 +1187,7 @@ class ObjectPipeline(Transform):
                 )
             t_is_first = False
 
-    def __init__(self, tag=None, transforms=None):
+    def __init__(self, tag=NOTHING, transforms=NOTHING):
         self.__attrs_init__(tag=tag, transforms=transforms)
 
     def _fit(self, data_fit: object) -> object:

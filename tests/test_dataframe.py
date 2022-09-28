@@ -411,6 +411,12 @@ def test_ReadDataFrame(diamonds_df):
     df = diamonds_df.reset_index().drop(["index"], axis=1)
     assert ff.DataFramePipeline().read_data_frame(df).apply().equals(df)
 
+    # another way to start a pipeline with a reader
+    pip = ff.ReadDataFrame(df).then(ff.Identity())
+    assert pip.apply().equals(df)
+    pip = ff.ReadDataFrame(df).then().identity()
+    assert pip.apply().equals(df)
+
 
 def test_ReadPandasCSV(diamonds_df, tmp_path):
     df = diamonds_df.reset_index().drop(["index"], axis=1)

@@ -13,7 +13,7 @@ import logging
 import operator
 
 from typing import Callable, Iterable, Optional, TypeVar
-from attrs import define, field
+from attrs import define, field, NOTHING
 import numpy as np
 import pandas as pd
 from pyarrow import dataset
@@ -761,7 +761,7 @@ class Assign(StatelessDataFrameTransform):
 
     # Assign([assignment_dict][, tag=][, kwarg1=][, kwarg2][...])
     # ... with only one of assigment_dict or kwargs
-    def __init__(self, *args, tag=None, **kwargs):
+    def __init__(self, *args, tag=NOTHING, **kwargs):
         if len(args) > 0:
             if len(kwargs) > 0:
                 raise ValueError(
@@ -821,7 +821,7 @@ class DataFramePipeline(
         correlation=Correlation,
     )
 ):
-    # TODO: join(), group_by_cols()
+    # TODO: group_by_cols()
     def join(
         self: DP,
         right: DataFrameTransform,
