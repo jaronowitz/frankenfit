@@ -49,13 +49,6 @@ class DataFrameTransform(Transform):
     def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
         raise NotImplementedError
 
-    # TODO: FitDataFrameTransform with DataFrame-typed apply
-    # TODO: perhaps rather than overriding fit() etc. directly just to
-    # specialize their type annotations, we modify Transform such that
-    # subclasses' fit()/apply() automatically have the same type annotations as
-    # their _fit()/_apply(). Same for hypothetical pairs then()/_then(),
-    # children()/_children()?
-
 
 @define
 class StatelessDataFrameTransform(StatelessTransform, DataFrameTransform):

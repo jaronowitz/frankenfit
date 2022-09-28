@@ -278,6 +278,16 @@ class Transform(ABC):
         :return: _description_
         :rtype: FitTransform
         """
+        try:
+            data_len = len(data_fit)
+        except TypeError:
+            data_len = None
+
+        _LOG.debug(
+            f"Fitting {self.tag} on {type(data_fit)}"
+            f"{f' (len={data_len})' if data_len is not None else ''} "
+            f"with bindings={bindings!r}"
+        )
         fit_class: FitTransform = getattr(self, self._fit_class_name)
         return fit_class(self, data_fit, bindings)
 
@@ -345,6 +355,9 @@ class Transform(ABC):
         transforms. Subclasses should override this if they have other ways of keeping
         child transforms.
         """
+        # TODO: address implementation on FitTransform. we need a _children()
+        # method that can be overridden like _apply().  ... or actually
+        # _children() and _fit_children()... the latter needs to iterate through state
         yield self
         for name in self.params():
             val = getattr(self, name)
@@ -443,8 +456,10 @@ class Transform(ABC):
         return [self.tag], my_exits
 
     def visualize(self, **digraph_kwargs):
-        # TODO: rework with a _visualize() method that does the actual recursion and can
-        # be overridden. have a notion of entry and exit tags for each subgraph
+        """
+        Return a visualization of this Transform as a ``graphviz.DiGraph``
+        object. The caller may render it to file or screen.
+        """
         digraph = graphviz.Digraph(
             **(DEFAULT_VISUALIZE_DIGRAPH_KWARGS | digraph_kwargs)
         )
@@ -452,7 +467,9 @@ class Transform(ABC):
         return digraph
 
     @classmethod
-    def __init_subclass__(cls, /, no_magic=False, **kwargs):
+    def __init_subclass__(
+        cls, /, no_magic=False, fit_transform_base_class=None, **kwargs
+    ):
         """
         Implements black magic to help with writing Transform subclasses.
         """
@@ -463,7 +480,10 @@ class Transform(ABC):
         if no_magic:
             return
 
-        class DerivedFitTransform(FitTransform, transform_class=cls):
+        if fit_transform_base_class is None:
+            fit_transform_base_class = FitTransform
+
+        class DerivedFitTransform(fit_transform_base_class, transform_class=cls):
             pass
 
         # we should freak out if the subclass has any attribute named 'state' or
@@ -565,14 +585,8 @@ class FitTransform(ABC):
         self.tag: str = transform.tag
         # freak out if any hyperparameters failed to bind
         self._check_hyperparams()
-
-        # TODO: move into DataFrameTransform.fit()
-        # self.__nrows = len(data_fit)
-        # # but also keep the original collection around (temporarily) in case the user
-        # # _fit function wants it
-        # _LOG.debug(
-        #     "Fitting %s on %d rows: %r", self.__class__.__name__, len(data_fit), self
-        # )
+        # but also keep the original collection around (temporarily) in case the user
+        # _fit function wants it
         # run user _fit function
         self.__state = transform._fit.__func__(self, data_fit)
 
@@ -593,12 +607,8 @@ class FitTransform(ABC):
         fields_str = ", ".join(
             ["%s=%r" % (name, getattr(self, name)) for name in self._field_names]
         )
-        # TODO
-        # data_str = f"<{self.__nrows} rows of fitting data>"
         if fields_str:
             return f"{self.__class__.__name__}({fields_str})"
-            # return f'{self.__class__.__name__}({", ".join([fields_str, data_str])})'
-        # return f"{self.__class__.__name__}({data_str})"
         return f"{self.__class__.__name__}()"
 
     @abstractmethod
@@ -619,6 +629,15 @@ class FitTransform(ABC):
         #     len(data_apply),
         #     self,
         # )
+        try:
+            data_len = len(data_apply)
+        except TypeError:
+            data_len = None
+
+        _LOG.debug(
+            f"Applying {self.tag} on {type(data_apply)}"
+            f"{f' (len={data_len})' if data_len is not None else ''} "
+        )
         result = self._apply(data_apply, state=self.__state)
         return result
 
@@ -639,13 +658,8 @@ class FitTransform(ABC):
         return self.__state
 
     def find_by_tag(self, tag: str):
-        # Base implementation checks the state object if it is a FitTransform or an
-        # iterable of FitTransforms. Subclasses should override if they have other ways
-        # of keeping child FitTransforms.
-        # TODO: how can subclasses override this, given that they are created implicitly
-        # by metprogramming?
-        # TODO: we need a _children() method that can be overridden like _apply().
-        #   ... or actually _children() and _fit_children()?
+        # TODO: address implementation on FitTransform. We should consider both
+        # FitTransform-valued params and FitTransform objects in our state.
         if self.tag == tag:
             return self
 
