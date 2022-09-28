@@ -175,10 +175,8 @@ class Transform(ABC):
                 return df_apply[self.cols]
     """
 
-    # Note the following are regular attributes, NOT managed by attrs
-
-    # TODO: do we really want tag to be a hyperparam? shouldn't they be
-    # invariant wrt fit-time data including bindings?
+    # TODO: do we really want tag to be hyperparameterizable? shouldn't it be
+    # invariant wrt fit-time data and bindings?
     tag: str = field(
         init=True,
         eq=False,
@@ -249,14 +247,6 @@ class Transform(ABC):
             subclass of :class:`Transform` must implement.
 
         TODO.
-
-        :param df_apply: _description_
-        :type df_apply: ``pd.DataFrame``
-        :param state: _description_, defaults to None
-        :type state: ``object``, optional
-        :raises NotImplementedError: _description_
-        :return: _description_
-        :rtype: pd.DataFrame
         """
         raise NotImplementedError
 
@@ -266,17 +256,11 @@ class Transform(ABC):
         bindings: Optional[dict[str, object]] = None,
     ) -> FitTransform:
         """
-        Fit this Transform on some data and return a :class:`FitTransform` object. The
-        actual return value will be some subclass of ``FitTransform`` that depends on
-        what class this Transform is; for example, :meth:`ZScore.fit()` returns a
-        :class:`FitZScore` object.
-
-        :param data_fit: _description_
-        :type data_fit: Data
-        :param bindings: _description_, defaults to None
-        :type bindings: Optional[dict[str, object]], optional
-        :return: _description_
-        :rtype: FitTransform
+        Fit this Transform on some data and hyperparam bindigns, and return a
+        :class:`FitTransform` object. The actual return value will be some
+        subclass of ``FitTransform`` that depends on what class this Transform
+        is; for example, :meth:`ZScore.fit()` returns a :class:`FitZScore`
+        object.
         """
         try:
             data_len = len(data_fit)
@@ -919,16 +903,6 @@ def fmt_str_field(**kwargs):
     :rtype: _type_
     """
     return field(converter=HPFmtStr.maybe_from_value, **kwargs)
-
-
-# Valid column list specs (routed by field converter):
-# hp('which_cols') -> plain old hp
-# ['x', 'y', 'z'] -> hp_cols (plain old list?)
-# ['x', hp('some_col'), 'z'] -> hp_cols
-# ['x', '{som_col}', 'z'] -> hp_cols
-# Scalars rewritten to lists of one:
-#   'z' -> ['z'] -> hp_cols
-#   '{some_col}' - ['{som_col}'] -> hp_cols
 
 
 @define
