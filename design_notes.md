@@ -144,7 +144,7 @@ Take-aways:
 
 * ``__add__`` and ``then()`` could become methods of ``Transform`` rather than
   of ``Pipeline``; they would return ``Pipeline``, which still handles the data
-  passing logic. ``Pipeline`` would have to become a core class.
+  passing logic. ``Pipeline`` would have to become a core class. ``Done.``
 
   One could even imagine the call-chain API hanging on ``Transform`` rather
   than on ``Pipeline``... you'd no longer need to begin a de-novo call-chain

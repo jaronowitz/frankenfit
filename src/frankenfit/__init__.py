@@ -79,6 +79,8 @@ from frankenfit.universal import (
 from frankenfit.dataframe import (
     DataFramePipeline,
     ReadDataFrame,
+    ReadPandasCSV,
+    ReadDataset,
     HPCols,
     columns_field,
     fit_group_on_self,

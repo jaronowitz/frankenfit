@@ -619,16 +619,6 @@ class FitTransform(ABC):
         """
         Return the result of applying this fit Transform to the given data.
         """
-        # materialize data for user _apply function.
-        # TODO: move to FitDataFrame.apply()?
-        # if data_apply is None:
-        #     data_apply = pd.DataFrame()
-        # _LOG.debug(
-        #     "Applying %s to %d rows: %r",
-        #     self.__class__.__qualname__,
-        #     len(data_apply),
-        #     self,
-        # )
         try:
             data_len = len(data_apply)
         except TypeError:
@@ -1067,7 +1057,7 @@ def _convert_pipeline_transforms(value):
         elif isinstance(tf_elem, Transform):
             result.append(tf_elem)
         else:
-            raise TypeError(f"Pipeline cannot contain a non-Transform: {value!r}")
+            raise TypeError(f"Pipeline cannot contain a non-Transform: {tf_elem!r}")
 
     return result
 
