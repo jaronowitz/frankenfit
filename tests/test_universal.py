@@ -232,3 +232,37 @@ def test_StatefulLambda(diamonds_df):
     )
     result = lambda_demean.fit(df, bindings={"col": "price"}).apply(df)
     assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
+
+
+def test_ForBindings(diamonds_df):
+    df = diamonds_df.head()
+    result = (
+        ff.universal.ForBindings(
+            [
+                {"target_col": "price"},
+                {"target_col": "depth"},
+                {"target_col": "table"},
+            ],
+            ff.dataframe.Select("{target_col}"),
+        )
+        .fit()
+        .apply(df)
+    )
+
+    for x in result:
+        assert x.result.equals(df[[x.bindings["target_col"]]])
+
+    result = (
+        ff.Pipeline()
+        .for_bindings(
+            [
+                {"target_col": "price"},
+                {"target_col": "depth"},
+                {"target_col": "table"},
+            ]
+        )
+        .stateless_lambda(lambda df, bindings: df[[bindings["target_col"]]])
+    ).apply(df)
+
+    for x in result:
+        assert x.result.equals(df[[x.bindings["target_col"]]])

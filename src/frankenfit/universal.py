@@ -30,12 +30,12 @@ import inspect
 
 import logging
 from attrs import define
-import pandas as pd
 
 from typing import Callable, Optional, TextIO, TypeVar
 
 from . import core as ffc
 from .core import (
+    FitTransform,
     Transform,
     StatelessTransform,
     ObjectPipeline,
@@ -163,31 +163,46 @@ class IfFittingDataHasProperty(UniversalTransform):
 
 
 @define
-class GroupByBindings(UniversalTransform):
-    bindings_sequence: iter[dict]
+class ForBindings(UniversalTransform):
+    bindings_sequence: iter[dict[str, object]]
     transform: Transform
-    include_binding: bool = True
 
-    def _fit(self, data_fit: object) -> object:
+    @define
+    class FitResult:
+        bindings: dict[str, object]
+        fit: FitTransform
+
+    @define
+    class ApplyResult:
+        bindings: dict[str, object]
+        result: object
+
+    def _fit(self, data_fit: object) -> list[ForBindings.FitResult]:
         # TODO: parallelize
-        # bindings from above
+        # base bindings from above:
         base_bindings = self.bindings()
-        fits = {}
+        fits = []
         for bindings in self.bindings_sequence:
-            frozen_bindings = tuple(bindings.items())
-            fits[frozen_bindings] = self.transform.fit(
-                data_fit, bindings=base_bindings | bindings
+            fits.append(
+                ForBindings.FitResult(
+                    bindings,
+                    self.transform.fit(data_fit, bindings=base_bindings | bindings),
+                )
             )
         return fits
 
-    def _apply(self, data_apply: object, state: dict) -> object:
-        # FIXME: make universal
+    def _apply(
+        self, data_apply: object, state: list[ForBindings.FitResult]
+    ) -> list[ForBindings.ApplyResult]:
         # TODO: parallelize
-        dfs = []
-        for frozen_bindings, fit in state:
-            bindings_df = fit.apply(data_apply).assign(**dict(frozen_bindings))
-            dfs.append(bindings_df)
-            return pd.concat(dfs, axis=0)
+        results = []
+        for fit_result in state:
+            results.append(
+                ForBindings.ApplyResult(
+                    fit_result.bindings, fit_result.fit.apply(data_apply)
+                )
+            )
+        return results
 
 
 @define
@@ -306,6 +321,9 @@ class LogMessage(Identity):
         return Identity._apply(self, data_apply, state=state)
 
 
+P = TypeVar("P", bound="Pipeline")
+
+
 class Pipeline(
     ObjectPipeline.with_methods(
         "Pipeline",
@@ -319,7 +337,13 @@ class Pipeline(
         log_message=LogMessage,
     )
 ):
-    pass
+    def for_bindings(self: P, bindings_sequence: iter[dict[str, object]]) -> P.Grouper:
+        return type(self).Grouper(
+            self,
+            ForBindings,
+            "transform",
+            bindings_sequence=bindings_sequence,
+        )
 
 
 # UniversalTransform.pipeline_type = Pipeline
