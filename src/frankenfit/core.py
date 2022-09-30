@@ -47,6 +47,13 @@ P = TypeVar("P", bound="ObjectPipeline")
 R = TypeVar("R", bound="Transform")
 
 
+def transform(*args, **kwargs):
+    # TODO: maybe call this transform_fields to emphasize that it's only needed
+    # when defining new fields? Or alternatively, we could go all-in on a
+    # @transform decorator that implicitly subclasses Transform?
+    return define(*args, **(kwargs | {"slots": False}))
+
+
 def is_iterable(obj):
     """
     Utility function to test if an object is iterable.
@@ -94,8 +101,8 @@ DEFAULT_VISUALIZE_DIGRAPH_KWARGS = {
 }
 
 
-# TODO: remove need for Transform subclasses to write @define
-@define(slots=False)
+# TODO: remove need for Transform subclasses to write @transform
+@transform
 class Transform(ABC):
     """
     The abstract base class of all (unfit) Transforms. Subclasses must implement the
@@ -146,7 +153,7 @@ class Transform(ABC):
         import frankenfit as ff
 
         # A simple stateful transform from scratch, subclassing Transform directly.
-        @define
+        @transform
         class DeMean(ff.Transform):
             "De-mean some columns."
 
@@ -778,7 +785,7 @@ class ConstantTransform(StatelessTransform):
     # FitTransform
 
 
-@define
+@transform
 class HP:
     """
     A hyperparameter; that is, a transformation parameter whose concrete value
@@ -906,7 +913,7 @@ def fmt_str_field(**kwargs):
     return field(converter=HPFmtStr.maybe_from_value, **kwargs)
 
 
-@define
+@transform
 class HPLambda(HP):
     """_summary_
 
@@ -923,7 +930,7 @@ class HPLambda(HP):
         return self.resolve_fun(bindings)
 
 
-@define
+@transform
 class HPDict(HP):
     """_summary_
 
@@ -1037,7 +1044,7 @@ def _convert_pipeline_transforms(value):
     return result
 
 
-@define
+@transform
 class ObjectPipeline(Transform):
     @classmethod
     def with_methods(cls: type, subclass_name: str = None, **kwargs) -> type:

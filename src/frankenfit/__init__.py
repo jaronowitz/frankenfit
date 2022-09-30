@@ -56,6 +56,7 @@ except _PNFE:
     pass
 
 from frankenfit.core import (
+    transform,
     Transform,
     FitTransform,
     StatelessTransform,

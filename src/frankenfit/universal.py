@@ -35,6 +35,7 @@ from typing import Callable, Optional, TextIO, TypeVar
 
 from . import core as ffc
 from .core import (
+    transform,
     FitTransform,
     Transform,
     StatelessTransform,
@@ -47,7 +48,7 @@ U = TypeVar("U", bound="UniversalTransform")
 Obj = TypeVar("Obj")
 
 
-@define
+@transform
 class UniversalTransform(Transform):
     def then(
         self: UniversalTransform, other: Optional[Transform | list[Transform]] = None
@@ -66,7 +67,7 @@ class Identity(StatelessTransform, UniversalTransform):
         return data_apply
 
 
-@define
+@transform
 class IfHyperparamIsTrue(UniversalTransform):
     name: str
     then: Transform
@@ -103,7 +104,7 @@ class IfHyperparamIsTrue(UniversalTransform):
         return entries, exits
 
 
-@define
+@transform
 class IfHyperparamLambda(UniversalTransform):
     fun: Callable  # dict[str, object] -> bool
     then: Transform
@@ -137,7 +138,7 @@ class IfHyperparamLambda(UniversalTransform):
         return entries, exits
 
 
-@define
+@transform
 class IfFittingDataHasProperty(UniversalTransform):
     fun: Callable  # df -> bool
     then: Transform
@@ -162,7 +163,7 @@ class IfFittingDataHasProperty(UniversalTransform):
         return entries, exits
 
 
-@define
+@transform
 class ForBindings(UniversalTransform):
     bindings_sequence: iter[dict[str, object]]
     transform: Transform
@@ -205,7 +206,7 @@ class ForBindings(UniversalTransform):
         return results
 
 
-@define
+@transform
 class StatelessLambda(UniversalTransform, StatelessTransform):
     apply_fun: Callable  # df[, bindings] -> df
 
@@ -220,7 +221,7 @@ class StatelessLambda(UniversalTransform, StatelessTransform):
             raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
 
 
-@define
+@transform
 class StatefulLambda(UniversalTransform):
     fit_fun: Callable  # df[, bindings] -> state
     apply_fun: Callable  # df, state[, bindings] -> df
@@ -246,7 +247,7 @@ class StatefulLambda(UniversalTransform):
             raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
 
 
-@define
+@transform
 class Print(Identity):
     """
     An identity transform that has the side-effect of printing a message at fit- and/or
@@ -290,7 +291,7 @@ class Print(Identity):
         # return super()._apply(data_apply)
 
 
-@define
+@transform
 class LogMessage(Identity):
     """
     An identity transform that has the side-effect of logging a message at fit- and/or

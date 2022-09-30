@@ -35,12 +35,13 @@ import logging
 import operator
 from typing import Callable, Iterable, Optional, TypeVar
 
-from attrs import define, field, NOTHING
+from attrs import field, NOTHING
 import numpy as np
 import pandas as pd
 from pyarrow import dataset
 
 from .core import (
+    transform,
     Transform,
     FitTransform,
     StatelessTransform,
@@ -56,7 +57,7 @@ from .universal import Pipeline, Identity, ForBindings
 _LOG = logging.getLogger(__name__)
 
 
-@define(slots=False)
+@transform
 class DataFrameTransform(Transform):
     def then(
         self: DataFrameTransform, other: Optional[Transform | list[Transform]] = None
@@ -69,19 +70,19 @@ class DataFrameTransform(Transform):
         raise NotImplementedError
 
 
-@define
+@transform
 class StatelessDataFrameTransform(StatelessTransform, DataFrameTransform):
     def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
         return None
 
 
-@define
+@transform
 class ConstantDataFrameTransform(ConstantTransform, DataFrameTransform):
     def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
         return None
 
 
-@define
+@transform
 class ReadDataFrame(ConstantDataFrameTransform):
     df: pd.DataFrame
 
@@ -89,7 +90,7 @@ class ReadDataFrame(ConstantDataFrameTransform):
         return self.df
 
 
-@define
+@transform
 class ReadPandasCSV(ConstantDataFrameTransform):
     filepath: str | HP = fmt_str_field()
     read_csv_args: Optional[dict] = None
@@ -98,7 +99,7 @@ class ReadPandasCSV(ConstantDataFrameTransform):
         return pd.read_csv(self.filepath, **(self.read_csv_args or {}))
 
 
-@define
+@transform
 class WritePandasCSV(Identity, DataFrameTransform):
     path: str | HP = fmt_str_field()
     index_label: str | HP = fmt_str_field()
@@ -111,7 +112,7 @@ class WritePandasCSV(Identity, DataFrameTransform):
         return df_apply
 
 
-@define
+@transform
 class HPCols(HP):
     """_summary_
 
@@ -200,7 +201,7 @@ def optional_columns_field(**kwargs):
     return field(factory=list, converter=HPCols.maybe_from_value, **kwargs)
 
 
-@define
+@transform
 class ReadDataset(ConstantDataFrameTransform):
     paths: list[str] = columns_field()
     format: Optional[str] = None
@@ -223,7 +224,7 @@ class ReadDataset(ConstantDataFrameTransform):
         return df_out
 
 
-@define
+@transform
 class Join(DataFrameTransform):
     left: DataFrameTransform
     right: DataFrameTransform
@@ -261,7 +262,7 @@ class Join(DataFrameTransform):
         )
 
 
-@define
+@transform
 class ColumnsTransform(DataFrameTransform):
     """
     Abstract base clase of all Transforms that require a list of columns as a parameter
@@ -310,7 +311,7 @@ class UnfitGroupError(ValueError):
 
 
 # TODO: GroupByRows
-@define
+@transform
 class GroupByCols(DataFrameTransform):
     """
     Group the fitting and application of a :class:`DataFrameTransform` by the
@@ -382,7 +383,7 @@ class GroupByCols(DataFrameTransform):
         )
 
 
-@define
+@transform
 class GroupByBindings(DataFrameTransform):
     bindings_sequence: iter[dict[str, object]]
     transform: DataFrameTransform
@@ -408,7 +409,7 @@ class GroupByBindings(DataFrameTransform):
         return df
 
 
-@define
+@transform
 class Filter(StatelessDataFrameTransform):
     filter_fun: Callable[[pd.DataFrame], pd.Series[bool]]
 
@@ -427,7 +428,7 @@ class Filter(StatelessDataFrameTransform):
             )
 
 
-@define(slots=False)
+@transform
 class WeightedTransform(DataFrameTransform):
     """
     Abstract base class of Transforms that accept an optional weight column as a
@@ -437,7 +438,7 @@ class WeightedTransform(DataFrameTransform):
     w_col: Optional[str] = None
 
 
-@define
+@transform
 class Copy(ColumnsTransform, StatelessDataFrameTransform):
     """
     A stateless Transform that copies values from one or more source columns into
@@ -478,7 +479,7 @@ class Copy(ColumnsTransform, StatelessDataFrameTransform):
         )
 
 
-@define
+@transform
 class Select(ColumnsTransform, StatelessDataFrameTransform):
     """
     Select the given columns from the data.
@@ -519,7 +520,7 @@ class Drop(ColumnsTransform, StatelessDataFrameTransform):
         return df_apply.drop(columns=self.cols)
 
 
-@define
+@transform
 class Rename(StatelessDataFrameTransform):
     """
     Rename columns.
@@ -534,7 +535,7 @@ class Rename(StatelessDataFrameTransform):
         return df_apply.rename(columns=self.how)
 
 
-@define
+@transform
 class Pipe(ColumnsTransform, StatelessDataFrameTransform):
     apply_fun: Callable[[pd.DataFrame], pd.DataFrame]  # type: ignore
 
@@ -546,7 +547,7 @@ class Pipe(ColumnsTransform, StatelessDataFrameTransform):
 # TODO Rank, MapQuantiles
 
 
-@define
+@transform
 class Clip(ColumnsTransform, StatelessDataFrameTransform):
     upper: Optional[float] = None
     lower: Optional[float] = None
@@ -560,7 +561,7 @@ class Clip(ColumnsTransform, StatelessDataFrameTransform):
         )
 
 
-@define
+@transform
 class Winsorize(ColumnsTransform):
     # assume symmetric, i.e. trim the upper and lower `limit` percent of observations
     limit: float  # type: ignore
@@ -593,7 +594,7 @@ class Winsorize(ColumnsTransform):
         )
 
 
-@define
+@transform
 class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
     value: object  # type: ignore
 
@@ -607,7 +608,7 @@ def _weighted_means(df, cols, w_col):
     return df[cols].multiply(df[w_col], axis="index").sum() / df[w_col].sum()
 
 
-@define
+@transform
 class DeMean(WeightedTransform, ColumnsTransform):
     """
     De-mean some columns.
@@ -623,7 +624,7 @@ class DeMean(WeightedTransform, ColumnsTransform):
         return df_apply.assign(**{c: df_apply[c] - means[c] for c in self.cols})
 
 
-@define
+@transform
 class ImputeMean(WeightedTransform, ColumnsTransform):
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if self.w_col is not None:
@@ -635,7 +636,7 @@ class ImputeMean(WeightedTransform, ColumnsTransform):
         return df_apply.assign(**{c: df_apply[c].fillna(means[c]) for c in self.cols})
 
 
-@define
+@transform
 class ZScore(WeightedTransform, ColumnsTransform):
     def _fit(self, df_fit: pd.DataFrame) -> object:
         if self.w_col is not None:
@@ -651,7 +652,7 @@ class ZScore(WeightedTransform, ColumnsTransform):
         )
 
 
-@define
+@transform
 class SKLearn(DataFrameTransform):
     """
     Wrap a scikit-learn ("sklearn") model. At fit-time, the given sklearn model class
@@ -705,7 +706,7 @@ class SKLearn(DataFrameTransform):
         return df_apply.assign(**{self.hat_col: model.predict(df_apply[self.x_cols])})
 
 
-@define
+@transform
 class Statsmodels(DataFrameTransform):
     """
     Wrap a statsmodels model.
@@ -728,7 +729,7 @@ class Statsmodels(DataFrameTransform):
         return df_apply.assign(**{self.hat_col: model.predict(df_apply[self.x_cols])})
 
 
-@define
+@transform
 class Correlation(StatelessDataFrameTransform):
     """
     Compute the correlation between each pair of columns in the cross-product of
@@ -773,7 +774,7 @@ class Correlation(StatelessDataFrameTransform):
         return cm.loc[self.left_cols, self.right_cols]
 
 
-@define
+@transform
 class Assign(StatelessDataFrameTransform):
     # TODO: keys as fmt str hyperparams
     assignments: dict[str, Callable] = dict_field()
