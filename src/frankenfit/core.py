@@ -622,6 +622,8 @@ class FitTransform(ABC):
         Return the bindings dict according to which the transformation's hyperparameters
         were resolved.
         """
+        if self.__bindings is None:
+            return {}
         return self.__bindings
 
     def state(self) -> object:
