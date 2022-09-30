@@ -51,10 +51,7 @@ from .core import (
     ConstantTransform,
 )
 
-from .universal import (
-    Pipeline,
-    Identity,
-)
+from .universal import Pipeline, Identity, ForBindings
 
 _LOG = logging.getLogger(__name__)
 
@@ -383,6 +380,32 @@ class GroupByCols(DataFrameTransform):
             .groupby(self.cols, as_index=False, sort=False, group_keys=False)
             .apply(apply_on_group)
         )
+
+
+@define
+class GroupByBindings(DataFrameTransform):
+    bindings_sequence: iter[dict[str, object]]
+    transform: DataFrameTransform
+    as_index: bool = True
+
+    def _fit(
+        self, data_fit: Optional[pd.DataFrame] = None
+    ) -> ForBindings.FitForBindings:
+        return ForBindings(self.bindings_sequence, self.transform).fit(data_fit)
+
+    def _apply(
+        self, df_apply: pd.DataFrame, state: ForBindings.FitForBindings
+    ) -> pd.DataFrame:
+        results = state.apply(df_apply)
+        binding_cols = set()
+        dfs = []
+        for x in results:
+            dfs.append(x.result.assign(**x.bindings))
+            binding_cols |= x.bindings.keys()
+        df = pd.concat(dfs, axis=0)
+        if self.as_index:
+            df = df.set_index(list(binding_cols))
+        return df
 
 
 @define(slots=False)
@@ -879,4 +902,15 @@ class DataFramePipeline(
             "transform",
             cols=cols,
             fitting_schedule=(fitting_schedule or fit_group_on_self),
+        )
+
+    def group_by_bindings(
+        self: DP, bindings_sequence: iter[dict[str, object]], as_index: bool = False
+    ) -> DP.Grouper:
+        return type(self).Grouper(
+            self,
+            GroupByBindings,
+            "transform",
+            bindings_sequence=bindings_sequence,
+            as_index=as_index,
         )

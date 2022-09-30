@@ -526,3 +526,30 @@ def test_Assign(diamonds_df):
     ).apply(diamonds_df, bindings={"k": 3})
     assert (result["intercept"] == 1).all()
     assert (result["grp_3"] == (diamonds_df.index % 3)).all()
+
+
+def test_GroupByBindings(diamonds_df):
+    df = diamonds_df.head()
+    result = (
+        ff.DataFramePipeline()
+        .group_by_bindings(
+            [
+                {"target_col": "price"},
+                {"target_col": "depth"},
+                {"target_col": "table"},
+            ],
+            as_index=True,
+        )
+        .select(["{target_col}"])
+    ).apply(df)
+
+    target = pd.concat(
+        [
+            df[["price"]].assign(target_col="price"),
+            df[["depth"]].assign(target_col="depth"),
+            df[["table"]].assign(target_col="table"),
+        ],
+        axis=0,
+    ).set_index("target_col")
+
+    assert result.equals(target)
