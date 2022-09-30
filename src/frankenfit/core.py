@@ -557,7 +557,6 @@ class FitTransform(ABC):
     """
 
     def __init__(self, transform: Transform, data_fit: object, bindings=None):
-        "Docstr for FitTransform.__init__"
         bindings = bindings or {}
         self._field_names = transform.params()
         for name in self._field_names:

@@ -359,6 +359,12 @@ def test_complex_pipeline_1(diamonds_df):
     )
 
     assert pipeline.hyperparams() == {"bake_features", "predictors", "response_col"}
+
+    # should be picklable without errors
+    import cloudpickle
+
+    assert cloudpickle.loads(cloudpickle.dumps(pipeline)) == pipeline
+
     # TODO: test more stuff with this pipeline
 
 

@@ -56,13 +56,13 @@ from .universal import Pipeline, Identity, ForBindings
 _LOG = logging.getLogger(__name__)
 
 
-@define
+@define(slots=False)
 class DataFrameTransform(Transform):
     def then(
         self: DataFrameTransform, other: Optional[Transform | list[Transform]] = None
     ) -> "DataFramePipeline":
         result = super().then(other)
-        return DataFramePipeline(tag=self.tag, transforms=result.transforms)
+        return DataFramePipeline(transforms=result.transforms)
 
     @abstractmethod
     def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
@@ -261,7 +261,7 @@ class Join(DataFrameTransform):
         )
 
 
-@define(slots=False)
+@define
 class ColumnsTransform(DataFrameTransform):
     """
     Abstract base clase of all Transforms that require a list of columns as a parameter
@@ -651,7 +651,7 @@ class ZScore(WeightedTransform, ColumnsTransform):
         )
 
 
-@define(slots=False)
+@define
 class SKLearn(DataFrameTransform):
     """
     Wrap a scikit-learn ("sklearn") model. At fit-time, the given sklearn model class
@@ -705,7 +705,7 @@ class SKLearn(DataFrameTransform):
         return df_apply.assign(**{self.hat_col: model.predict(df_apply[self.x_cols])})
 
 
-@define(slots=False)
+@define
 class Statsmodels(DataFrameTransform):
     """
     Wrap a statsmodels model.

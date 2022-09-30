@@ -53,7 +53,7 @@ class UniversalTransform(Transform):
         self: UniversalTransform, other: Optional[Transform | list[Transform]] = None
     ) -> "Pipeline":
         result = super().then(other)
-        return Pipeline(tag=self.tag, transforms=result.transforms)
+        return Pipeline(transforms=result.transforms)
 
 
 class Identity(StatelessTransform, UniversalTransform):

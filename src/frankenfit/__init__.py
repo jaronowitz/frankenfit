@@ -88,3 +88,8 @@ from frankenfit.dataframe import (
     # Exceptions that users can catch
     UnfitGroupError,
 )
+
+from frankenfit.backend import (
+    Backend,
+    LocalBackend,
+)
