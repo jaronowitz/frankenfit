@@ -249,7 +249,7 @@ def test_Join(diamonds_df):
         .join(
             (
                 ff.DataFramePipeline()
-                .group_by("cut")
+                .group_by_cols("cut")
                 .stateless_lambda(lambda df: df[["price"]].mean())
                 .rename({"price": "mean_price"})
             ),
@@ -352,14 +352,16 @@ def test_GroupBy(diamonds_df):
     pip = ff.DataFramePipeline().stateless_lambda(len)
     assert pip.fit(df).apply(df) == len(df)
 
-    result = ffdf.GroupBy("cut", pip).fit(df).apply(df)
+    result = ffdf.GroupByCols("cut", pip).fit(df).apply(df)
     assert result.equals(target)
 
-    pip = ff.DataFramePipeline().group_by("cut").stateless_lambda(len)
+    pip = ff.DataFramePipeline().group_by_cols("cut").stateless_lambda(len)
     assert pip.fit(df).apply(df).equals(target)
 
     # A sttaeful transform
-    pip = ff.DataFramePipeline().group_by("cut").de_mean(["price"])[["cut", "price"]]
+    pip = (
+        ff.DataFramePipeline().group_by_cols("cut").de_mean(["price"])[["cut", "price"]]
+    )
     result = pip.apply(df)
     assert np.abs(result["price"].mean()) < 1e-10
     assert all(np.abs(result.groupby("cut")["price"].mean()) < 1e-10)
@@ -367,7 +369,7 @@ def test_GroupBy(diamonds_df):
     # "cross-validated" de-meaning hah
     pip = (
         ff.DataFramePipeline()
-        .group_by("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
+        .group_by_cols("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
         .de_mean(["price"])[["cut", "price"]]
     )
     result = pip.apply(df)
@@ -375,7 +377,7 @@ def test_GroupBy(diamonds_df):
 
     pip = (
         ff.DataFramePipeline()
-        .group_by("cut")
+        .group_by_cols("cut")
         .stateless_lambda(lambda df: df[["price"]].mean())
     )
     result = pip.apply(df).set_index("cut").sort_index().reset_index()
@@ -384,7 +386,7 @@ def test_GroupBy(diamonds_df):
 
     pip = (
         ff.DataFramePipeline()
-        .group_by("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
+        .group_by_cols("cut", fitting_schedule=ff.fit_group_on_all_other_groups)
         .de_mean("price")[["cut", "price"]]
     )
     result = pip.apply(df)
@@ -397,7 +399,7 @@ def test_GroupBy(diamonds_df):
     )[["cut", "price"]]
     assert result.equals(target)
 
-    pip = ff.DataFramePipeline().group_by("cut").de_mean(["price"])
+    pip = ff.DataFramePipeline().group_by_cols("cut").de_mean(["price"])
     with pytest.raises(ff.UnfitGroupError):
         pip.fit(df.loc[df["cut"] != "Fair"]).apply(df)
 

@@ -312,8 +312,9 @@ class UnfitGroupError(ValueError):
     containing groups on which it was not fit."""
 
 
+# TODO: GroupByRows
 @define
-class GroupBy(DataFrameTransform):
+class GroupByCols(DataFrameTransform):
     """
     Group the fitting and application of a :class:`DataFrameTransform` by the
     distinct values of some column or combination of columns.
@@ -336,7 +337,6 @@ class GroupBy(DataFrameTransform):
 
     """
 
-    # TODO: what about grouping by index? separate transform GroupByRows
     cols: str | HP | list[str | HP] = columns_field()
     transform: HP | DataFrameTransform = field()  # type: ignore
     # TODO: what about hyperparams in the fitting schedule? that's a thing.
@@ -826,7 +826,7 @@ class DataFramePipeline(
         )
         return type(self)(transforms=join)
 
-    def group_by(self: DP, cols, fitting_schedule=None) -> DP.Grouper:
+    def group_by_cols(self: DP, cols, fitting_schedule=None) -> DP.Grouper:
         """
         Return a :class:`Grouper` object, which will consume the next Transform
         in the call-chain by wrapping it in a :class:`GroupBy` transform and returning
@@ -875,7 +875,7 @@ class DataFramePipeline(
         """
         return type(self).Grouper(
             self,
-            GroupBy,
+            GroupByCols,
             "transform",
             cols=cols,
             fitting_schedule=(fitting_schedule or fit_group_on_self),
