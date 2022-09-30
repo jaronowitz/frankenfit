@@ -408,6 +408,25 @@ class GroupByBindings(DataFrameTransform):
         return df
 
 
+@define
+class Filter(StatelessDataFrameTransform):
+    filter_fun: Callable[[pd.DataFrame], pd.Series[bool]]
+
+    def _apply(
+        self, data_apply: Optional[object], state: Optional[object] = None
+    ) -> object:
+        sig = inspect.signature(self.filter_fun).parameters
+        if len(sig) == 1:
+            return data_apply.loc[self.filter_fun(data_apply)]
+        elif len(sig) == 2:
+            return data_apply.loc[self.filter_fun(data_apply, self.bindings())]
+        else:
+            # TODO: raise this earlier in field validator
+            raise TypeError(
+                f"Expected callable with 1 or 2 parameters, found {len(sig)}"
+            )
+
+
 @define(slots=False)
 class WeightedTransform(DataFrameTransform):
     """
@@ -806,6 +825,7 @@ class DataFramePipeline(
         read_dataset=ReadDataset,
         select=Select,
         __getitem__=Select,
+        filter=Filter,
         copy=Copy,
         drop=Drop,
         rename=Rename,

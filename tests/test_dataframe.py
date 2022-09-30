@@ -136,6 +136,22 @@ def test_Select(diamonds_df):
     assert result.equals(diamonds_df[kept])
 
 
+def test_Filter(diamonds_df):
+    ideal_df = (ff.DataFramePipeline().filter(lambda df: df["cut"] == "Ideal")).apply(
+        diamonds_df
+    )
+    assert (ideal_df["cut"] == "Ideal").all()
+
+    pip = (
+        ff.DataFramePipeline()
+        # with second arg for bindings
+        .filter(lambda df, bindings: df["cut"] == bindings["which_cut"])
+    )
+    for which_cut in ("Premium", "Good"):
+        result_df = pip.apply(diamonds_df, bindings={"which_cut": which_cut})
+        assert (result_df["cut"] == which_cut).all()
+
+
 def test_RenameColumns(diamonds_df):
     result = ff.DataFramePipeline().rename({"price": "price_orig"}).apply(diamonds_df)
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
