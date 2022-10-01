@@ -40,6 +40,8 @@ import warnings
 from attrs import define, field, fields_dict, Factory, NOTHING
 import graphviz
 
+from .backend import Backend, DummyBackend
+
 _LOG = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -261,6 +263,8 @@ class Transform(ABC):
         self,
         data_fit: Optional[object] = None,
         bindings: Optional[dict[str, object]] = None,
+        backend: Optional[Backend] = None,
+        block: bool = True,
     ) -> FitTransform:
         """
         Fit this Transform on some data and hyperparam bindigns, and return a
@@ -280,7 +284,7 @@ class Transform(ABC):
             f"with bindings={bindings!r}"
         )
         fit_class: FitTransform = getattr(self, self._fit_class_name)
-        return fit_class(self, data_fit, bindings)
+        return fit_class(self, data_fit, bindings, backend, block)
 
     def params(self) -> list[str]:
         """
@@ -563,7 +567,14 @@ class FitTransform(ABC):
     argument of the user's ``_fit()`` method).
     """
 
-    def __init__(self, transform: Transform, data_fit: object, bindings=None):
+    def __init__(
+        self,
+        transform: Transform,
+        data_fit: object,
+        bindings=None,
+        backend=None,
+        block=True,
+    ):
         bindings = bindings or {}
         self._field_names = transform.params()
         for name in self._field_names:
@@ -575,10 +586,14 @@ class FitTransform(ABC):
         self.tag: str = transform.tag
         # freak out if any hyperparameters failed to bind
         self._check_hyperparams()
-        # but also keep the original collection around (temporarily) in case the user
-        # _fit function wants it
+
+        if backend is None:
+            backend = DummyBackend()
+
         # run user _fit function
-        self.__state = transform._fit.__func__(self, data_fit)
+        self.__state = backend.submit(
+            f"{self.tag}.fit", transform._fit.__func__, self, data_fit, block=block
+        )
 
     def _check_hyperparams(self):
         unresolved = []
@@ -605,7 +620,12 @@ class FitTransform(ABC):
     def _apply(self, data_apply: object, state=None) -> object:
         raise NotImplementedError
 
-    def apply(self, data_apply: Optional[object] = None) -> object:
+    def apply(
+        self,
+        data_apply: Optional[object] = None,
+        backend: Optional[Backend] = None,
+        block: bool = True,
+    ) -> object:
         """
         Return the result of applying this fit Transform to the given data.
         """
@@ -618,7 +638,14 @@ class FitTransform(ABC):
             f"Applying {self.tag} on {type(data_apply)}"
             f"{f' (len={data_len})' if data_len is not None else ''} "
         )
-        result = self._apply(data_apply, state=self.__state)
+
+        if backend is None:
+            backend = DummyBackend()
+
+        # run user _apply function
+        result = backend.submit(
+            f"{self.tag}.apply", self._apply, data_apply, self.__state, block=block
+        )
         return result
 
     # TODO: refit()
