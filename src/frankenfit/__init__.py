@@ -55,6 +55,12 @@ except _PNFE:
     # package is not installed
     pass
 
+from frankenfit.backend import (
+    Backend,
+    DummyBackend,
+    DaskBackend,
+)
+
 from frankenfit.core import (
     transform,
     Transform,
@@ -88,9 +94,4 @@ from frankenfit.dataframe import (
     fit_group_on_all_other_groups,
     # Exceptions that users can catch
     UnfitGroupError,
-)
-
-from frankenfit.backend import (
-    Backend,
-    LocalBackend,
 )

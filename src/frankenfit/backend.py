@@ -22,38 +22,79 @@
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Optional
-
-from frankenfit.core import FitTransform, Transform
+from attrs import define, field
+from dask import distributed
+from dask.base import tokenize
+from typing import Callable, Optional
 
 
 class Backend(ABC):
     @abstractmethod
-    def fit(
+    def submit(
         self,
-        transform: Transform,
-        data_fit: Optional[object] = None,
-        bindings: Optional[dict[str, object]] = None,
-    ) -> FitTransform:
-        raise NotImplementedError
-
-    @abstractmethod
-    def apply(
-        self, fit_transform: FitTransform, data_apply: Optional[object] = None
-    ) -> object:
+        function: Callable,
+        key_prefix: str,
+        *function_args,
+        block: bool = True,
+        **function_kwargs,
+    ):
         raise NotImplementedError
 
 
-class LocalBackend(Backend):
-    def fit(
-        self,
-        transform: Transform,
-        data_fit: Optional[object] = None,
-        bindings: Optional[dict[str, object]] = None,
-    ) -> FitTransform:
-        return transform.fit(data_fit=data_fit, bindings=bindings)
+@define
+class DummyFuture:
+    obj: object
 
-    def apply(
-        self, fit_transform: FitTransform, data_apply: Optional[object] = None
-    ) -> object:
-        return fit_transform.apply(data_apply)
+    def result(self):
+        return self.obj
+
+
+@define
+class DummyBackend(Backend):
+    def submit(
+        self,
+        function: Callable,
+        key_prefix: str,
+        *function_args,
+        block: bool = True,
+        **function_kwargs,
+    ):
+        result = function(*function_args, **function_kwargs)
+        if block:
+            return result
+        return DummyFuture(result)
+
+
+def _convert_to_address(obj: str | None | distributed.Client):
+    if obj is None:
+        return None
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, distributed.Client):
+        return obj.scheduler.address
+    raise TypeError(f"Don't know how to create DaskBackend from {type(obj)}: {obj!r}")
+
+
+@define
+class DaskBackend(Backend):
+    address: Optional[str] = field(converter=_convert_to_address, default=None)
+
+    def submit(
+        self,
+        function: Callable,
+        key_prefix: str,
+        *function_args,
+        block: bool = True,
+        **function_kwargs,
+    ):
+        client = distributed.get_client(self.address)
+        # TODO: should we do anything about impure functions? i.e., data readers
+        key = key_prefix + "-" + tokenize(function, function_kwargs, *function_args)
+        # hmm, there could be a problem here with collision between function
+        # kwargs and submit kwargs, but this is inherent to distributed's API
+        # design :/. In general I suppose callers should prefer to provide
+        # everything as positoinal arguments.
+        fut = client.submit(function, *function_args, key=key, **function_kwargs)
+        if block:
+            return fut.result()
+        return fut
