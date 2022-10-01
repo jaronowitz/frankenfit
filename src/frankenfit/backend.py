@@ -32,8 +32,8 @@ class Backend(ABC):
     @abstractmethod
     def submit(
         self,
-        function: Callable,
         key_prefix: str,
+        function: Callable,
         *function_args,
         block: bool = True,
         **function_kwargs,
@@ -53,8 +53,8 @@ class DummyFuture:
 class DummyBackend(Backend):
     def submit(
         self,
-        function: Callable,
         key_prefix: str,
+        function: Callable,
         *function_args,
         block: bool = True,
         **function_kwargs,
@@ -81,8 +81,8 @@ class DaskBackend(Backend):
 
     def submit(
         self,
-        function: Callable,
         key_prefix: str,
+        function: Callable,
         *function_args,
         block: bool = True,
         **function_kwargs,

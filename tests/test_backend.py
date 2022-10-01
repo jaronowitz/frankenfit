@@ -31,10 +31,10 @@ def test_DummyBackend():
 
     backend = ff.DummyBackend()
 
-    dummy_fut = backend.submit(foo, "key-foo", 42, block=False)
+    dummy_fut = backend.submit("key-foo", foo, 42, block=False)
     assert dummy_fut.result() == "foo(42)"
 
-    result = backend.submit(foo, "key-foo", 24, block=True)
+    result = backend.submit("key-foo", foo, 24, block=True)
     assert result == "foo(24)"
 
 
@@ -46,22 +46,22 @@ def test_DaskBackend():
 
     # should fail with no dask client having yet been created
     with pytest.raises(ValueError):
-        backend.submit(foo, "key-foo", 42, block=False)
+        backend.submit("key-foo", foo, 42, block=False)
 
     with pytest.raises(ValueError):
-        backend.submit(foo, "key-foo", 24, block=True)
+        backend.submit("key-foo", foo, 24, block=True)
 
     # spin up a local cluster and client
     client = distributed.Client()
     backend = ff.DaskBackend(client)
 
-    fut = backend.submit(foo, "key-foo", 42, block=False)
+    fut = backend.submit("key-foo", foo, 42, block=False)
     assert fut.result() == "foo(42)"
 
-    result = backend.submit(foo, "key-foo", 24, block=True)
+    result = backend.submit("key-foo", foo, 24, block=True)
     assert result == "foo(24)"
 
     # should find global client, per distributed.get_client()
     backend = ff.DaskBackend()
-    fut = backend.submit(foo, "key-foo", 42, block=False)
+    fut = backend.submit("key-foo", foo, 42, block=False)
     assert fut.result() == "foo(42)"
