@@ -1,4 +1,3 @@
-from attrs import define
 import pytest
 import pandas as pd
 
@@ -14,7 +13,7 @@ def diamonds_df():
 
 
 def test_Transform(diamonds_df):
-    @define
+    @ff.transform
     class DeMean(ff.Transform):
         cols: list[str]
 
@@ -62,7 +61,7 @@ def test_hyperparams(diamonds_df):
         == "price_train"
     )
 
-    @define
+    @ff.transform
     class TestTransform(ff.Transform):
         some_param: str
 
