@@ -21,7 +21,7 @@
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
 """
-Provides a library of basic Transforms on Pandas DataFrames.
+Provides a library of broadly useful Transforms on 2-D Pandas DataFrames.
 
 Ordinarily, users should never need to import this module directly. Instead, they access
 the classes and functions defined here through the public API exposed as
@@ -33,7 +33,7 @@ from functools import partial, reduce
 import inspect
 import logging
 import operator
-from typing import Callable, Iterable, Optional, TypeVar
+from typing import Any, Callable, Iterable, Optional, TypeVar
 
 from attrs import field, NOTHING
 import numpy as np
@@ -41,6 +41,7 @@ import pandas as pd
 from pyarrow import dataset
 
 from .core import (
+    Bindings,
     transform,
     Transform,
     FitTransform,
@@ -66,19 +67,19 @@ class DataFrameTransform(Transform):
         return DataFramePipeline(transforms=result.transforms)
 
     @abstractmethod
-    def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> object:
         raise NotImplementedError
 
 
 @transform
 class StatelessDataFrameTransform(StatelessTransform, DataFrameTransform):
-    def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> object:
         return None
 
 
 @transform
 class ConstantDataFrameTransform(ConstantTransform, DataFrameTransform):
-    def _fit(self, data_fit: Optional[pd.DataFrame] = None) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> object:
         return None
 
 
@@ -86,7 +87,7 @@ class ConstantDataFrameTransform(ConstantTransform, DataFrameTransform):
 class ReadDataFrame(ConstantDataFrameTransform):
     df: pd.DataFrame
 
-    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply, _) -> pd.DataFrame:
         return self.df
 
 
@@ -95,7 +96,7 @@ class ReadPandasCSV(ConstantDataFrameTransform):
     filepath: str | HP = fmt_str_field()
     read_csv_args: Optional[dict] = None
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply, _) -> pd.DataFrame:
         return pd.read_csv(self.filepath, **(self.read_csv_args or {}))
 
 
@@ -105,11 +106,11 @@ class WritePandasCSV(Identity, DataFrameTransform):
     index_label: str | HP = fmt_str_field()
     to_csv_kwargs: Optional[dict] = None
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None):
-        df_apply.to_csv(
+    def _apply(self, data_apply: pd.DataFrame, _):
+        data_apply.to_csv(
             self.path, index_label=self.index_label, **(self.to_csv_kwargs or {})
         )
-        return df_apply
+        return data_apply
 
 
 @transform
@@ -211,7 +212,7 @@ class ReadDataset(ConstantDataFrameTransform):
     dataset_kwargs: Optional[dict] = None
     scanner_kwargs: Optional[dict] = None
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, _) -> pd.DataFrame:
         ds = dataset.dataset(
             self.paths, format=self.format, **(self.dataset_kwargs or {})
         )
@@ -238,19 +239,18 @@ class Join(DataFrameTransform):
     # TODO: more merge params like left_index etc.
     # TODO: (when on distributed compute) context extension
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
-        bindings = self.bindings()
+    def _fit(self, data_fit: pd.DataFrame, bindings: Bindings) -> object:
         return (
-            self.left.fit(df_fit, bindings=bindings),
-            self.right.fit(df_fit, bindings=bindings),
+            self.left.fit(data_fit, bindings=bindings),
+            self.right.fit(data_fit, bindings=bindings),
         )
 
     def _apply(
-        self, df_apply: pd.DataFrame, state: tuple[FitTransform]
+        self, data_apply: pd.DataFrame, state: tuple[FitTransform]
     ) -> pd.DataFrame:
         fit_left, fit_right = state
         # TODO: parallelize
-        df_left, df_right = fit_left.apply(df_apply), fit_right.apply(df_apply)
+        df_left, df_right = fit_left.apply(data_apply), fit_right.apply(data_apply)
         return pd.merge(
             left=df_left,
             right=df_right,
@@ -342,25 +342,23 @@ class GroupByCols(DataFrameTransform):
         default=fit_group_on_self
     )
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
-        bindings = self.bindings()
-
+    def _fit(self, data_fit: pd.DataFrame, bindings: Bindings) -> object:
         def fit_on_group(df_group: pd.DataFrame):
             # select the fitting data for this group
             group_col_map = {c: df_group[c].iloc[0] for c in self.cols}
-            df_group_fit = df_fit.loc[self.fitting_schedule(group_col_map)]
+            df_group_fit = data_fit.loc[self.fitting_schedule(group_col_map)]
             # fit the transform on the fitting data for this group
             # TODO: new per-group tags for the FitTransforms? How should find_by_tag()
             # work on FitGroupBy? (By overriding _children())
             return self.transform.fit(df_group_fit, bindings=bindings)
 
         return (
-            df_fit.groupby(self.cols, as_index=False, sort=False)
+            data_fit.groupby(self.cols, as_index=False, sort=False)
             .apply(fit_on_group)
             .rename(columns={None: "__state__"})
         )
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: pd.DataFrame) -> pd.DataFrame:
         def apply_on_group(df_group: pd.DataFrame):
             df_group_apply = df_group.drop(["__state__"], axis=1)
             # values of __state__ ought to be identical within the group
@@ -377,7 +375,7 @@ class GroupByCols(DataFrameTransform):
             return group_state.apply(df_group_apply)
 
         return (
-            df_apply.merge(state, how="left", on=self.cols)
+            data_apply.merge(state, how="left", on=self.cols)
             .groupby(self.cols, as_index=False, sort=False, group_keys=False)
             .apply(apply_on_group)
         )
@@ -385,19 +383,21 @@ class GroupByCols(DataFrameTransform):
 
 @transform
 class GroupByBindings(DataFrameTransform):
-    bindings_sequence: iter[dict[str, object]]
+    bindings_sequence: iter[Bindings]
     transform: DataFrameTransform
     as_index: bool = True
 
     def _fit(
-        self, data_fit: Optional[pd.DataFrame] = None
+        self, data_fit: pd.DataFrame, bindings: Bindings
     ) -> ForBindings.FitForBindings:
-        return ForBindings(self.bindings_sequence, self.transform).fit(data_fit)
+        return ForBindings(self.bindings_sequence, self.transform).fit(
+            data_fit, bindings=bindings
+        )
 
     def _apply(
-        self, df_apply: pd.DataFrame, state: ForBindings.FitForBindings
+        self, data_apply: pd.DataFrame, state: ForBindings.FitForBindings
     ) -> pd.DataFrame:
-        results = state.apply(df_apply)
+        results = state.apply(data_apply)
         binding_cols = set()
         dfs = []
         for x in results:
@@ -414,13 +414,13 @@ class Filter(StatelessDataFrameTransform):
     filter_fun: Callable[[pd.DataFrame], pd.Series[bool]]
 
     def _apply(
-        self, data_apply: Optional[object], state: Optional[object] = None
+        self, data_apply: pd.DataFrame, state: object, bindings: Bindings
     ) -> object:
         sig = inspect.signature(self.filter_fun).parameters
         if len(sig) == 1:
             return data_apply.loc[self.filter_fun(data_apply)]
         elif len(sig) == 2:
-            return data_apply.loc[self.filter_fun(data_apply, self.bindings())]
+            return data_apply.loc[self.filter_fun(data_apply, bindings)]
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(
@@ -464,16 +464,16 @@ class Copy(ColumnsTransform, StatelessDataFrameTransform):
                 "length."
             )
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         if len(self.cols) == 1:
             src_col = self.cols[0]
-            return df_apply.assign(
-                **{dest_col: df_apply[src_col] for dest_col in self.dest_cols}
+            return data_apply.assign(
+                **{dest_col: data_apply[src_col] for dest_col in self.dest_cols}
             )
 
-        return df_apply.assign(
+        return data_apply.assign(
             **{
-                dest_col: df_apply[src_col]
+                dest_col: data_apply[src_col]
                 for src_col, dest_col in zip(self.cols, self.dest_cols)
             }
         )
@@ -507,8 +507,8 @@ class Select(ColumnsTransform, StatelessDataFrameTransform):
             )
     """
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return df_apply[self.cols]
+    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return data_apply[self.cols]
 
 
 class Drop(ColumnsTransform, StatelessDataFrameTransform):
@@ -516,8 +516,8 @@ class Drop(ColumnsTransform, StatelessDataFrameTransform):
     Drop the given columns from the data.
     """
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return df_apply.drop(columns=self.cols)
+    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return data_apply.drop(columns=self.cols)
 
 
 @transform
@@ -531,17 +531,17 @@ class Rename(StatelessDataFrameTransform):
 
     how: Callable | dict[str, str]
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return df_apply.rename(columns=self.how)
+    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        return data_apply.rename(columns=self.how)
 
 
 @transform
 class Pipe(ColumnsTransform, StatelessDataFrameTransform):
     apply_fun: Callable[[pd.DataFrame], pd.DataFrame]  # type: ignore
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        result = self.apply_fun(df_apply[self.cols])
-        return df_apply.assign(**{c: result[c] for c in self.cols})
+    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        result = self.apply_fun(data_apply[self.cols])
+        return data_apply.assign(**{c: result[c] for c in self.cols})
 
 
 # TODO Rank, MapQuantiles
@@ -552,10 +552,10 @@ class Clip(ColumnsTransform, StatelessDataFrameTransform):
     upper: Optional[float] = None
     lower: Optional[float] = None
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return df_apply.assign(
+    def _apply(self, data_apply: pd.DataFrame, _) -> pd.DataFrame:
+        return data_apply.assign(
             **{
-                col: df_apply[col].clip(upper=self.upper, lower=self.lower)
+                col: data_apply[col].clip(upper=self.upper, lower=self.lower)
                 for col in self.cols
             }
         )
@@ -566,7 +566,7 @@ class Winsorize(ColumnsTransform):
     # assume symmetric, i.e. trim the upper and lower `limit` percent of observations
     limit: float  # type: ignore
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> dict[str, pd.Series]:
         if not isinstance(self.limit, float):
             raise TypeError(
                 f"Winsorize.limit must be a float between 0 and 1. Got: {self.limit}"
@@ -577,16 +577,18 @@ class Winsorize(ColumnsTransform):
             )
 
         return {
-            "lower": df_fit[self.cols].quantile(self.limit, interpolation="nearest"),
-            "upper": df_fit[self.cols].quantile(
+            "lower": data_fit[self.cols].quantile(self.limit, interpolation="nearest"),
+            "upper": data_fit[self.cols].quantile(
                 1.0 - self.limit, interpolation="nearest"
             ),
         }
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return df_apply.assign(
+    def _apply(
+        self, data_apply: pd.DataFrame, state: dict[str, pd.Series]
+    ) -> pd.DataFrame:
+        return data_apply.assign(
             **{
-                col: df_apply[col].clip(
+                col: data_apply[col].clip(
                     upper=state["upper"][col], lower=state["lower"][col]
                 )
                 for col in self.cols
@@ -598,9 +600,9 @@ class Winsorize(ColumnsTransform):
 class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
     value: object  # type: ignore
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        return df_apply.assign(
-            **{col: df_apply[col].fillna(self.value) for col in self.cols}
+    def _apply(self, data_apply: pd.DataFrame, state) -> pd.DataFrame:
+        return data_apply.assign(
+            **{col: data_apply[col].fillna(self.value) for col in self.cols}
         )
 
 
@@ -614,41 +616,45 @@ class DeMean(WeightedTransform, ColumnsTransform):
     De-mean some columns.
     """
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
         if self.w_col is not None:
-            return _weighted_means(df_fit, self.cols, self.w_col)
-        return df_fit[self.cols].mean()
+            return _weighted_means(data_fit, self.cols, self.w_col)
+        return data_fit[self.cols].mean()
 
-    def _apply(self, df_apply: pd.DataFrame, state: pd.DataFrame):
+    def _apply(self, data_apply: pd.DataFrame, state: pd.Series):
         means = state
-        return df_apply.assign(**{c: df_apply[c] - means[c] for c in self.cols})
+        return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
 
 
 @transform
 class ImputeMean(WeightedTransform, ColumnsTransform):
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
         if self.w_col is not None:
-            return _weighted_means(df_fit, self.cols, self.w_col)
-        return df_fit[self.cols].mean()
+            return _weighted_means(data_fit, self.cols, self.w_col)
+        return data_fit[self.cols].mean()
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
         means = state
-        return df_apply.assign(**{c: df_apply[c].fillna(means[c]) for c in self.cols})
+        return data_apply.assign(
+            **{c: data_apply[c].fillna(means[c]) for c in self.cols}
+        )
 
 
 @transform
 class ZScore(WeightedTransform, ColumnsTransform):
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> dict[str, pd.Series]:
         if self.w_col is not None:
-            means = _weighted_means(df_fit, self.cols, self.w_col)
+            means = _weighted_means(data_fit, self.cols, self.w_col)
         else:
-            means = df_fit[self.cols].mean()
-        return {"means": means, "stddevs": df_fit[self.cols].std()}
+            means = data_fit[self.cols].mean()
+        return {"means": means, "stddevs": data_fit[self.cols].std()}
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(
+        self, data_apply: pd.DataFrame, state: dict[str, pd.Series]
+    ) -> pd.DataFrame:
         means, stddevs = state["means"], state["stddevs"]
-        return df_apply.assign(
-            **{c: (df_apply[c] - means[c]) / stddevs[c] for c in self.cols}
+        return data_apply.assign(
+            **{c: (data_apply[c] - means[c]) / stddevs[c] for c in self.cols}
         )
 
 
@@ -688,12 +694,12 @@ class SKLearn(DataFrameTransform):
     class_params: dict[str, object] = dict_field(factory=dict)
     w_col: Optional[str] = fmt_str_field(factory=str)
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> object:
         model = self.sklearn_class(**self.class_params)
-        X = df_fit[self.x_cols]
-        y = df_fit[self.response_col]
+        X = data_fit[self.x_cols]
+        y = data_fit[self.response_col]
         if self.w_col:
-            w = df_fit[self.w_col]
+            w = data_fit[self.w_col]
             # TODO: raise exception if model.fit signature has no sample_weight arg
             model = model.fit(X, y, sample_weight=w)
         else:
@@ -701,9 +707,11 @@ class SKLearn(DataFrameTransform):
 
         return model
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: object) -> pd.DataFrame:
         model = state
-        return df_apply.assign(**{self.hat_col: model.predict(df_apply[self.x_cols])})
+        return data_apply.assign(
+            **{self.hat_col: model.predict(data_apply[self.x_cols])}
+        )
 
 
 @transform
@@ -718,15 +726,17 @@ class Statsmodels(DataFrameTransform):
     hat_col: str = fmt_str_field()
     class_params: dict[str, object] = dict_field(factory=dict)
 
-    def _fit(self, df_fit: pd.DataFrame) -> object:
-        X = df_fit[self.x_cols]
-        y = df_fit[self.response_col]
+    def _fit(self, data_fit: pd.DataFrame) -> object:
+        X = data_fit[self.x_cols]
+        y = data_fit[self.response_col]
         model = self.sm_class(y, X, **self.class_params)
         return model.fit()
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: object) -> pd.DataFrame:
         model = state
-        return df_apply.assign(**{self.hat_col: model.predict(df_apply[self.x_cols])})
+        return data_apply.assign(
+            **{self.hat_col: model.predict(data_apply[self.x_cols])}
+        )
 
 
 @transform
@@ -767,8 +777,8 @@ class Correlation(StatelessDataFrameTransform):
     method: Optional[str | HP] = "pearson"
     min_obs: Optional[int] = 1
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-        cm = df_apply[self.left_cols + self.right_cols].corr(
+    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+        cm = data_apply[self.left_cols + self.right_cols].corr(
             method=self.method, min_periods=self.min_obs
         )
         return cm.loc[self.left_cols, self.right_cols]
@@ -797,7 +807,9 @@ class Assign(StatelessDataFrameTransform):
             assignments = kwargs
         self.__attrs_init__(tag=tag, assignments=assignments)
 
-    def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(
+        self, data_apply: pd.DataFrame, state: object, bindings: Bindings
+    ) -> pd.DataFrame:
         kwargs = {}
         for k, v in self.assignments.items():
             kwargs[k] = v
@@ -806,12 +818,15 @@ class Assign(StatelessDataFrameTransform):
                 if len(sig) == 2:
                     # expose self to bivalent lambdas as first arg
                     kwargs[k] = partial(v, self)
-                elif len(sig) > 2:
+                elif len(sig) == 3:
+                    # expose self and bindings to trivalent bindings
+                    kwargs[k] = partial(v, self, bindings)
+                elif len(sig) > 3:
                     raise TypeError(
                         f"Expected lambda with 1 or 2 parameters, found {len(sig)}"
                     )
 
-        return df_apply.assign(**kwargs)
+        return data_apply.assign(**kwargs)
 
 
 DP = TypeVar("DP", bound="DataFramePipeline")
@@ -843,6 +858,14 @@ class DataFramePipeline(
         correlation=Correlation,
     )
 ):
+    # a stub just to specialize the type annotations
+    def _fit(self, data_fit: pd.DataFrame, bindings: Bindings) -> Any:
+        return super()._fit(data_fit, bindings)
+
+    # a stub just to specialize the type annotations
+    def _apply(self, data_apply: pd.DataFrame, state: Any) -> pd.DataFrame:
+        return super()._apply(data_apply, state)
+
     def join(
         self: DP,
         right: DataFrameTransform,

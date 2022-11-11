@@ -551,7 +551,7 @@ def test_Assign(diamonds_df):
         ff.DataFramePipeline().assign(
             intercept=1,
             grp=lambda df: df.index % 5,
-            grp_2=lambda self, df: df.index % self.bindings()["k"],
+            grp_2=lambda self, bindings, df: df.index % bindings["k"],
         )
     ).apply(diamonds_df, bindings={"k": 3})
     assert (result["intercept"] == 1).all()
@@ -562,8 +562,8 @@ def test_Assign(diamonds_df):
         ff.DataFramePipeline().assign(
             {
                 "intercept": 1,
-                ff.HPFmtStr("grp_{k}"): lambda self, df: df.index
-                % self.bindings()["k"],
+                ff.HPFmtStr("grp_{k}"): lambda self, bindings, df: df.index
+                % bindings["k"],
             },
             tag="foo",
         )

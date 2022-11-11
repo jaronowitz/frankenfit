@@ -20,6 +20,12 @@
 # OR IMPLY ANY RIGHTS TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, NOR TO
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
+"""
+Classes used by the core module (and some Transform subclasses) to abstract over
+computational backends: in-process pandas, dask-distributed, and maybe someday
+ray.
+"""
+
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from attrs import define, field
@@ -35,7 +41,6 @@ class Backend(ABC):
         key_prefix: str,
         function: Callable,
         *function_args,
-        block: bool = True,
         **function_kwargs,
     ):
         raise NotImplementedError
@@ -56,12 +61,17 @@ class DummyBackend(Backend):
         key_prefix: str,
         function: Callable,
         *function_args,
-        block: bool = True,
         **function_kwargs,
     ):
+        # "materialize" any DummyFuture args
+        function_args = (
+            (a.result() if isinstance(a, DummyFuture) else a) for a in function_args
+        )
+        function_kwargs = {
+            k: (v.result() if isinstance(v, DummyFuture) else v)
+            for k, v in function_kwargs.items()
+        }
         result = function(*function_args, **function_kwargs)
-        if block:
-            return result
         return DummyFuture(result)
 
 
@@ -84,7 +94,6 @@ class DaskBackend(Backend):
         key_prefix: str,
         function: Callable,
         *function_args,
-        block: bool = True,
         **function_kwargs,
     ):
         client = distributed.get_client(self.address)
@@ -95,6 +104,4 @@ class DaskBackend(Backend):
         # design :/. In general I suppose callers should prefer to provide
         # everything as positoinal arguments.
         fut = client.submit(function, *function_args, key=key, **function_kwargs)
-        if block:
-            return fut.result()
         return fut

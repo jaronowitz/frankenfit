@@ -22,7 +22,7 @@
 
 """
 The core building blocks and utilities of the Frankenfit library, including
-Transform, FitTransform, Dataset, HP, and friends.
+Transform, FitTransform, HP, and friends.
 
 Ordinarily, users should never need to import this module directly. Instead, they access
 the classes and functions defined here through the public API exposed as
@@ -32,21 +32,25 @@ the classes and functions defined here through the public API exposed as
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import copy
 import inspect
 import logging
-from typing import Callable, Iterable, Optional, TypeVar
+import types
+from typing import Any, Callable, Iterable, Optional, TypeVar
 import warnings
 
 from attrs import define, field, fields_dict, Factory, NOTHING
 import graphviz
 
-from .backend import Backend, DummyBackend
+from .backend import Backend, DummyBackend, DummyFuture
 
 _LOG = logging.getLogger(__name__)
 
 T = TypeVar("T")
 P = TypeVar("P", bound="ObjectPipeline")
 R = TypeVar("R", bound="Transform")
+
+Bindings = dict[str, object]
 
 
 def transform(*args, **kwargs):
@@ -65,6 +69,30 @@ def is_iterable(obj):
     except TypeError:
         return False
     return True
+
+
+def copy_function(f):
+    # Based on http://stackoverflow.com/a/6528148/190597 (Glenn Maynard)
+    g = types.FunctionType(
+        f.__code__,
+        f.__globals__,
+        name=f.__name__,
+        argdefs=f.__defaults__,
+        closure=f.__closure__,
+    )
+    # NOTE: we must not use functools.update_wrapper, because that sets the
+    # __wrapped__ object, which we DON'T want, because it causes help() and
+    # friends to do the wrong thing. E.g., we won't be able to change the
+    # signature reported by help(). PyPI package `makefun` could also work, but
+    # does more than we need.
+    g.__name__ = f.__name__
+    g.__qualname__ = f.__qualname__
+    g.__doc__ = f.__doc__
+    g.__module__ = f.__module__
+    g.__dict__.update(f.__dict__)
+    g.__kwdefaults__ = f.__kwdefaults__
+    g.__annotations__ = dict(inspect.get_annotations(f))
+    return g
 
 
 # last auto-generated tag number for a given Transform class name. Used for
@@ -213,7 +241,11 @@ class Transform(ABC):
             )
 
     @abstractmethod
-    def _fit(self, data_fit: Optional[object] = None) -> object:
+    def _fit(
+        self,
+        data_fit: Any,
+        bindings: Optional[Bindings] = None,
+    ) -> Any:
         """
         Implements subclass-specific fitting logic.
 
@@ -244,30 +276,14 @@ class Transform(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
-    def _apply(
-        self, data_apply: Optional[object], state: Optional[object] = None
-    ) -> object:
-        """
-        Implements subclass-specific logic to apply the tansformation after being fit.
-
-        .. NOTE::
-            ``_apply()`` is one of two methods (the other being ``_fit()``) that any
-            subclass of :class:`Transform` must implement.
-
-        TODO.
-        """
-        raise NotImplementedError
-
     def fit(
         self,
-        data_fit: Optional[object] = None,
-        bindings: Optional[dict[str, object]] = None,
+        data_fit: Optional[Any] = None,
+        bindings: Optional[Bindings] = None,
         backend: Optional[Backend] = None,
-        block: bool = True,
     ) -> FitTransform:
         """
-        Fit this Transform on some data and hyperparam bindigns, and return a
+        Fit this Transform on some data and hyperparam bindings, and return a
         :class:`FitTransform` object. The actual return value will be some
         subclass of ``FitTransform`` that depends on what class this Transform
         is; for example, :meth:`ZScore.fit()` returns a :class:`FitZScore`
@@ -283,8 +299,42 @@ class Transform(ABC):
             f"{f' (len={data_len})' if data_len is not None else ''} "
             f"with bindings={bindings!r}"
         )
+
+        if backend is None:
+            backend = DummyBackend()
+
+        # resolve hyperparams and run user _fit function on backend
+        resolved_transform = self._resolve_hyperparams(bindings)
+        sig = inspect.signature(resolved_transform._fit).parameters
+        if len(sig) not in (1, 2):
+            raise TypeError(
+                f"I don't know how to invoke user _fit() method with "
+                f"{len(sig)} arguments: {resolved_transform._fit} with signature "
+                f"{str(sig)}"
+            )
+        args = (data_fit,)
+        # pass bindings if _fit has the signature for it
+        if len(sig) == 2:
+            args += (bindings or {},)
+        state = backend.submit(f"{self.tag}._fit", resolved_transform._fit, *args)
+        if isinstance(state, DummyFuture):
+            state = state.result()
+
         fit_class: FitTransform = getattr(self, self._fit_class_name)
-        return fit_class(self, data_fit, bindings, backend, block)
+        return fit_class(resolved_transform, state, bindings)
+
+    @abstractmethod
+    def _apply(self, data_apply: Any, state: Any) -> Any:
+        """
+        Implements subclass-specific logic to apply the tansformation after being fit.
+
+        .. NOTE::
+            ``_apply()`` is one of two methods (the other being ``_fit()``) that any
+            subclass of :class:`Transform` must implement.
+
+        TODO.
+        """
+        raise NotImplementedError
 
     def params(self) -> list[str]:
         """
@@ -326,6 +376,38 @@ class Transform(ABC):
                         sub_transform_results |= x.hyperparams()
 
         return (sd.keys_checked or set()) | sub_transform_results
+
+    def _resolve_hyperparams(self: R, bindings: Optional[Bindings] = None) -> R:
+        """
+        Returns a shallow copy of self with all HP-valued params resolved (but
+        not recursively), or raises UnresolvedHyperparameter if unable to do so
+        with the given bindings.
+        """
+        bindings = bindings or {}
+        params = self.params()
+        resolved_transform = copy.copy(self)
+        unresolved = []
+        for name in params:
+            unbound_val = getattr(self, name)
+            bound_val = HP.resolve_maybe(unbound_val, bindings)
+            # print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
+            # NOTE: we cannot use setattr because that will trigger attrs'
+            # converter machinery, which is only desirable before hyperparams
+            # are resolved (columns_field, etc.). So we write to the __dict__
+            # directly.
+            resolved_transform.__dict__[name] = bound_val
+            if isinstance(bound_val, HP):
+                unresolved.append(bound_val)
+
+        # freak out if any hyperparameters failed to bind
+        if unresolved:
+            raise UnresolvedHyperparameterError(
+                f"One or more hyperparameters of {self.__class__.__qualname__} were "
+                f"not resolved at fit-time: {unresolved}. Bindings were: "
+                f"{bindings}"
+            )
+
+        return resolved_transform
 
     def then(
         self: Transform, other: Optional[Transform | list[Transform]] = None
@@ -481,44 +563,19 @@ class Transform(ABC):
         class DerivedFitTransform(fit_transform_base_class, transform_class=cls):
             pass
 
-        # we should freak out if the subclass has any attribute named 'state' or
-        # 'bindings', because those will collide at apply-time with fit_class method
-        # names.
-        # TODO: generalize this check a bit -- we should be able to determine
-        # automatically which parameter names would collide with attributes of
-        # FitTransform.
-        if hasattr(cls, "state"):
-            raise AttributeError(
-                "Subclasses of Transform are not allowed to have an attribute "
-                'named "state". Deal with it.'
-            )
-        if hasattr(cls, "bindings"):
-            raise AttributeError(
-                "Subclasses of Transform are not allowed to have an attribute "
-                'named "bindings". Deal with it.'
-            )
-
         fit_class = DerivedFitTransform
         fit_class_name = fit_class.__name__
         fit_class.__qualname__ = ".".join((cls.__qualname__, fit_class_name))
         setattr(cls, fit_class_name, fit_class)
         cls._fit_class_name = fit_class_name
 
-        # The subclass's fit() method should automagically reflect the argument
-        # signature of its _fit() method, and a return type of fit_class
-        orig_fit = cls.fit
-
-        def fit(
-            self, data_fit: object = None, bindings: Optional[dict[str, object]] = None
-        ) -> object:
-            # print(f"cls={cls!r}, self={self!r}")
-            # return super(cls, self).fit(data_fit, bindings)
-            return orig_fit(self, data_fit, bindings)
-
-        fit.__doc__ = cls.fit.__doc__
-        fit.__annotations__["return"] = fit_class.__qualname__
-        fit.__annotations__["data_fit"] = cls._fit.__annotations__.get("data_fit")
-        setattr(cls, "fit", fit)
+        # The type annotations of the subclass's fit() method will automagically
+        # reflect a return type of fit_class, and its data_fit arg will have the
+        # same type as declared by the user's _fit method. TODO: if _fit()'s
+        # data_fit arg has type T, indicate that fit() takes T | Future[T]?
+        cls.fit = copy_function(cls.fit)
+        cls.fit.__annotations__["return"] = fit_class.__qualname__
+        cls.fit.__annotations__["data_fit"] = cls._fit.__annotations__.get("data_fit")
 
 
 class SentinelDict(dict):
@@ -569,62 +626,29 @@ class FitTransform(ABC):
 
     def __init__(
         self,
-        transform: Transform,
-        data_fit: object,
-        bindings=None,
-        backend=None,
-        block=True,
+        resolved_transform: Transform,
+        state: object,
+        bindings: Optional[Bindings] = None,
     ):
-        bindings = bindings or {}
-        self._field_names = transform.params()
-        for name in self._field_names:
-            unbound_val = getattr(transform, name)
-            bound_val = HP.resolve_maybe(unbound_val, bindings)
-            # print("%s: Bound %r -> %r" % (name, unbound_val, bound_val))
-            setattr(self, name, bound_val)
-        self.__bindings = bindings
-        self.tag: str = transform.tag
-        # freak out if any hyperparameters failed to bind
-        self._check_hyperparams()
-
-        if backend is None:
-            backend = DummyBackend()
-
-        # run user _fit function
-        self.__state = backend.submit(
-            f"{self.tag}.fit", transform._fit.__func__, self, data_fit, block=block
-        )
-
-    def _check_hyperparams(self):
-        unresolved = []
-        for name in self._field_names:
-            val = getattr(self, name)
-            if isinstance(val, HP):
-                unresolved.append(val)
-        if unresolved:
-            raise UnresolvedHyperparameterError(
-                f"One or more hyperparameters of {self.__class__.__qualname__} were "
-                f"not resolved at fit-time: {unresolved}. Bindings were: "
-                f"{self.__bindings}"
-            )
+        self.__resolved_transform = resolved_transform
+        self.__state = state
+        self.__bindings = bindings or {}
+        self.tag: str = resolved_transform.tag
 
     def __repr__(self):
-        fields_str = ", ".join(
-            ["%s=%r" % (name, getattr(self, name)) for name in self._field_names]
+        return (
+            f"{self.__class__.__name__}("
+            f"resolved_transform={self.__resolved_transform!r}, "
+            f"state={type(self.__state)!r}, "
+            f"bindings={self.__bindings!r}, "
+            f")"
         )
-        if fields_str:
-            return f"{self.__class__.__name__}({fields_str})"
-        return f"{self.__class__.__name__}()"
 
     @abstractmethod
-    def _apply(self, data_apply: object, state=None) -> object:
-        raise NotImplementedError
-
     def apply(
         self,
-        data_apply: Optional[object] = None,
+        data_apply: Optional[Any] = None,
         backend: Optional[Backend] = None,
-        block: bool = True,
     ) -> object:
         """
         Return the result of applying this fit Transform to the given data.
@@ -642,15 +666,34 @@ class FitTransform(ABC):
         if backend is None:
             backend = DummyBackend()
 
-        # run user _apply function
-        result = backend.submit(
-            f"{self.tag}.apply", self._apply, data_apply, self.__state, block=block
-        )
+        # run user _apply function on backend
+        tf = self.resolved_transform()
+        sig = inspect.signature(tf._apply).parameters
+        if len(sig) not in (2, 3):
+            raise TypeError(
+                f"I don't know how to invoke user _apply() method with "
+                f"{len(sig)} arguments: {tf._apply} with signature {str(sig)}"
+            )
+        args = (data_apply, self.state())
+        # pass bindings if _apply has the signature for it
+        if len(sig) == 3:
+            args += (self.bindings(),)
+
+        result = backend.submit(f"{self.tag}._apply", tf._apply, *args)
+        if isinstance(result, DummyFuture):
+            return result.result()
         return result
 
-    # TODO: refit()
+    # TODO: refit()? incremental_fit()?
 
-    def bindings(self) -> dict[str, object]:
+    def resolved_transform(self) -> Transform:
+        """
+        Return the Transform that was fit to produce this FitTransform, with all
+        hyperparameters resolved to their fit-time bindings.
+        """
+        return self.__resolved_transform
+
+    def bindings(self) -> Bindings:
         """
         Return the bindings dict according to which the transformation's hyperparameters
         were resolved.
@@ -659,7 +702,7 @@ class FitTransform(ABC):
             return {}
         return self.__bindings
 
-    def state(self) -> object:
+    def state(self) -> Any:
         """
         Return the fit state of the transformation, which is an arbitrary object
         determined by the implementation of ``{transform_class_name}._fit()``.
@@ -667,8 +710,9 @@ class FitTransform(ABC):
         return self.__state
 
     def find_by_tag(self, tag: str):
-        # TODO: address implementation on FitTransform. We should consider both
-        # FitTransform-valued params and FitTransform objects in our state.
+        # TODO: address implementation of find_by_tag on FitTransform. We should
+        # consider both FitTransform-valued params and FitTransform objects in
+        # our state.
         if self.tag == tag:
             return self
 
@@ -689,37 +733,34 @@ class FitTransform(ABC):
         raise KeyError(f"No child Transform found with tag: {tag}")
 
     def __init_subclass__(cls, /, transform_class: type = None, **kwargs):
-        # TODO: futz with base classes so that super() works like normal in the user's
-        # _fit() and _apply() methods when subclassing another Transform.
         super().__init_subclass__(**kwargs)
         if transform_class is None:
+            # User is declaring a still-abstract subclass of FitTransform
             return
-        cls._apply = transform_class._apply
+        state_type = transform_class._fit.__annotations__.get("return", object)
+        _apply = transform_class._apply
         cls.__name__ = f"Fit{transform_class.__name__}"
         cls.__doc__ = FitTransform.__doc__.format(
             transform_class_name=transform_class.__name__
         )
+        # Automagically fix up type annotations to reflect the state and data
+        # types that are implied by the annotations on the user's _fit/_apply
+        # methods. TODO: incorporate possible Futures into type annotations
+        cls.__init__.__annotations__["resolved_transform"] = transform_class.__name__
+        cls.__init__.__annotations__["state"] = state_type
+        cls.state = copy_function(cls.state)
         cls.state.__doc__ = FitTransform.state.__doc__.format(
             transform_class_name=transform_class.__name__
         )
-        cls.__init__.__annotations__["transform"] = transform_class.__name__
-
-        field_names = list(fields_dict(transform_class).keys())
-        cls._field_names = field_names
-
-        # The subclass's apply() method should automagically reflect the type
-        # signature of its _apply() method
-        orig_apply = cls.apply
-
-        def apply(self, data_apply: Optional[object] = None) -> object:
-            return orig_apply(self, data_apply)
-
-        apply.__doc__ = cls.apply.__doc__
-        apply.__annotations__["return"] = cls._apply.__annotations__.get("return")
-        apply.__annotations__["data_apply"] = cls._apply.__annotations__.get(
+        cls.state.__annotations__["return"] = state_type
+        cls.apply = copy_function(cls.apply)
+        # cls ought no longer be abstract, if it were
+        if "__isabstractmethod__" in cls.apply.__dict__:
+            del cls.apply.__dict__["__isabstractmethod__"]
+        cls.apply.__annotations__["return"] = _apply.__annotations__.get("return")
+        cls.apply.__annotations__["data_apply"] = _apply.__annotations__.get(
             "data_apply"
         )
-        setattr(cls, "apply", apply)
 
 
 class StatelessTransform(Transform):
@@ -734,32 +775,27 @@ class StatelessTransform(Transform):
     ``t.fit(df, bindings=bindings).apply(df)``.
     """
 
-    def _fit(self, data_fit: object):
+    def _fit(self, data_fit: Any) -> None:
         return None
 
-    def fit(
-        self,
-        data_fit: Optional[object] = None,
-        bindings: Optional[dict[str, object]] = None,
-    ) -> FitTransform:
-        """
-        The ``fit()`` method of a StatelessTransform always returns a
-        ``FitTransform`` with ``None`` state.
-        """
-        return super().fit(data_fit, bindings)
-
+    # TODO: subclasses should automagically get a return type consistent with
+    # the return type of self.fit().apply()
     def apply(
         self,
-        data_apply: Optional[object] = None,
-        bindings: Optional[dict[str, object]] = None,
-    ) -> object:
+        data_apply: Optional[Any] = None,
+        bindings: Optional[Bindings] = None,
+        backend: Optional[Backend] = None,
+    ) -> Any:
         """
-        Convenience function allowing one to apply a StatelessTransform without an
-        explicit preceding call to fit. Implemented by calling fit() on no data (but
-        with optional hyperparameter bindings as provided) and then returning the result
-        of applying the resulting FitTransform to the given object.
+        Convenience function allowing one to apply a StatelessTransform without
+        an explicit preceding call to fit. Implemented by calling fit() on no
+        data (but with optional hyperparameter bindings as provided) and then
+        returning the result of applying the resulting FitTransform to the given
+        object.
         """
-        return self.fit(None, bindings=bindings).apply(data_apply)
+        return self.fit(None, bindings=bindings, backend=backend).apply(
+            data_apply, backend=backend
+        )
 
 
 class NonInitialConstantTransformWarning(RuntimeWarning):
@@ -790,8 +826,9 @@ class ConstantTransform(StatelessTransform):
 
     def fit(
         self,
-        data_fit: Optional[object] = None,
-        bindings: Optional[dict[str, object]] = None,
+        data_fit: Optional[Any] = None,
+        bindings: Optional[Bindings] = None,
+        backend: Optional[Backend] = None,
     ) -> FitTransform:
         if data_fit is not None:
             warning_msg = (
@@ -806,7 +843,7 @@ class ConstantTransform(StatelessTransform):
                 warning_msg,
                 NonInitialConstantTransformWarning,
             )
-        return super().fit(data_fit, bindings)
+        return super().fit(data_fit, bindings, backend=backend)
 
     # TODO: emit a similar warning from apply(), but that requires futzing with
     # FitTransform
@@ -1175,16 +1212,17 @@ class ObjectPipeline(Transform):
     def __init__(self, tag=NOTHING, transforms=NOTHING):
         self.__attrs_init__(tag=tag, transforms=transforms)
 
-    def _fit(self, data_fit: object) -> object:
+    def _fit(self, data_fit: Any, bindings: Bindings) -> list[FitTransform]:
+        # TODO: run on backend
         fit_transforms = []
-        bindings = self.bindings()
         for t in self.transforms:
             ft = t.fit(data_fit, bindings=bindings)
             data_fit = ft.apply(data_fit)
             fit_transforms.append(ft)
         return fit_transforms
 
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(self, data_apply: Any, state: list[FitTransform]) -> Any:
+        # TODO: run on backend
         df = data_apply
         for fit_transform in state:
             df = fit_transform.apply(df)
@@ -1193,28 +1231,31 @@ class ObjectPipeline(Transform):
     def __len__(self):
         return len(self.transforms)
 
+    # TODO: subclasses should automagically get a return type consistent with
+    # the return type of self.fit().apply()
     def apply(
         self,
-        data_fit: Optional[object] = None,
+        data_fit: Optional[Any] = None,
         bindings: Optional[dict[str, object]] = None,
-    ) -> object:
+        backend: Optional[Backend] = None,
+    ) -> Any:
         """
-        An efficient alternative to ``self.fit(df).apply(df)`` specific to
-        :class:`Pipeline` objects. When the fit-time data and apply-time data are
-        identical, it is more efficient to use a single call to ``apply()`` than
-        it is to call :meth:`~Transform.fit()` followed by a separate call to
-        :meth:`~FitTransform.apply()`, both on the same data argument. This is because
-        ``fit()`` itself must already apply every transform in the pipeline, in orer to
-        produce the fitting data for the following transform. ``apply()``
-        captures the result of these fit-time applications, avoiding their unnecessary
-        recomputation.
+        An efficient alternative to ``Pipeline.fit(...).apply(...)``.  When the
+        fit-time data and apply-time data are identical, it is more efficient to
+        use a single call to ``apply()`` than it is to call
+        :meth:`~Transform.fit()` followed by a separate call to
+        :meth:`~FitTransform.apply()`, both on the same data argument. This is
+        because ``fit()`` itself must already apply every transform in the
+        pipeline, in orer to produce the fitting data for the following
+        transform. ``apply()`` captures the result of these fit-time
+        applications, avoiding their unnecessary recomputation.
 
         :return: The result of fitting this :class:`Pipeline` and applying it to its own
             fitting data.
         """
         for t in self.transforms:
-            ft = t.fit(data_fit, bindings=bindings)
-            data_fit = ft.apply(data_fit)
+            ft = t.fit(data_fit, bindings=bindings, backend=backend)
+            data_fit = ft.apply(data_fit, backend=backend)
         return data_fit
 
     def then(self: P, other: Optional[Transform | list[Transform]] = None) -> P:

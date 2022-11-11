@@ -63,6 +63,7 @@ from frankenfit.backend import (
 
 from frankenfit.core import (
     transform,
+    Bindings,
     Transform,
     FitTransform,
     StatelessTransform,

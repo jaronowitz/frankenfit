@@ -36,6 +36,7 @@ from typing import Callable, Optional, TextIO, TypeVar
 from . import core as ffc
 from .core import (
     transform,
+    Bindings,
     FitTransform,
     Transform,
     StatelessTransform,
@@ -63,7 +64,7 @@ class Identity(StatelessTransform, UniversalTransform):
     unaltered.
     """
 
-    def _apply(self, data_apply: Obj, state: object = None) -> Obj:
+    def _apply(self, data_apply: Obj, state: None) -> Obj:
         return data_apply
 
 
@@ -74,8 +75,7 @@ class IfHyperparamIsTrue(UniversalTransform):
     otherwise: Optional[Transform] = None
     allow_unresolved: Optional[bool] = False
 
-    def _fit(self, data_fit: object) -> object:
-        bindings = self.bindings()
+    def _fit(self, data_fit: object, bindings: Bindings) -> object:
         if (not self.allow_unresolved) and self.name not in bindings:
             raise ffc.UnresolvedHyperparameterError(
                 f"IfHyperparamIsTrue: no binding for {self.name!r} but "
@@ -110,8 +110,7 @@ class IfHyperparamLambda(UniversalTransform):
     then: Transform
     otherwise: Optional[Transform] = None
 
-    def _fit(self, data_fit: object) -> object:
-        bindings = self.bindings()
+    def _fit(self, data_fit: object, bindings: Bindings) -> object:
         if self.fun(bindings):
             return self.then.fit(data_fit, bindings=bindings)
         elif self.otherwise is not None:
@@ -144,11 +143,11 @@ class IfFittingDataHasProperty(UniversalTransform):
     then: Transform
     otherwise: Optional[Transform] = None
 
-    def _fit(self, data_fit: object) -> object:
+    def _fit(self, data_fit: object, bindings: Bindings) -> object:
         if self.fun(data_fit):
-            return self.then.fit(data_fit, bindings=self.bindings())
+            return self.then.fit(data_fit, bindings=bindings)
         elif self.otherwise is not None:
-            return self.otherwise.fit(data_fit, bindings=self.bindings())
+            return self.otherwise.fit(data_fit, bindings=bindings)
         return None  # act like Identity
 
     def _apply(self, data_apply: object, state: object = None) -> object:
@@ -165,7 +164,7 @@ class IfFittingDataHasProperty(UniversalTransform):
 
 @transform
 class ForBindings(UniversalTransform):
-    bindings_sequence: iter[dict[str, object]]
+    bindings_sequence: iter[Bindings]
     transform: Transform
 
     @define
@@ -178,10 +177,10 @@ class ForBindings(UniversalTransform):
         bindings: dict[str, object]
         result: object
 
-    def _fit(self, data_fit: object) -> list[ForBindings.FitResult]:
+    def _fit(
+        self, data_fit: object, base_bindings: Bindings
+    ) -> list[ForBindings.FitResult]:
         # TODO: parallelize
-        # base bindings from above:
-        base_bindings = self.bindings()
         fits = []
         for bindings in self.bindings_sequence:
             fits.append(
@@ -210,12 +209,12 @@ class ForBindings(UniversalTransform):
 class StatelessLambda(UniversalTransform, StatelessTransform):
     apply_fun: Callable  # df[, bindings] -> df
 
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(self, data_apply: object, state: None, bindings: Bindings) -> object:
         sig = inspect.signature(self.apply_fun).parameters
         if len(sig) == 1:
             return self.apply_fun(data_apply)
         elif len(sig) == 2:
-            return self.apply_fun(data_apply, self.bindings())
+            return self.apply_fun(data_apply, bindings)
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
@@ -226,22 +225,22 @@ class StatefulLambda(UniversalTransform):
     fit_fun: Callable  # df[, bindings] -> state
     apply_fun: Callable  # df, state[, bindings] -> df
 
-    def _fit(self, data_fit: object) -> object:
+    def _fit(self, data_fit: object, bindings: Bindings) -> object:
         sig = inspect.signature(self.fit_fun).parameters
         if len(sig) == 1:
             return self.fit_fun(data_fit)
         elif len(sig) == 2:
-            return self.fit_fun(data_fit, self.bindings())
+            return self.fit_fun(data_fit, bindings)
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
 
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(self, data_apply: object, state: object, bindings: Bindings) -> object:
         sig = inspect.signature(self.apply_fun).parameters
         if len(sig) == 2:
             return self.apply_fun(data_apply, state)
         elif len(sig) == 3:
-            return self.apply_fun(data_apply, state, self.bindings())
+            return self.apply_fun(data_apply, state, bindings)
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
@@ -272,13 +271,9 @@ class Print(Identity):
         else:
             print(self.fit_msg, file=self.dest)
 
-        # Idiomatic super() doesn't work because at call time self is a FitPrint
-        # instance, which inherits directly from FitTransform, and not from
-        # Print/Identity. Could maybe FIXME by futzing with base classes in the
-        # metaprogramming that goes on in core.py
-        # return super()._fit(data_fit)
+        return super()._fit(data_fit)
 
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(self, data_apply: object, state: None) -> object:
         if self.apply_msg is None:
             return data_apply
         if isinstance(self.dest, str):
@@ -286,9 +281,8 @@ class Print(Identity):
                 print(self.apply_msg, file=dest)
         else:
             print(self.apply_msg, file=self.dest)
-        return data_apply
-        # Same issue with super() as in _fit().
-        # return super()._apply(data_apply)
+
+        return super()._apply(data_apply, state)
 
 
 @transform
@@ -313,13 +307,13 @@ class LogMessage(Identity):
         if self.fit_msg is not None:
             logger = self.logger or _LOG
             logger.log(self.level, self.fit_msg)
-        return Identity._fit(self, data_fit)
+        return super()._fit(data_fit)
 
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(self, data_apply: object, state: None) -> object:
         if self.apply_msg is not None:
             logger = self.logger or _LOG
             logger.log(self.level, self.apply_msg)
-        return Identity._apply(self, data_apply, state=state)
+        return super()._apply(data_apply, state)
 
 
 P = TypeVar("P", bound="Pipeline")

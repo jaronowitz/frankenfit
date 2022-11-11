@@ -20,6 +20,9 @@
 # OR IMPLY ANY RIGHTS TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, NOR TO
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
+from abc import abstractmethod
+import inspect
+from typing import Optional
 import pytest
 import pandas as pd
 
@@ -39,12 +42,12 @@ def test_Transform(diamonds_df):
     class DeMean(ff.Transform):
         cols: list[str]
 
-        def _fit(self, df_fit):
-            return df_fit[self.cols].mean()
+        def _fit(self, data_fit):
+            return data_fit[self.cols].mean()
 
-        def _apply(self, df_apply, state):
+        def _apply(self, data_apply, state):
             means = state
-            return df_apply.assign(**{c: df_apply[c] - means[c] for c in self.cols})
+            return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
 
     assert isinstance(DeMean.FitDeMean, type)
     assert DeMean.FitDeMean.__name__ == "FitDeMean"
@@ -61,11 +64,122 @@ def test_Transform(diamonds_df):
     assert not isinstance(fit, ff.Transform)
     assert isinstance(fit, ff.FitTransform)
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(TypeError):
+        # should be abstract
+        ff.FitTransform(t, None)
 
-        class Bad(ff.Transform):
-            # not allowed to have an attribute named "state"
-            state: int = 1
+
+def test_fit_with_bindings(diamonds_df):
+    @ff.transform
+    class TestTransform(ff.Transform):
+        # _fit method can optionally accept a bindings arg
+        def _fit(self, data_fit: object, bindings: ff.Bindings):
+            return bindings
+
+        def _apply(self, data_apply, state):
+            return data_apply
+
+    t = TestTransform()
+    fit_t = t.fit(diamonds_df, bindings={"foo": 1})
+    assert fit_t.state() == {"foo": 1}
+
+
+def test_Transform_signatures():
+    @ff.transform
+    class DeMean(ff.Transform):
+        """
+        De-mean some columns.
+        """
+
+        cols: list[str]
+
+        def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
+            return data_fit[self.cols].mean()
+
+        def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
+            means = state
+            return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
+
+    # test the automagic
+    assert (
+        str(inspect.signature(DeMean))
+        == "(cols: list[str], *, tag: 'str' = NOTHING) -> None"
+    )
+    assert (
+        str(inspect.signature(DeMean.fit))
+        == "(self, data_fit: pandas.core.frame.DataFrame = None, "
+        "bindings: 'Optional[Bindings]' = None, "
+        "backend: 'Optional[Backend]' = None) "
+        "-> 'test_Transform_signatures.<locals>.DeMean.FitDeMean'"
+    )
+    assert (
+        str(inspect.signature(DeMean.FitDeMean))
+        == "(resolved_transform: 'DeMean', state: pandas.core.series.Series, "
+        "bindings: 'Optional[Bindings]' = None)"
+    )
+    assert (
+        str(inspect.signature(DeMean.FitDeMean.state))
+        == "(self) -> pandas.core.series.Series"
+    )
+    assert (
+        str(inspect.signature(DeMean.FitDeMean.apply))
+        == "(self, data_apply: pandas.core.frame.DataFrame = None, "
+        "backend: 'Optional[Backend]' = None) -> pandas.core.frame.DataFrame"
+    )
+
+
+def test_override_fit_apply(diamonds_df, capsys):
+    class BaseFitDeMean(ff.FitTransform):
+        @abstractmethod
+        def apply(
+            self,
+            data_apply: Optional[object] = None,
+            backend: Optional[ff.Backend] = None,
+        ) -> object:
+            """My apply docstr"""
+            print("my overridden apply")
+            return super().apply(data_apply=data_apply, backend=backend)
+
+    @ff.transform
+    class DeMean(ff.Transform, fit_transform_base_class=BaseFitDeMean):
+        """
+        De-mean some columns.
+        """
+
+        cols: list[str]
+
+        def _fit(self, data_fit: pd.DataFrame, bindings=None) -> pd.Series:
+            return data_fit[self.cols].mean()
+
+        def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
+            means = state
+            return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
+
+        def fit(
+            self,
+            data_fit: Optional[object] = None,
+            bindings: Optional[ff.Bindings] = None,
+            backend: Optional[ff.Backend] = None,
+        ) -> ff.FitTransform:
+            """My fit docstr"""
+            print("my overridden fit")
+            return super().fit(data_fit, bindings, backend)
+
+    assert issubclass(DeMean.FitDeMean, BaseFitDeMean)
+
+    dmn = DeMean(["price"])
+
+    # base class should still be abstract
+    with pytest.raises(TypeError):
+        BaseFitDeMean(dmn, None)
+
+    fit = dmn.fit(diamonds_df)
+    out, err = capsys.readouterr()
+    assert "my overridden fit" in out
+
+    _ = fit.apply(diamonds_df)
+    out, err = capsys.readouterr()
+    assert "my overridden apply" in out
 
 
 def test_hyperparams(diamonds_df):
@@ -87,16 +201,18 @@ def test_hyperparams(diamonds_df):
     class TestTransform(ff.Transform):
         some_param: str
 
-        def _fit(self, df_fit: pd.DataFrame) -> object:
+        def _fit(self, data_fit: pd.DataFrame) -> object:
             return None
 
-        def _apply(self, df_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
-            return df_apply
+        def _apply(
+            self, data_apply: pd.DataFrame, state: object = None
+        ) -> pd.DataFrame:
+            return data_apply
 
     t = TestTransform(some_param=ff.HP("response_col"))
     assert t.hyperparams() == {"response_col"}
     tfit = t.fit(diamonds_df, bindings=bindings)
-    assert tfit.some_param == "price"
+    assert tfit.resolved_transform().some_param == "price"
 
     t = TestTransform(some_param=ff.HP("undefined_hyperparam"))
     with pytest.raises(core.UnresolvedHyperparameterError):
@@ -108,7 +224,7 @@ def test_hyperparams(diamonds_df):
         )
     )
     tfit = t.fit(diamonds_df, bindings=bindings)
-    assert tfit.some_param == {"price": "price_orig"}
+    assert tfit.resolved_transform().some_param == {"price": "price_orig"}
 
     pipeline = ff.DataFramePipeline().select(["{response_col}"])
     with pytest.raises(core.UnresolvedHyperparameterError):
