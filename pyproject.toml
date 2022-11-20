@@ -24,3 +24,19 @@ dependencies = [
 
 [tool.mypy]
 plugins = "frankenfit.mypy"
+warn_unused_ignores = true
+mypy_path = [
+    "src",
+    "tests",
+]
+files = [
+    "src",
+    "tests",
+]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    # note the use of single quote below to denote "raw" strings in TOML
+    'ignore:There is no current event loop:DeprecationWarning',
+]

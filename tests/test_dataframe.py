@@ -20,7 +20,6 @@
 # OR IMPLY ANY RIGHTS TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, NOR TO
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
-import warnings
 from os import path
 from typing import cast
 
@@ -478,15 +477,11 @@ def test_ReadPandasCSV(diamonds_df: pd.DataFrame, tmp_path: str):
     result = ff.DataFramePipeline().read_pandas_csv(fp, dict(index_col=0)).apply()
     assert result.equals(df)
 
-    with warnings.catch_warnings(record=True) as w:
+    with pytest.warns(ffc.NonInitialConstantTransformWarning):
         pip = ff.DataFramePipeline()[["price"]].read_pandas_csv(fp)
-        assert len(w) == 1
-        assert issubclass(w[-1].category, ffc.NonInitialConstantTransformWarning)
 
-    with warnings.catch_warnings(record=True) as w:
+    with pytest.warns(ffc.NonInitialConstantTransformWarning):
         pip.fit(df)
-        assert len(w) == 1
-        assert issubclass(w[-1].category, ffc.NonInitialConstantTransformWarning)
 
 
 def test_read_write_csv(diamonds_df: pd.DataFrame, tmp_path):
