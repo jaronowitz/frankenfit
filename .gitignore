@@ -16,3 +16,5 @@ requirements.txt
 docs/_build
 docs/conf.py
 diamonds.csv
+.dmypy.json
+scratch_*
