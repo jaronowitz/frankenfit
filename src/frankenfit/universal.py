@@ -40,7 +40,7 @@ from .core import (
     Bindings,
     DataInOut,
     FitTransform,
-    NewGrouper,
+    Grouper,
     P_co,
     SentinelDict,
     StatelessTransform,
@@ -452,7 +452,7 @@ class UniversalCallChain(Generic[P_co]):
         """
 
 
-class UniversalGrouper(Generic[P_co], NewGrouper[P_co], UniversalCallChain[P_co]):
+class UniversalGrouper(Generic[P_co], Grouper[P_co], UniversalCallChain[P_co]):
     ...
 
 

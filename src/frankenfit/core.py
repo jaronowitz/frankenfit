@@ -1106,7 +1106,7 @@ def _convert_pipeline_transforms(value):
 P_co = TypeVar("P_co", bound="BasePipeline", covariant=True)
 
 
-class NewGrouper(Generic[P_co]):
+class Grouper(Generic[P_co]):
     def __init__(
         self,
         pipeline_upstream: P_co,
@@ -1151,7 +1151,7 @@ DataInOut = TypeVar("DataInOut")
 class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     _pipeline_methods: ClassVar[list[str]] = []
 
-    class _Grouper(NewGrouper):
+    class _Grouper(Grouper):
         pass
 
     @classmethod
