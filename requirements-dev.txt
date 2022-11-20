@@ -1,6 +1,7 @@
 wheel
 setuptools
 setuptools_scm~=7.0.3
+build
 
 # For enforcement of pre-commit hooks
 pre-commit ~= 2.19
@@ -9,7 +10,6 @@ pre-commit ~= 2.19
 tox
 
 # for editor autocomplete (tox and pre-commit actually get these on their own)
-flake8
 pytest
 pydataset
 
@@ -26,3 +26,8 @@ pandas
 # for building docs
 jupyter-book
 furo
+
+# for linting and type-checking
+flake8
+mypy
+pandas-stubs

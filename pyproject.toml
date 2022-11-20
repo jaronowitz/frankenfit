@@ -19,6 +19,7 @@ dependencies = [
     'pandas',
     'pyarrow',
     'graphviz',
+    'distributed',  # TODO: make this an optional feature dependency?
 ]
 
 [tool.mypy]
