@@ -27,11 +27,13 @@ ray.
 """
 
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from typing import Callable, Optional
+
 from attrs import define, field
 from dask import distributed
 from dask.base import tokenize
-from typing import Callable, Optional
 
 
 class Backend(ABC):
@@ -64,7 +66,7 @@ class DummyBackend(Backend):
         **function_kwargs,
     ):
         # "materialize" any DummyFuture args
-        function_args = (
+        function_args = tuple(
             (a.result() if isinstance(a, DummyFuture) else a) for a in function_args
         )
         function_kwargs = {

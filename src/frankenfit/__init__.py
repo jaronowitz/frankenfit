@@ -74,18 +74,25 @@ from frankenfit.core import (
     HPDict,
     fmt_str_field,
     dict_field,
+    BasePipeline,
     # Exceptions that users can catch
     UnresolvedHyperparameterError,
     NonInitialConstantTransformWarning,
 )
 
 from frankenfit.universal import (
-    Pipeline,
+    UniversalTransform,
+    UniversalPipeline,
+    UniversalPipelineInterface,
+    UniversalGrouper,
     Identity,
 )
 
 from frankenfit.dataframe import (
+    DataFrameTransform,
     DataFramePipeline,
+    DataFramePipelineInterface,
+    DataFrameGrouper,
     ReadDataFrame,
     ReadPandasCSV,
     ReadDataset,

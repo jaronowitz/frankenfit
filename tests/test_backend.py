@@ -21,9 +21,10 @@
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
 import pytest
+from dask import distributed
+
 import frankenfit as ff
 from frankenfit.backend import DummyFuture
-from dask import distributed
 
 
 def test_DummyBackend():

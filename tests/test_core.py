@@ -20,24 +20,30 @@
 # OR IMPLY ANY RIGHTS TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, NOR TO
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
-from abc import abstractmethod
-import inspect
-from typing import Optional
-import pytest
-import pandas as pd
+from __future__ import annotations
 
-from pydataset import data
+import inspect
+from abc import abstractmethod
+from typing import Any, ClassVar, Optional, Type, TypeVar
+
+import pandas as pd
+import pytest
+from pydataset import data  # type: ignore
 
 import frankenfit as ff
 import frankenfit.core as core
 
 
 @pytest.fixture
-def diamonds_df():
+def diamonds_df() -> pd.DataFrame:
     return data("diamonds")
 
 
-def test_Transform(diamonds_df):
+def test_Transform(diamonds_df: pd.DataFrame) -> None:
+    with pytest.raises(TypeError):
+        # should be abstract
+        ff.Transform()  # type: ignore
+
     @ff.transform
     class DeMean(ff.Transform):
         cols: list[str]
@@ -49,8 +55,6 @@ def test_Transform(diamonds_df):
             means = state
             return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
 
-    assert isinstance(DeMean.FitDeMean, type)
-    assert DeMean.FitDeMean.__name__ == "FitDeMean"
     cols = ["price", "x", "y", "z"]
     t = DeMean(cols, tag="mytag")
     assert repr(t) == ("DeMean(tag=%r, cols=%r)" % ("mytag", cols))
@@ -64,16 +68,12 @@ def test_Transform(diamonds_df):
     assert not isinstance(fit, ff.Transform)
     assert isinstance(fit, ff.FitTransform)
 
-    with pytest.raises(TypeError):
-        # should be abstract
-        ff.FitTransform(t, None)
 
-
-def test_fit_with_bindings(diamonds_df):
+def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
     @ff.transform
     class TestTransform(ff.Transform):
         # _fit method can optionally accept a bindings arg
-        def _fit(self, data_fit: object, bindings: ff.Bindings):
+        def _fit(self, data_fit: object, bindings: Optional[ff.Bindings] = None):
             return bindings
 
         def _apply(self, data_apply, state):
@@ -84,7 +84,7 @@ def test_fit_with_bindings(diamonds_df):
     assert fit_t.state() == {"foo": 1}
 
 
-def test_Transform_signatures():
+def test_Transform_signatures() -> None:
     @ff.transform
     class DeMean(ff.Transform):
         """
@@ -103,50 +103,54 @@ def test_Transform_signatures():
     # test the automagic
     assert (
         str(inspect.signature(DeMean))
-        == "(cols: list[str], *, tag: 'str' = NOTHING) -> None"
+        == "(cols: 'list[str]', *, tag: 'str' = NOTHING) -> None"
     )
-    assert (
-        str(inspect.signature(DeMean.fit))
-        == "(self, data_fit: pandas.core.frame.DataFrame = None, "
-        "bindings: 'Optional[Bindings]' = None, "
-        "backend: 'Optional[Backend]' = None) "
-        "-> 'test_Transform_signatures.<locals>.DeMean.FitDeMean'"
-    )
-    assert (
-        str(inspect.signature(DeMean.FitDeMean))
-        == "(resolved_transform: 'DeMean', state: pandas.core.series.Series, "
-        "bindings: 'Optional[Bindings]' = None)"
-    )
-    assert (
-        str(inspect.signature(DeMean.FitDeMean.state))
-        == "(self) -> pandas.core.series.Series"
-    )
-    assert (
-        str(inspect.signature(DeMean.FitDeMean.apply))
-        == "(self, data_apply: pandas.core.frame.DataFrame = None, "
-        "backend: 'Optional[Backend]' = None) -> pandas.core.frame.DataFrame"
-    )
+    # assert (
+    #     str(inspect.signature(DeMean.fit))
+    #     == "(self, data_fit: pandas.core.frame.DataFrame = None, "
+    #     "bindings: 'Optional[Bindings]' = None, "
+    #     "backend: 'Optional[Backend]' = None) "
+    #     "-> 'test_Transform_signatures.<locals>.DeMean.FitDeMean'"
+    # )
+    # assert (
+    #     str(inspect.signature(DeMean.FitDeMean))
+    #     == "(resolved_transform: 'DeMean', state: pandas.core.series.Series, "
+    #     "bindings: 'Optional[Bindings]' = None)"
+    # )
+    # assert (
+    #     str(inspect.signature(DeMean.FitDeMean.state))
+    #     == "(self) -> pandas.core.series.Series"
+    # )
+    # assert (
+    #     str(inspect.signature(DeMean.FitDeMean.apply))
+    #     == "(self, data_apply: pandas.core.frame.DataFrame = None, "
+    #     "backend: 'Optional[Backend]' = None) -> pandas.core.frame.DataFrame"
+    # )
 
 
-def test_override_fit_apply(diamonds_df, capsys):
-    class BaseFitDeMean(ff.FitTransform):
+def test_override_fit_apply(
+    diamonds_df: pd.DataFrame, capsys: pytest.CaptureFixture
+) -> None:
+    class FitDeMean(ff.FitTransform["DeMean", pd.DataFrame, pd.DataFrame]):
         @abstractmethod
         def apply(
             self,
-            data_apply: Optional[object] = None,
+            data_apply: Optional[pd.DataFrame] = None,
             backend: Optional[ff.Backend] = None,
-        ) -> object:
+        ) -> pd.DataFrame:
             """My apply docstr"""
             print("my overridden apply")
             return super().apply(data_apply=data_apply, backend=backend)
 
     @ff.transform
-    class DeMean(ff.Transform, fit_transform_base_class=BaseFitDeMean):
+    class DeMean(ff.Transform[pd.DataFrame, pd.DataFrame]):
         """
         De-mean some columns.
         """
 
         cols: list[str]
+
+        FitTransformClass: ClassVar[Type[ff.FitTransform]] = FitDeMean
 
         def _fit(self, data_fit: pd.DataFrame, bindings=None) -> pd.Series:
             return data_fit[self.cols].mean()
@@ -155,23 +159,19 @@ def test_override_fit_apply(diamonds_df, capsys):
             means = state
             return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
 
+        Self = TypeVar("Self", bound="DeMean")  # noqa
+
         def fit(
-            self,
-            data_fit: Optional[object] = None,
+            self: Self,
+            data_fit: Optional[pd.DataFrame] = None,
             bindings: Optional[ff.Bindings] = None,
             backend: Optional[ff.Backend] = None,
-        ) -> ff.FitTransform:
+        ) -> ff.FitTransform[Self, pd.DataFrame, pd.DataFrame]:
             """My fit docstr"""
             print("my overridden fit")
             return super().fit(data_fit, bindings, backend)
 
-    assert issubclass(DeMean.FitDeMean, BaseFitDeMean)
-
     dmn = DeMean(["price"])
-
-    # base class should still be abstract
-    with pytest.raises(TypeError):
-        BaseFitDeMean(dmn, None)
 
     fit = dmn.fit(diamonds_df)
     out, err = capsys.readouterr()
@@ -182,7 +182,7 @@ def test_override_fit_apply(diamonds_df, capsys):
     assert "my overridden apply" in out
 
 
-def test_hyperparams(diamonds_df):
+def test_hyperparams(diamonds_df: pd.DataFrame) -> None:
     bindings = {
         "bool_param": True,
         "int_param": 42,
@@ -199,14 +199,12 @@ def test_hyperparams(diamonds_df):
 
     @ff.transform
     class TestTransform(ff.Transform):
-        some_param: str
+        some_param: str | ff.HP
 
-        def _fit(self, data_fit: pd.DataFrame) -> object:
+        def _fit(self, data_fit: pd.DataFrame) -> None:
             return None
 
-        def _apply(
-            self, data_apply: pd.DataFrame, state: object = None
-        ) -> pd.DataFrame:
+        def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
             return data_apply
 
     t = TestTransform(some_param=ff.HP("response_col"))
@@ -231,18 +229,18 @@ def test_hyperparams(diamonds_df):
         pipeline.fit(diamonds_df)
 
 
-def test_Pipeline(diamonds_df):
-    p = ff.core.ObjectPipeline()
+def test_Pipeline(diamonds_df: pd.DataFrame) -> None:
+    p = core.BasePipeline[pd.DataFrame]()
     assert len(p) == 0
     # empty pipeline equiv to identity
     assert diamonds_df.equals(p.fit(diamonds_df).apply(diamonds_df))
 
     # bare transform, automatically becomes list of 1
-    p = core.ObjectPipeline(transforms=ff.Identity())
+    p = core.BasePipeline[pd.DataFrame](transforms=ff.Identity())
     assert len(p) == 1
     assert p.fit(diamonds_df).apply(diamonds_df).equals(diamonds_df)
 
-    p = core.ObjectPipeline(
+    p = core.BasePipeline[pd.DataFrame](
         transforms=[
             ff.Identity(),
             ff.Identity(),
@@ -258,25 +256,33 @@ def test_Pipeline(diamonds_df):
     assert df.equals(diamonds_df)
 
     # pipeline of pipeline is coalesced
-    p2 = core.ObjectPipeline(transforms=p)
+    p2 = core.BasePipeline[pd.DataFrame](transforms=p)
     assert len(p2) == len(p)
     assert p2 == p
-    p2 = core.ObjectPipeline(transforms=[p])
+    p2 = core.BasePipeline[pd.DataFrame](transforms=[p])
     assert len(p2) == len(p)
     assert p2 == p
 
     # TypeError for a non-Transform in the pipeline
     with pytest.raises(TypeError):
-        core.ObjectPipeline(transforms=42)
+        core.BasePipeline(transforms=42)
     with pytest.raises(TypeError):
-        core.ObjectPipeline(transforms=[ff.Identity(), 42])
+        core.BasePipeline(transforms=[ff.Identity(), 42])
 
 
-def test_Pipeline_callchaining(diamonds_df):
+def test_Pipeline_callchaining(diamonds_df: pd.DataFrame) -> None:
     # call-chaining should give the same result as list of transform instances
-    PipelineWithMethods = core.ObjectPipeline.with_methods(identity=ff.Identity)
-    pipeline_con = core.ObjectPipeline(transforms=[ff.Identity()])
-    pipeline_chain = PipelineWithMethods().identity()
+    PipelineWithMethods = core.BasePipeline[pd.DataFrame].with_methods(
+        identity=ff.Identity
+    )
+    assert (
+        inspect.signature(
+            PipelineWithMethods.identity  # type: ignore [attr-defined]
+        ).return_annotation
+        == "BasePipelineWithMethods"
+    )
+    pipeline_con = core.BasePipeline[pd.DataFrame](transforms=[ff.Identity()])
+    pipeline_chain = PipelineWithMethods().identity()  # type: ignore [attr-defined]
     assert (
         pipeline_con.fit(diamonds_df)
         .apply(diamonds_df)
@@ -284,10 +290,12 @@ def test_Pipeline_callchaining(diamonds_df):
     )
 
 
-def test_tags(diamonds_df):
-    tagged_ident = ff.Identity(tag="mytag")
-    pip = core.ObjectPipeline(transforms=[ff.Identity(), tagged_ident, ff.Identity()])
+def test_tags(diamonds_df: pd.DataFrame) -> None:
+    tagged_ident = ff.Identity[Any](tag="mytag")
+    pip = core.BasePipeline[Any](
+        transforms=[ff.Identity(), tagged_ident, ff.Identity()]
+    )
     assert pip.find_by_tag("mytag") is tagged_ident
 
     fit = pip.fit(diamonds_df)
-    assert isinstance(fit.find_by_tag("mytag"), ff.Identity.FitIdentity)
+    assert isinstance(fit.find_by_tag("mytag").resolved_transform(), ff.Identity)

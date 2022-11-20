@@ -20,14 +20,15 @@
 # OR IMPLY ANY RIGHTS TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, NOR TO
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
-import pytest
-import numpy as np
-from os import path
-import pandas as pd
 import warnings
+from os import path
+from typing import cast
 
-from pydataset import data
-import pyarrow.dataset as ds
+import numpy as np
+import pandas as pd
+import pyarrow.dataset as ds  # type: ignore
+import pytest
+from pydataset import data  # type: ignore
 
 import frankenfit as ff
 import frankenfit.core as ffc
@@ -39,15 +40,15 @@ def diamonds_df():
     return data("diamonds")
 
 
-def test_ColumnsTransform(diamonds_df):
+def test_ColumnsTransform(diamonds_df: pd.DataFrame):
     df = diamonds_df
     # test cols behavior
     # the simplest concrete ColumnsTransform is Select
     t = ffdf.Select(["x", "y", "z"])
     assert t.apply(df).equals(df[["x", "y", "z"]])
-    t = ffdf.Select("z")
+    t = ffdf.Select("z")  # type: ignore [arg-type]
     assert t.apply(df).equals(df[["z"]])
-    t = ffdf.Select(ff.HP("which_cols"))
+    t = ffdf.Select(ff.HP("which_cols"))  # type: ignore [arg-type]
     assert (
         t.fit(df, bindings={"which_cols": ["x", "y", "z"]})
         .apply(df)
@@ -67,20 +68,20 @@ def test_ColumnsTransform(diamonds_df):
         "z",
     ]
 
-    t = ffdf.Select(["x", ff.HP("some_col"), "z"])
+    t = ffdf.Select(["x", ff.HP("some_col"), "z"])  # type: ignore [list-item]
     assert t.fit(df, bindings=bindings).apply(df).equals(df[["x", "y", "z"]])
     t = ffdf.Select(["x", "{some_col}", "z"])
     assert t.fit(df, bindings=bindings).apply(df).equals(df[["x", "y", "z"]])
 
 
-def test_DeMean(diamonds_df):
+def test_DeMean(diamonds_df: pd.DataFrame):
     cols = ["price", "x", "y", "z"]
     t = ff.DataFramePipeline().de_mean(cols)
     result = t.fit(diamonds_df).apply(diamonds_df)
     assert (result[cols].mean().abs() < 1e-10).all()
 
 
-def test_CopyColumns(diamonds_df):
+def test_CopyColumns(diamonds_df: pd.DataFrame):
     cols = ["price", "x", "y", "z"]
     df = diamonds_df[cols]
     result = ff.DataFramePipeline().copy(["price"], ["price_copy"]).apply(df)
@@ -145,20 +146,22 @@ def test_CopyColumns(diamonds_df):
 
     with pytest.raises(TypeError):
         # HP("response") resolves to a str, not a list of str
-        result = (
+        _ = (
             ff.DataFramePipeline()
             .copy(ff.HP("response"), "{response}_copy")
             .fit(df, bindings=bindings)
         )
 
 
-def test_Select(diamonds_df):
+def test_Select(diamonds_df: pd.DataFrame):
     kept = ["price", "x", "y", "z"]
     result = ff.DataFramePipeline().select(kept).apply(diamonds_df)
     assert result.equals(diamonds_df[kept])
+    result = ff.DataFramePipeline()[kept].apply(diamonds_df)
+    assert result.equals(diamonds_df[kept])
 
 
-def test_Filter(diamonds_df):
+def test_Filter(diamonds_df: pd.DataFrame):
     ideal_df = (ff.DataFramePipeline().filter(lambda df: df["cut"] == "Ideal")).apply(
         diamonds_df
     )
@@ -174,7 +177,7 @@ def test_Filter(diamonds_df):
         assert (result_df["cut"] == which_cut).all()
 
 
-def test_RenameColumns(diamonds_df):
+def test_RenameColumns(diamonds_df: pd.DataFrame):
     result = ff.DataFramePipeline().rename({"price": "price_orig"}).apply(diamonds_df)
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
     result = (
@@ -192,7 +195,7 @@ def test_RenameColumns(diamonds_df):
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
 
 
-def test_Clip(diamonds_df):
+def test_Clip(diamonds_df: pd.DataFrame):
     df = diamonds_df
     result = ff.DataFramePipeline().clip(["price"], upper=150, lower=100).apply(df)
     assert (result["price"] <= 150).all() & (result["price"] >= 100).all()
@@ -206,7 +209,7 @@ def test_Clip(diamonds_df):
         assert (result["price"] >= lower).all()
 
 
-def test_ImputeConstant():
+def test_ImputeConstant() -> None:
     df = pd.DataFrame({"col1": pd.Series([1.0, np.nan, 2.0])})
     assert (
         ff.DataFramePipeline()
@@ -216,13 +219,13 @@ def test_ImputeConstant():
     )
 
 
-def test_Winsorize():
+def test_Winsorize() -> None:
     df = pd.DataFrame({"col1": [float(x) for x in range(1, 101)]})
     result = ff.DataFramePipeline().winsorize(["col1"], 0.2).fit(df).apply(df)
     assert (result["col1"] > 20).all() and (result["col1"] < 81).all()
 
 
-def test_ImputeMean():
+def test_ImputeMean() -> None:
     df = pd.DataFrame({"col1": pd.Series([1.0, np.nan, 2.0])})
     assert (
         ff.DataFramePipeline()
@@ -233,7 +236,7 @@ def test_ImputeMean():
     )
 
 
-def test_ZScore(diamonds_df):
+def test_ZScore(diamonds_df: pd.DataFrame):
     result = (
         ff.DataFramePipeline().z_score(["price"]).fit(diamonds_df).apply(diamonds_df)
     )
@@ -243,7 +246,7 @@ def test_ZScore(diamonds_df):
     )
 
 
-def test_Join(diamonds_df):
+def test_Join(diamonds_df: pd.DataFrame):
     diamonds_df = diamonds_df.assign(diamond_id=diamonds_df.index)
     xyz_df = diamonds_df[["diamond_id", "x", "y", "z"]]
     cut_df = diamonds_df[["diamond_id", "cut"]]
@@ -302,8 +305,8 @@ def test_Join(diamonds_df):
     assert np.abs(result["price_deviance"].mean()) < 1e-10
 
 
-def test_SKLearn(diamonds_df):
-    from sklearn.linear_model import LinearRegression
+def test_SKLearn(diamonds_df: pd.DataFrame):
+    from sklearn.linear_model import LinearRegression  # type: ignore
 
     target_preds = (
         LinearRegression(fit_intercept=True)
@@ -326,8 +329,8 @@ def test_SKLearn(diamonds_df):
     # TODO: test hyperparameterizations
 
 
-def test_Statsmodels(diamonds_df):
-    from statsmodels.api import OLS
+def test_Statsmodels(diamonds_df: pd.DataFrame):
+    from statsmodels.api import OLS  # type: ignore
 
     ols = OLS(diamonds_df["price"], diamonds_df[["carat", "depth", "table"]])
     target_preds = ols.fit().predict(diamonds_df[["carat", "depth", "table"]])
@@ -346,7 +349,7 @@ def test_Statsmodels(diamonds_df):
     # TODO: test hyperparameterizations
 
 
-def test_complex_pipeline_1(diamonds_df):
+def test_complex_pipeline_1(diamonds_df: pd.DataFrame):
     from sklearn.linear_model import LinearRegression
 
     FEATURES = ["carat", "x", "y", "z", "depth", "table"]
@@ -383,24 +386,24 @@ def test_complex_pipeline_1(diamonds_df):
     assert pipeline.hyperparams() == {"bake_features", "predictors", "response_col"}
 
     # should be picklable without errors
-    import cloudpickle
+    import cloudpickle  # type: ignore
 
     assert cloudpickle.loads(cloudpickle.dumps(pipeline)) == pipeline
 
     # TODO: test more stuff with this pipeline
 
 
-def test_GroupBy(diamonds_df):
+def test_GroupBy(diamonds_df: pd.DataFrame):
     df: pd.DataFrame = diamonds_df.reset_index().drop(["index"], axis=1)
-    target = df.groupby("cut", as_index=False, sort=False).apply(len)
+    target_s = df.groupby("cut", as_index=False, sort=False).apply(len)
     pip = ff.DataFramePipeline().stateless_lambda(len)
     assert pip.fit(df).apply(df) == len(df)
 
     result = ffdf.GroupByCols("cut", pip).fit(df).apply(df)
-    assert result.equals(target)
+    assert result.equals(target_s)
 
     pip = ff.DataFramePipeline().group_by_cols("cut").stateless_lambda(len)
-    assert pip.fit(df).apply(df).equals(target)
+    assert pip.fit(df).apply(df).equals(target_s)
 
     # A sttaeful transform
     pip = (
@@ -425,7 +428,9 @@ def test_GroupBy(diamonds_df):
         .stateless_lambda(lambda df: df[["price"]].mean())
     )
     result = pip.apply(df).set_index("cut").sort_index().reset_index()
-    target = df.groupby("cut")[["price"]].mean().sort_index().reset_index()
+    target: pd.DataFrame = (
+        df.groupby("cut")[["price"]].mean().sort_index().reset_index()
+    )
     assert result.equals(target)
 
     pip = (
@@ -448,13 +453,13 @@ def test_GroupBy(diamonds_df):
         pip.fit(df.loc[df["cut"] != "Fair"]).apply(df)
 
 
-def test_Correlation(diamonds_df):
+def test_Correlation(diamonds_df: pd.DataFrame):
     target = diamonds_df[["price", "carat"]].corr()
     cm = ff.DataFramePipeline().correlation(["price"], ["carat"]).apply(diamonds_df)
     assert cm.iloc[0, 0] == target.iloc[0, 1]
 
 
-def test_ReadDataFrame(diamonds_df):
+def test_ReadDataFrame(diamonds_df: pd.DataFrame):
     df = diamonds_df.reset_index().drop(["index"], axis=1)
     assert ff.DataFramePipeline().read_data_frame(df).apply().equals(df)
 
@@ -465,7 +470,7 @@ def test_ReadDataFrame(diamonds_df):
     assert pip.apply().equals(df)
 
 
-def test_ReadPandasCSV(diamonds_df, tmp_path):
+def test_ReadPandasCSV(diamonds_df: pd.DataFrame, tmp_path: str):
     df = diamonds_df.reset_index().drop(["index"], axis=1)
     fp = path.join(tmp_path, "diamonds.csv")
     df.to_csv(fp)
@@ -484,7 +489,7 @@ def test_ReadPandasCSV(diamonds_df, tmp_path):
         assert issubclass(w[-1].category, ffc.NonInitialConstantTransformWarning)
 
 
-def test_read_write_csv(diamonds_df, tmp_path):
+def test_read_write_csv(diamonds_df: pd.DataFrame, tmp_path):
     df = diamonds_df.reset_index().set_index("index")
     ff.DataFramePipeline().write_pandas_csv(
         # TODO: in core, define a field type for pathlib.PosixPath's containing
@@ -508,7 +513,7 @@ def test_read_write_csv(diamonds_df, tmp_path):
     assert result.equals(df)
 
 
-def test_read_write_dataset(diamonds_df, tmp_path):
+def test_read_write_dataset(diamonds_df: pd.DataFrame, tmp_path):
     df = diamonds_df.reset_index().set_index("index")
     path = str(tmp_path / "diamonds.csv")
     ff.DataFramePipeline().write_pandas_csv(
@@ -546,7 +551,7 @@ def test_read_write_dataset(diamonds_df, tmp_path):
     assert result.equals(target)
 
 
-def test_Assign(diamonds_df):
+def test_Assign(diamonds_df: pd.DataFrame):
     result = (
         ff.DataFramePipeline().assign(
             intercept=1,
@@ -554,9 +559,16 @@ def test_Assign(diamonds_df):
             grp_2=lambda self, bindings, df: df.index % bindings["k"],
         )
     ).apply(diamonds_df, bindings={"k": 3})
-    assert (result["intercept"] == 1).all()
-    assert (result["grp"] == (diamonds_df.index % 5)).all()
-    assert (result["grp_2"] == (diamonds_df.index % 3)).all()
+    assert cast(pd.DataFrame, result["intercept"] == 1).all()
+    assert cast(
+        pd.DataFrame,
+        # pandas-stubs is too dumb to type-check this...
+        result["grp"] == (diamonds_df.index % 5),  # type: ignore [operator]
+    ).all()
+    assert cast(
+        pd.DataFrame,
+        result["grp_2"] == (diamonds_df.index % 3),  # type: ignore [operator]
+    ).all()
 
     result = (
         ff.DataFramePipeline().assign(
@@ -568,11 +580,14 @@ def test_Assign(diamonds_df):
             tag="foo",
         )
     ).apply(diamonds_df, bindings={"k": 3})
-    assert (result["intercept"] == 1).all()
-    assert (result["grp_3"] == (diamonds_df.index % 3)).all()
+    assert cast(pd.DataFrame, result["intercept"] == 1).all()
+    assert cast(
+        pd.DataFrame,
+        result["grp_3"] == (diamonds_df.index % 3),  # type: ignore [operator]
+    ).all()
 
 
-def test_GroupByBindings(diamonds_df):
+def test_GroupByBindings(diamonds_df: pd.DataFrame):
     df = diamonds_df.head()
     result = (
         ff.DataFramePipeline()

@@ -31,32 +31,81 @@ the classes and functions defined here through the public API exposed as
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import copy
 import inspect
 import logging
+import operator
 import types
-from typing import Any, Callable, Iterable, Optional, TypeVar
 import warnings
+from abc import ABC, abstractmethod
+from functools import reduce, wraps
+from textwrap import dedent
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ClassVar,
+    Generic,
+    Iterable,
+    Mapping,
+    Optional,
+    Sized,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
-from attrs import define, field, fields_dict, Factory, NOTHING
-import graphviz
+import attrs
+import graphviz  # type: ignore
+from attrs import NOTHING, Factory, define, field, fields_dict
 
 from .backend import Backend, DummyBackend, DummyFuture
 
 _LOG = logging.getLogger(__name__)
 
 T = TypeVar("T")
-P = TypeVar("P", bound="ObjectPipeline")
+_T = TypeVar("_T")
+P = TypeVar("P", bound="BasePipeline")
 R = TypeVar("R", bound="Transform")
+R_co = TypeVar("R_co", covariant=True, bound="Transform")
+State = TypeVar("State")
+State_co = TypeVar("State_co", covariant=True)
+DataIn = TypeVar("DataIn", contravariant=True)
+DataResult = TypeVar("DataResult", covariant=True)
 
-Bindings = dict[str, object]
+Bindings = dict[str, Any]
 
 
+if TYPE_CHECKING:
+    # This is so that pylance/pyright can autocomplete Transform constructor
+    # arguments and instance variables.
+    # See: https://www.attrs.org/en/stable/extending.html#pyright
+    # And: https://github.com/microsoft/pyright/blob/main/specs/dataclass_transforms.md
+    def __dataclass_transform__(
+        *,
+        eq_default: bool = True,
+        order_default: bool = False,
+        kw_only_default: bool = False,
+        field_descriptors: Tuple[Union[type, Callable[..., Any]], ...] = (()),
+    ) -> Callable[[_T], _T]:
+        ...
+
+else:
+    # At runtime the __dataclass_transform__ decorator should do nothing
+    def __dataclass_transform__(**kwargs):
+        def identity(f):
+            return f
+
+        return identity
+
+
+@__dataclass_transform__(field_descriptors=(attrs.field,))
 def transform(*args, **kwargs):
-    # TODO: maybe call this transform_fields to emphasize that it's only needed
-    # when defining new fields? Or alternatively, we could go all-in on a
-    # @transform decorator that implicitly subclasses Transform?
+    """
+    @transform docstr.
+    """
     return define(*args, **(kwargs | {"slots": False}))
 
 
@@ -71,6 +120,14 @@ def is_iterable(obj):
     return True
 
 
+def flatten_tuples(xs):
+    for x in xs:
+        if isinstance(x, tuple):
+            yield from flatten_tuples(x)
+        else:
+            yield x
+
+
 def copy_function(f):
     # Based on http://stackoverflow.com/a/6528148/190597 (Glenn Maynard)
     g = types.FunctionType(
@@ -81,7 +138,7 @@ def copy_function(f):
         closure=f.__closure__,
     )
     # NOTE: we must not use functools.update_wrapper, because that sets the
-    # __wrapped__ object, which we DON'T want, because it causes help() and
+    # __wrapped__ attribute, which we DON'T want, because it causes help() and
     # friends to do the wrong thing. E.g., we won't be able to change the
     # signature reported by help(). PyPI package `makefun` could also work, but
     # does more than we need.
@@ -131,9 +188,144 @@ DEFAULT_VISUALIZE_DIGRAPH_KWARGS = {
 }
 
 
-# TODO: remove need for Transform subclasses to write @transform
+class UnresolvedHyperparameterError(NameError):
+    """
+    Exception raised when a Transform is not able to resolve all of its
+    hyperparameters at fit-time.
+    """
+
+
+# TODO: Strictly speaking, could/should not be freely specified, but rather
+# follow from the other type params as Transform[DataIn, DataResult]
+class FitTransform(Generic[R_co, DataIn, DataResult]):
+    """
+    The result of fitting a :class:`{transform_class_name}` Transform. Call this
+    object's :meth:`apply()` method on some data to get the result of applying the
+    now-fit transformation.
+
+    All parameters of the fit {transform_class_name} are available as instance
+    variables, with any hyperparameters fully resolved against whatever bindings were
+    provided at fit-time.
+
+    The fit state of the transformation, as returned by {transform_class_name}'s
+    ``_fit()`` method at fit-time, is available from :meth:`state()`, and this is the
+    state that will be used at apply-time (i.e., passed as the ``state``
+    argument of the user's ``_fit()`` method).
+    """
+
+    def __init__(
+        self,
+        resolved_transform: R_co,
+        state: Any,
+        bindings: Optional[Bindings] = None,
+    ):
+        self.__resolved_transform = resolved_transform
+        self.__state = state
+        self.__bindings = bindings or {}
+        self.tag: str = resolved_transform.tag
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}("
+            f"resolved_transform={self.__resolved_transform!r}, "
+            f"state={type(self.__state)!r}, "
+            f"bindings={self.__bindings!r}, "
+            f")"
+        )
+
+    # TODO: shouldn't return type be Optional? Like, what happens when
+    # data_apply is None?
+    def apply(
+        self,
+        data_apply: Optional[DataIn] = None,
+        backend: Optional[Backend] = None,
+    ) -> DataResult:
+        """
+        Return the result of applying this FitTransform to the given data.
+        """
+        if isinstance(data_apply, Sized):
+            data_len = len(data_apply)
+        else:
+            data_len = None
+
+        _LOG.debug(
+            f"Applying {self.tag} on {type(data_apply)}"
+            f"{f' (len={data_len})' if data_len is not None else ''} "
+        )
+
+        if backend is None:
+            backend = DummyBackend()
+
+        # run user _apply function on backend
+        tf = self.resolved_transform()
+        sig = inspect.signature(tf._apply).parameters
+        if len(sig) not in (2, 3):
+            raise TypeError(
+                f"I don't know how to invoke user _apply() method with "
+                f"{len(sig)} arguments: {tf._apply} with signature {str(sig)}"
+            )
+        args: tuple[Any, ...] = (data_apply, self.state())
+        # pass bindings if _apply has the signature for it
+        if len(sig) == 3:
+            args += (self.bindings(),)
+
+        result = backend.submit(f"{self.tag}._apply", tf._apply, *args)
+        if isinstance(result, DummyFuture):
+            return result.result()
+        return result
+
+    # TODO: refit()? incremental_fit()?
+
+    def resolved_transform(self) -> R_co:
+        """
+        Return the Transform that was fit to produce this FitTransform, with all
+        hyperparameters resolved to their fit-time bindings.
+        """
+        return self.__resolved_transform
+
+    def bindings(self) -> Bindings:
+        """
+        Return the bindings dict according to which the transformation's hyperparameters
+        were resolved.
+        """
+        if self.__bindings is None:
+            return {}
+        return self.__bindings
+
+    def state(self) -> Any:
+        """
+        Return the fit state of the transformation, which is an arbitrary object
+        determined by the implementation of ``{transform_class_name}._fit()``.
+        """
+        return self.__state
+
+    def find_by_tag(self, tag: str):
+        # TODO: address implementation of find_by_tag on FitTransform. We should
+        # consider both FitTransform-valued params and FitTransform objects in
+        # our state.
+        if self.tag == tag:
+            return self
+
+        val = self.state()
+        if isinstance(val, FitTransform):
+            try:
+                return val.find_by_tag(tag)
+            except KeyError:
+                pass
+        elif is_iterable(val):
+            for x in cast(Iterable[Any], val):
+                if isinstance(x, FitTransform):
+                    try:
+                        return x.find_by_tag(tag)
+                    except KeyError:
+                        pass
+
+        raise KeyError(f"No child Transform found with tag: {tag}")
+
+
+# TODO: remove need for Transform subclasses to write @transform?
 @transform
-class Transform(ABC):
+class Transform(ABC, Generic[DataIn, DataResult]):
     """
     The abstract base class of all (unfit) Transforms. Subclasses must implement the
     :meth:`_fit()` and :meth:`_apply()` methods (but see :class:`StatelessTransform`,
@@ -241,11 +433,8 @@ class Transform(ABC):
             )
 
     @abstractmethod
-    def _fit(
-        self,
-        data_fit: Any,
-        bindings: Optional[Bindings] = None,
-    ) -> Any:
+    # def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
+    def _fit(self, data_fit: DataIn) -> Any:
         """
         Implements subclass-specific fitting logic.
 
@@ -276,12 +465,16 @@ class Transform(ABC):
         """
         raise NotImplementedError
 
+    FitTransformClass: ClassVar[Type[FitTransform]] = FitTransform
+
+    _Self = TypeVar("_Self", bound="Transform")
+
     def fit(
-        self,
-        data_fit: Optional[Any] = None,
+        self: _Self,
+        data_fit: Optional[DataIn] = None,
         bindings: Optional[Bindings] = None,
         backend: Optional[Backend] = None,
-    ) -> FitTransform:
+    ) -> FitTransform[_Self, DataIn, DataResult]:
         """
         Fit this Transform on some data and hyperparam bindings, and return a
         :class:`FitTransform` object. The actual return value will be some
@@ -289,9 +482,9 @@ class Transform(ABC):
         is; for example, :meth:`ZScore.fit()` returns a :class:`FitZScore`
         object.
         """
-        try:
+        if isinstance(data_fit, Sized):
             data_len = len(data_fit)
-        except TypeError:
+        else:
             data_len = None
 
         _LOG.debug(
@@ -312,19 +505,19 @@ class Transform(ABC):
                 f"{len(sig)} arguments: {resolved_transform._fit} with signature "
                 f"{str(sig)}"
             )
-        args = (data_fit,)
-        # pass bindings if _fit has the signature for it
+        args: tuple[Any, ...] = (data_fit,)
+        # pass bindings if _fit has a second argument
         if len(sig) == 2:
             args += (bindings or {},)
         state = backend.submit(f"{self.tag}._fit", resolved_transform._fit, *args)
         if isinstance(state, DummyFuture):
             state = state.result()
 
-        fit_class: FitTransform = getattr(self, self._fit_class_name)
-        return fit_class(resolved_transform, state, bindings)
+        # fit_class: type[FitTransform] = getattr(self, self._fit_class_name)
+        return type(self).FitTransformClass(resolved_transform, state, bindings)
 
     @abstractmethod
-    def _apply(self, data_apply: Any, state: Any) -> Any:
+    def _apply(self, data_apply: DataIn, state: Any) -> DataResult:
         """
         Implements subclass-specific logic to apply the tansformation after being fit.
 
@@ -345,6 +538,13 @@ class Transform(ABC):
         """
         field_names = list(fields_dict(self.__class__).keys())
         return field_names
+
+    def annotations(self) -> dict[str, str]:
+        def _get_annos(t: type) -> tuple[dict, ...]:
+            return tuple(inspect.get_annotations(x) for x in (t,) + t.__bases__)
+
+        dicts = list(flatten_tuples(_get_annos(type(self))))
+        return reduce(operator.or_, dicts)
 
     def hyperparams(self) -> set[str]:
         """
@@ -385,6 +585,8 @@ class Transform(ABC):
         """
         bindings = bindings or {}
         params = self.params()
+        # TODO someday: check types of bound values against annotations
+        # annos = self.annotations()
         resolved_transform = copy.copy(self)
         unresolved = []
         for name in params:
@@ -411,7 +613,7 @@ class Transform(ABC):
 
     def then(
         self: Transform, other: Optional[Transform | list[Transform]] = None
-    ) -> ObjectPipeline:
+    ) -> BasePipeline:
         if other is None:
             transforms = [self]
         elif isinstance(other, list):
@@ -421,9 +623,9 @@ class Transform(ABC):
         else:
             raise TypeError(f"then(): other must be Transform or list, got: {other!r}")
 
-        return ObjectPipeline(transforms=transforms)
+        return BasePipeline(transforms=transforms)
 
-    def __add__(self, other: Optional[Transform | list[Transform]]):
+    def __add__(self, other: Optional[Transform | list[Transform]]) -> BasePipeline:
         return self.then(other)
 
     def _children(self) -> Iterable[Transform]:
@@ -465,7 +667,7 @@ class Transform(ABC):
         # TODO: this function has gotten too big and needs refactoring
         children_as_params: dict[str, Transform] = {}
         children_as_elements_of_params: dict[str, list[Transform]] = {}
-        param_vals: dict[str, object] = {}
+        param_reprs: dict[str, str] = {}
 
         for name in self.params():
             if name == "tag":
@@ -488,10 +690,12 @@ class Transform(ABC):
             # for non-Transform params, collect their values to be displayed in the
             # label of the node for this Transform
             if (not has_children) and (val is not None):
-                param_vals[name] = repr(val)
+                param_reprs[name] = repr(val)
 
-        param_vals_fmt = ",\n".join([" = ".join([k, v]) for k, v in param_vals.items()])
-        self_label = f"{self.tag}\n{param_vals_fmt}"
+        param_reprs_fmt = ",\n".join(
+            [" = ".join([k, v]) for k, v in param_reprs.items()]
+        )
+        self_label = f"{self.tag}\n{param_reprs_fmt}"
 
         if not (children_as_params or children_as_elements_of_params):
             digraph.node(self.tag, label=self_label)
@@ -543,40 +747,6 @@ class Transform(ABC):
         self._visualize(digraph, ("lightgrey", "white"))
         return digraph
 
-    @classmethod
-    def __init_subclass__(
-        cls, /, no_magic=False, fit_transform_base_class=None, **kwargs
-    ):
-        """
-        Implements black magic to help with writing Transform subclasses.
-        """
-        super().__init_subclass__(**kwargs)
-
-        # super_cls = super().__self__
-        # print(dir(super_cls))
-        if no_magic:
-            return
-
-        if fit_transform_base_class is None:
-            fit_transform_base_class = FitTransform
-
-        class DerivedFitTransform(fit_transform_base_class, transform_class=cls):
-            pass
-
-        fit_class = DerivedFitTransform
-        fit_class_name = fit_class.__name__
-        fit_class.__qualname__ = ".".join((cls.__qualname__, fit_class_name))
-        setattr(cls, fit_class_name, fit_class)
-        cls._fit_class_name = fit_class_name
-
-        # The type annotations of the subclass's fit() method will automagically
-        # reflect a return type of fit_class, and its data_fit arg will have the
-        # same type as declared by the user's _fit method. TODO: if _fit()'s
-        # data_fit arg has type T, indicate that fit() takes T | Future[T]?
-        cls.fit = copy_function(cls.fit)
-        cls.fit.__annotations__["return"] = fit_class.__qualname__
-        cls.fit.__annotations__["data_fit"] = cls._fit.__annotations__.get("data_fit")
-
 
 class SentinelDict(dict):
     """
@@ -601,169 +771,7 @@ class SentinelDict(dict):
         return None
 
 
-class UnresolvedHyperparameterError(NameError):
-    """
-    Exception raised when a Transform is not able to resolve all of its
-    hyperparameters at fit-time.
-    """
-
-
-class FitTransform(ABC):
-    """
-    The result of fitting a :class:`{transform_class_name}` Transform. Call this
-    object's :meth:`apply()` method on some data to get the result of applying the
-    now-fit transformation.
-
-    All parameters of the fit {transform_class_name} are available as instance
-    variables, with any hyperparameters fully resolved against whatever bindings were
-    provided at fit-time.
-
-    The fit state of the transformation, as returned by {transform_class_name}'s
-    ``_fit()`` method at fit-time, is available from :meth:`state()`, and this is the
-    state that will be used at apply-time (i.e., passed as the ``state``
-    argument of the user's ``_fit()`` method).
-    """
-
-    def __init__(
-        self,
-        resolved_transform: Transform,
-        state: object,
-        bindings: Optional[Bindings] = None,
-    ):
-        self.__resolved_transform = resolved_transform
-        self.__state = state
-        self.__bindings = bindings or {}
-        self.tag: str = resolved_transform.tag
-
-    def __repr__(self):
-        return (
-            f"{self.__class__.__name__}("
-            f"resolved_transform={self.__resolved_transform!r}, "
-            f"state={type(self.__state)!r}, "
-            f"bindings={self.__bindings!r}, "
-            f")"
-        )
-
-    @abstractmethod
-    def apply(
-        self,
-        data_apply: Optional[Any] = None,
-        backend: Optional[Backend] = None,
-    ) -> object:
-        """
-        Return the result of applying this fit Transform to the given data.
-        """
-        try:
-            data_len = len(data_apply)
-        except TypeError:
-            data_len = None
-
-        _LOG.debug(
-            f"Applying {self.tag} on {type(data_apply)}"
-            f"{f' (len={data_len})' if data_len is not None else ''} "
-        )
-
-        if backend is None:
-            backend = DummyBackend()
-
-        # run user _apply function on backend
-        tf = self.resolved_transform()
-        sig = inspect.signature(tf._apply).parameters
-        if len(sig) not in (2, 3):
-            raise TypeError(
-                f"I don't know how to invoke user _apply() method with "
-                f"{len(sig)} arguments: {tf._apply} with signature {str(sig)}"
-            )
-        args = (data_apply, self.state())
-        # pass bindings if _apply has the signature for it
-        if len(sig) == 3:
-            args += (self.bindings(),)
-
-        result = backend.submit(f"{self.tag}._apply", tf._apply, *args)
-        if isinstance(result, DummyFuture):
-            return result.result()
-        return result
-
-    # TODO: refit()? incremental_fit()?
-
-    def resolved_transform(self) -> Transform:
-        """
-        Return the Transform that was fit to produce this FitTransform, with all
-        hyperparameters resolved to their fit-time bindings.
-        """
-        return self.__resolved_transform
-
-    def bindings(self) -> Bindings:
-        """
-        Return the bindings dict according to which the transformation's hyperparameters
-        were resolved.
-        """
-        if self.__bindings is None:
-            return {}
-        return self.__bindings
-
-    def state(self) -> Any:
-        """
-        Return the fit state of the transformation, which is an arbitrary object
-        determined by the implementation of ``{transform_class_name}._fit()``.
-        """
-        return self.__state
-
-    def find_by_tag(self, tag: str):
-        # TODO: address implementation of find_by_tag on FitTransform. We should
-        # consider both FitTransform-valued params and FitTransform objects in
-        # our state.
-        if self.tag == tag:
-            return self
-
-        val = self.state()
-        if isinstance(val, FitTransform):
-            try:
-                return val.find_by_tag(tag)
-            except KeyError:
-                pass
-        elif is_iterable(val):
-            for x in val:
-                if isinstance(x, FitTransform):
-                    try:
-                        return x.find_by_tag(tag)
-                    except KeyError:
-                        pass
-
-        raise KeyError(f"No child Transform found with tag: {tag}")
-
-    def __init_subclass__(cls, /, transform_class: type = None, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if transform_class is None:
-            # User is declaring a still-abstract subclass of FitTransform
-            return
-        state_type = transform_class._fit.__annotations__.get("return", object)
-        _apply = transform_class._apply
-        cls.__name__ = f"Fit{transform_class.__name__}"
-        cls.__doc__ = FitTransform.__doc__.format(
-            transform_class_name=transform_class.__name__
-        )
-        # Automagically fix up type annotations to reflect the state and data
-        # types that are implied by the annotations on the user's _fit/_apply
-        # methods. TODO: incorporate possible Futures into type annotations
-        cls.__init__.__annotations__["resolved_transform"] = transform_class.__name__
-        cls.__init__.__annotations__["state"] = state_type
-        cls.state = copy_function(cls.state)
-        cls.state.__doc__ = FitTransform.state.__doc__.format(
-            transform_class_name=transform_class.__name__
-        )
-        cls.state.__annotations__["return"] = state_type
-        cls.apply = copy_function(cls.apply)
-        # cls ought no longer be abstract, if it were
-        if "__isabstractmethod__" in cls.apply.__dict__:
-            del cls.apply.__dict__["__isabstractmethod__"]
-        cls.apply.__annotations__["return"] = _apply.__annotations__.get("return")
-        cls.apply.__annotations__["data_apply"] = _apply.__annotations__.get(
-            "data_apply"
-        )
-
-
-class StatelessTransform(Transform):
+class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
     """
     Abstract base class of Transforms that have no state to fit. ``fit()`` is a
     null op on a ``StatelessTransform``, and the ``state()`` of its fit is
@@ -775,17 +783,17 @@ class StatelessTransform(Transform):
     ``t.fit(df, bindings=bindings).apply(df)``.
     """
 
-    def _fit(self, data_fit: Any) -> None:
+    def _fit(self, data_fit: DataIn) -> None:
         return None
 
     # TODO: subclasses should automagically get a return type consistent with
     # the return type of self.fit().apply()
     def apply(
         self,
-        data_apply: Optional[Any] = None,
+        data_apply: Optional[DataIn] = None,
         bindings: Optional[Bindings] = None,
         backend: Optional[Backend] = None,
-    ) -> Any:
+    ) -> DataResult:
         """
         Convenience function allowing one to apply a StatelessTransform without
         an explicit preceding call to fit. Implemented by calling fit() on no
@@ -809,7 +817,9 @@ class NonInitialConstantTransformWarning(RuntimeWarning):
     """
 
 
-class ConstantTransform(StatelessTransform):
+class ConstantTransform(
+    Generic[DataIn, DataResult], StatelessTransform[DataIn, DataResult]
+):
     """
     Abstract base class of Transforms that have no state to fit, and, at apply
     time, produce output data that is independent of the input data.
@@ -824,12 +834,14 @@ class ConstantTransform(StatelessTransform):
     non-initial in a Pipeline.
     """
 
+    Self = TypeVar("Self", bound="ConstantTransform")
+
     def fit(
-        self,
-        data_fit: Optional[Any] = None,
+        self: Self,
+        data_fit: Optional[DataIn] = None,
         bindings: Optional[Bindings] = None,
         backend: Optional[Backend] = None,
-    ) -> FitTransform:
+    ) -> FitTransform[Self, DataIn, DataResult]:
         if data_fit is not None:
             warning_msg = (
                 "A ConstantTransform's fit method received non-empty input data. "
@@ -849,7 +861,7 @@ class ConstantTransform(StatelessTransform):
     # FitTransform
 
 
-@transform
+@define
 class HP:
     """
     A hyperparameter; that is, a transformation parameter whose concrete value
@@ -887,7 +899,7 @@ class HP:
 
     name: str
 
-    def resolve(self, bindings: dict[str, T]) -> T | HP:
+    def resolve(self, bindings: Mapping[str, Any]) -> Any | HP:
         """
         Return the concrete value of this hyperparameter according to the
         provided fit-time bindings. Exactly how the bindings determine the
@@ -901,7 +913,7 @@ class HP:
         :return: Either the concrete value, or ``self`` (i.e., the
             still-unresolved hyperparameter) if resolution is not possible with
             the given bindings. After ``resolve()``-ing all of its
-            hyperparameters, a the caller may check for any parameters that are
+            hyperparameters, a caller may check for any parameters that are
             still HP objects to determine which, if any, hyperparameters could
             not be resolved. The base implementation of :meth:`Transform.fit()`
             raises an :class:`UnresolvedHyperparameterError` if any of the
@@ -918,7 +930,7 @@ class HP:
     X = TypeVar("X")
 
     @staticmethod
-    def resolve_maybe(v: X, bindings: dict[str, T]) -> X | HP:
+    def resolve_maybe(v: X, bindings: Mapping[str, Any]) -> X | Any:
         """
         A static utility method, that, if ``v`` is a hyperparameter (:class:`HP`
         instance or subclass), returns the result of resolving it on the given
@@ -934,34 +946,19 @@ class HP:
 
 
 class HPFmtStr(HP):
-    """_summary_
-
-    :param HP: _description_
-    :type HP: _type_
-    """
-
-    def resolve(self, bindings: dict[str, T]) -> T:
+    def resolve(self, bindings: Mapping[str, T]) -> str:
         # treate name as format string to be formatted against bindings
         return self.name.format_map(bindings)
 
     C = TypeVar("C", bound="HPFmtStr")
-    X = TypeVar("X", bound=str | HP)
 
     @classmethod
-    def maybe_from_value(cls: C, x: X) -> C | X:
-        """_summary_
-
-        :param x: _description_
-        :type x: str | HP
-        :raises TypeError: _description_
-        :return: _description_
-        :rtype: _type_
-        """
+    def maybe_from_value(cls: type[C], x: str | HP) -> C | HP | str:
         if isinstance(x, HP):
             return x
         if isinstance(x, str):
             if x != "":
-                return HPFmtStr(x)
+                return cls(x)
             return x
         raise TypeError(
             f"Unable to create a HPFmtStr from {x!r} which has type {type(x)}"
@@ -969,32 +966,20 @@ class HPFmtStr(HP):
 
 
 def fmt_str_field(**kwargs):
-    """_summary_
-
-    :return: _description_
-    :rtype: _type_
-    """
     return field(converter=HPFmtStr.maybe_from_value, **kwargs)
 
 
-@transform
+@define
 class HPLambda(HP):
-    """_summary_
-
-    :param HP: _description_
-    :type HP: _type_
-    :return: _description_
-    :rtype: _type_
-    """
 
     resolve_fun: Callable
-    name: str = None
+    name: str = "<lambda>"
 
-    def resolve(self, bindings: dict[str, T]) -> T:
+    def resolve(self, bindings: Mapping[str, Any]) -> Any:
         return self.resolve_fun(bindings)
 
 
-@transform
+@define
 class HPDict(HP):
     """_summary_
 
@@ -1005,10 +990,10 @@ class HPDict(HP):
     :rtype: _type_
     """
 
-    mapping: dict
-    name: str = None
+    mapping: Mapping
+    name: str = "<dict>"
 
-    def resolve(self, bindings: dict[str, object]) -> object:
+    def resolve(self, bindings: Mapping[str, Any]) -> dict:
         return {
             (k.resolve(bindings) if isinstance(k, HP) else k): v.resolve(bindings)
             if isinstance(v, HP)
@@ -1017,18 +1002,9 @@ class HPDict(HP):
         }
 
     C = TypeVar("C", bound="HPDict")
-    X = TypeVar("X", bound=dict | HP)
 
     @classmethod
-    def maybe_from_value(cls: C, x: X) -> C | X:
-        """_summary_
-
-        :param x: _description_
-        :type x: dict | HP
-        :raises TypeError: _description_
-        :return: _description_
-        :rtype: _type_
-        """
+    def maybe_from_value(cls: type[C], x: dict | HP) -> C | dict | HP:
         if isinstance(x, HP):
             return x
         if not isinstance(x, dict):
@@ -1053,10 +1029,26 @@ def dict_field(**kwargs):
     return field(converter=HPDict.maybe_from_value, **kwargs)
 
 
+C = TypeVar("C", bound="Callable[..., Any]")
+
+
+def callchain(transform_class: type[R]) -> Callable[[C], C]:
+    def inner(f: C) -> C:
+        f.__doc__ = dedent(f.__doc__ or "") + dedent(transform_class.__doc__ or "")
+
+        @wraps(f)
+        def wrapper(self, *args, **kwargs):
+            return self + transform_class(*args, **kwargs)
+
+        return cast(C, wrapper)
+
+    return inner
+
+
 def method_wrapping_transform(
-    class_qualname: str, method_name: str, transform_class: type
-) -> Callable[..., ObjectPipeline]:
-    def method_impl(self, *args, **kwargs) -> ObjectPipeline:
+    class_qualname: str, method_name: str, transform_class: type[R]
+) -> Callable[..., BasePipeline]:
+    def method_impl(self, *args, **kwargs) -> BasePipeline:
         return self + transform_class(*args, **kwargs)
 
     method_impl.__annotations__.update(
@@ -1064,9 +1056,12 @@ def method_wrapping_transform(
     )
     method_impl.__name__ = method_name
     method_impl.__qualname__ = ".".join((class_qualname, method_name))
-    method_impl.__signature__ = inspect.signature(transform_class.__init__).replace(
+    sig = inspect.signature(transform_class.__init__).replace(
         return_annotation=class_qualname
     )
+    # Workaround mypy bug: https://github.com/python/mypy/issues/12472
+    # method_impl.__signature__ = sig
+    setattr(method_impl, "__signature__", sig)
     method_impl.__doc__ = f"""
     Return the result of appending a new :class:`{transform_class.__name__}` transform
     constructed with the given parameters to this pipeline.
@@ -1075,18 +1070,18 @@ def method_wrapping_transform(
 
     .. SEEALSO:: :class:`{transform_class.__qualname__}`
     """
-    if transform_class.__doc__ is not None:
-        transform_class.__doc__ += f"""
+    # if transform_class.__doc__ is not None:
+    #     transform_class.__doc__ += f"""
 
-    .. SEEALSO:: :meth:`{class_qualname}.{method_name}`
-    """
+    # .. SEEALSO:: :meth:`{class_qualname}.{method_name}`
+    # """
 
     return method_impl
 
 
 def _convert_pipeline_transforms(value):
     result = []
-    if isinstance(value, ObjectPipeline):
+    if isinstance(value, BasePipeline):
         # "coalesce" Pipelines
         tf_seq = value.transforms
     elif isinstance(value, Transform):
@@ -1097,7 +1092,7 @@ def _convert_pipeline_transforms(value):
         tf_seq = list(value)
 
     for tf_elem in tf_seq:
-        if isinstance(tf_elem, ObjectPipeline):
+        if isinstance(tf_elem, BasePipeline):
             # "coalesce" Pipelines
             result.extend(tf_elem.transforms)
         elif isinstance(tf_elem, Transform):
@@ -1108,26 +1103,76 @@ def _convert_pipeline_transforms(value):
     return result
 
 
+P_co = TypeVar("P_co", bound="BasePipeline", covariant=True)
+
+
+class NewGrouper(Generic[P_co]):
+    def __init__(
+        self,
+        pipeline_upstream: P_co,
+        wrapper_class: type,
+        wrapper_kwarg_name_for_wrappee: str,
+        **wrapper_other_kwargs,
+    ):
+        self._pipeline_upstream = pipeline_upstream
+        self._wrapper_class = wrapper_class
+        self._wrapper_kwarg_name_for_wrappee = wrapper_kwarg_name_for_wrappee
+        self._wrapper_other_kwargs = wrapper_other_kwargs
+
+    def then(self, other: Optional[Transform | list[Transform]]) -> P_co:
+        if not isinstance(self._pipeline_upstream, BasePipeline):
+            raise TypeError(
+                f"Grouper cannot be applied to non-BasePipeline upstream: "
+                f"{self._pipeline_upstream} with type "
+                f"{type(self._pipeline_upstream)}"
+            )
+
+        if not isinstance(other, Transform):
+            other = type(self._pipeline_upstream)(transforms=other)
+
+        wrapping_transform = self._wrapper_class(
+            **(
+                {
+                    self._wrapper_kwarg_name_for_wrappee: other,
+                }
+                | self._wrapper_other_kwargs
+            )
+        )
+        return self._pipeline_upstream + cast(Transform, wrapping_transform)
+
+    def __add__(self, other: Optional[Transform | list[Transform]]) -> P_co:
+        return self.then(other)
+
+
+DataInOut = TypeVar("DataInOut")
+
+
 @transform
-class ObjectPipeline(Transform):
+class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
+    _pipeline_methods: ClassVar[list[str]] = []
+
+    class _Grouper(NewGrouper):
+        pass
+
     @classmethod
-    def with_methods(cls: type, subclass_name: str = None, **kwargs) -> type:
+    def with_methods(
+        cls: type[P], subclass_name: Optional[str] = None, **kwargs
+    ) -> type[P]:
         if subclass_name is None:
             subclass_name = f"{cls.__name__}WithMethods"
 
-        class Subclass(cls):
-            class Grouper(cls.Grouper):
+        # workaround for mypy bug: https://github.com/python/mypy/issues/5865
+        klass: Any = cls
+
+        class Subclass(klass):
+            class _Grouper(klass._Grouper):
                 pass
 
             pass
 
         Subclass.__name__ = subclass_name
-        # qualname_parts = Subclass.__qualname__.split(".")
-        # qualname_parts[-1] = subclass_name
-        # subclass_qualname = ".".join(qualname_parts)
-        # Subclass.__qualname__ = subclass_qualname
         Subclass.__qualname__ = subclass_name
-        Subclass.Grouper.__qualname__ = Subclass.__qualname__ + ".Grouper"
+        Subclass._Grouper.__qualname__ = Subclass.__qualname__ + ".Grouper"
 
         pipeline_methods = []
         if hasattr(cls, "_pipeline_methods"):
@@ -1143,7 +1188,7 @@ class ObjectPipeline(Transform):
             )
             Subclass._pipeline_methods.append(method_name)
             setattr(
-                Subclass.Grouper,
+                Subclass._Grouper,
                 method_name,
                 method_wrapping_transform(
                     Subclass.__qualname__, method_name, transform_class
@@ -1152,36 +1197,7 @@ class ObjectPipeline(Transform):
 
         return Subclass
 
-    class Grouper:
-        def __init__(
-            self,
-            pipeline_upstream: ObjectPipeline,
-            wrapper_class: type,
-            wrapper_kwarg_name_for_wrappee: str,
-            **wrapper_other_kwargs,
-        ):
-            self._pipeline_upstream = pipeline_upstream
-            self._wrapper_class = wrapper_class
-            self._wrapper_kwarg_name_for_wrappee = wrapper_kwarg_name_for_wrappee
-            self._wrapper_other_kwargs = wrapper_other_kwargs
-
-        def then(self, other: Transform | list[Transform]) -> ObjectPipeline:
-            if isinstance(other, list):
-                other = type(self._pipeline_upstream)(transforms=other)
-            wrapping_transform = self._wrapper_class(
-                **(
-                    {
-                        self._wrapper_kwarg_name_for_wrappee: other,
-                    }
-                    | self._wrapper_other_kwargs
-                )
-            )
-            return self._pipeline_upstream + wrapping_transform
-
-        def __add__(self, other: Transform | list[Transform]) -> ObjectPipeline:
-            return self.then(other)
-
-    transforms: list[Transform] = field(
+    transforms: list[Transform[DataInOut, DataInOut]] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
 
@@ -1212,7 +1228,9 @@ class ObjectPipeline(Transform):
     def __init__(self, tag=NOTHING, transforms=NOTHING):
         self.__attrs_init__(tag=tag, transforms=transforms)
 
-    def _fit(self, data_fit: Any, bindings: Bindings) -> list[FitTransform]:
+    def _fit(
+        self, data_fit: Any, bindings: Optional[Bindings] = None
+    ) -> list[FitTransform]:
         # TODO: run on backend
         fit_transforms = []
         for t in self.transforms:
@@ -1231,14 +1249,13 @@ class ObjectPipeline(Transform):
     def __len__(self):
         return len(self.transforms)
 
-    # TODO: subclasses should automagically get a return type consistent with
-    # the return type of self.fit().apply()
+    # TODO: should return type be optional?
     def apply(
         self,
-        data_fit: Optional[Any] = None,
-        bindings: Optional[dict[str, object]] = None,
+        data_fit: Optional[DataInOut] = None,
+        bindings: Optional[Bindings] = None,
         backend: Optional[Backend] = None,
-    ) -> Any:
+    ) -> DataInOut:
         """
         An efficient alternative to ``Pipeline.fit(...).apply(...)``.  When the
         fit-time data and apply-time data are identical, it is more efficient to
@@ -1256,9 +1273,22 @@ class ObjectPipeline(Transform):
         for t in self.transforms:
             ft = t.fit(data_fit, bindings=bindings, backend=backend)
             data_fit = ft.apply(data_fit, backend=backend)
-        return data_fit
+        return data_fit  # type: ignore [return-value]
 
-    def then(self: P, other: Optional[Transform | list[Transform]] = None) -> P:
+    def __add__(
+        self: P,
+        other: Optional[
+            Transform[DataInOut, DataInOut] | list[Transform[DataInOut, DataInOut]]
+        ],
+    ) -> P:
+        return self.then(other)
+
+    def then(
+        self: P,
+        other: Optional[
+            Transform[DataInOut, DataInOut] | list[Transform[DataInOut, DataInOut]]
+        ] = None,
+    ) -> P:
         """
         Return the result of appending the given :class:`Transform` instance(s) to this
         :class:`Pipeline`. The addition operator on Pipeline objects is an alias for
@@ -1320,7 +1350,7 @@ class ObjectPipeline(Transform):
         """
         if other is None:
             transforms = self.transforms
-        elif isinstance(other, ObjectPipeline):
+        elif isinstance(other, BasePipeline):
             # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
         elif isinstance(other, Transform):

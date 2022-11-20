@@ -21,8 +21,12 @@
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
 from io import StringIO
+from typing import Any
+
+import pandas as pd
 import pytest
-from pydataset import data
+from pydataset import data  # type: ignore
+
 import frankenfit as ff
 
 
@@ -31,100 +35,103 @@ def diamonds_df():
     return data("diamonds")
 
 
-def test_Identity(diamonds_df):
+def test_Identity(diamonds_df: pd.DataFrame):
     # identity should do nothing
-    d1 = ff.Identity().fit(diamonds_df).apply(diamonds_df)
+    d1 = ff.Identity[pd.DataFrame]().fit(diamonds_df).apply(diamonds_df)
+    assert d1.equals(diamonds_df)
+
+    d1 = ff.Identity[pd.DataFrame]().fit().apply(diamonds_df)
     assert d1.equals(diamonds_df)
 
     # test the special optional-fit behavior of StatelessTransform
-    d2 = ff.Identity().apply(diamonds_df)
+    d2 = ff.Identity[pd.DataFrame]().apply(diamonds_df)
     assert d2.equals(diamonds_df)
 
     result = (ff.Identity() + ff.Identity()).apply(diamonds_df)
     assert result.equals(diamonds_df)
 
 
-def test_Print(diamonds_df):
+def test_Print(diamonds_df: pd.DataFrame):
     fit_msg = "Fitting!"
     apply_msg = "Applying!"
     buf = StringIO()
-    t = ff.Pipeline().print(fit_msg=fit_msg, apply_msg=apply_msg, dest=buf)
+    t = ff.UniversalPipeline().print(fit_msg=fit_msg, apply_msg=apply_msg, dest=buf)
     df = t.fit(diamonds_df).apply(diamonds_df)
     assert buf.getvalue() == fit_msg + "\n" + apply_msg + "\n" + apply_msg + "\n"
     assert df.equals(diamonds_df)
 
     buf = StringIO()
-    t = ff.Pipeline().print(fit_msg=None, apply_msg=None, dest=buf)
+    t = ff.UniversalPipeline().print(fit_msg=None, apply_msg=None, dest=buf)
     df = t.fit(diamonds_df).apply(diamonds_df)
     assert buf.getvalue() == ""
     assert df.equals(diamonds_df)
 
 
-def test_IfHyperparamIsTrue(diamonds_df):
+def test_IfHyperparamIsTrue(diamonds_df: pd.DataFrame):
     df = diamonds_df
-    lambda_demean = ff.Pipeline().stateful_lambda(
+    lambda_demean = ff.UniversalPipeline().stateful_lambda(
         fit_fun=lambda df: df["price"].mean(),
         apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
     )
     target_demean = df.assign(price=df["price"] - df["price"].mean())
-    lambda_add_ones = ff.Pipeline().stateless_lambda(
+    lambda_add_ones = ff.UniversalPipeline().stateless_lambda(
         apply_fun=lambda df: df.assign(ones=1.0)
     )
     target_add_ones = df.assign(ones=1.0)
 
     result = (
-        ff.Pipeline()
-        .if_hyperparam_is_true("do_it", then=lambda_demean)
+        ff.UniversalPipeline()
+        .if_hyperparam_is_true("do_it", lambda_demean)
         .fit(df, bindings={"do_it": False})
         .apply(df)
     )
     assert result.equals(df)  # identity
     result = (
-        ff.Pipeline()
-        .if_hyperparam_is_true("do_it", then=lambda_demean)
+        ff.UniversalPipeline()
+        .if_hyperparam_is_true("do_it", lambda_demean)
         .fit(df, bindings={"do_it": True})
         .apply(df)
     )
     assert result.equals(target_demean)
     with pytest.raises(ff.core.UnresolvedHyperparameterError):
         result = (
-            ff.Pipeline()
-            .if_hyperparam_is_true("do_it", then=lambda_demean)
+            ff.UniversalPipeline()
+            .if_hyperparam_is_true("do_it", lambda_demean)
             .fit(df, bindings={})
             .apply(df)
         )
     result = (
-        ff.Pipeline()
-        .if_hyperparam_is_true("do_it", then=lambda_demean, allow_unresolved=True)
+        ff.UniversalPipeline()
+        .if_hyperparam_is_true("do_it", lambda_demean, allow_unresolved=True)
         .fit(df, bindings={})
         .apply(df)
     )
     assert result.equals(df)  # identity
 
     result = (
-        ff.Pipeline()
-        .if_hyperparam_is_true("do_it", then=lambda_demean, otherwise=lambda_add_ones)
+        ff.UniversalPipeline()
+        .if_hyperparam_is_true("do_it", lambda_demean, otherwise=lambda_add_ones)
         .fit(df, bindings={"do_it": False})
         .apply(df)
     )
     assert result.equals(target_add_ones)
     result = (
-        ff.Pipeline()
-        .if_hyperparam_is_true("do_it", then=lambda_add_ones, otherwise=lambda_demean)
+        ff.UniversalPipeline()
+        .if_hyperparam_is_true("do_it", lambda_add_ones, otherwise=lambda_demean)
         .fit(df, bindings={"do_it": False})
         .apply(df)
     )
     assert result.equals(target_demean)
 
 
-def test_IfHyperparamLambda(diamonds_df):
+def test_IfHyperparamLambda(diamonds_df: pd.DataFrame):
     df = diamonds_df
-    lambda_demean = ff.Pipeline().stateful_lambda(
+    lambda_demean = ff.UniversalPipeline().stateful_lambda(
         fit_fun=lambda df: df["price"].mean(),
         apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
     )
     target_demean = df.assign(price=df["price"] - df["price"].mean())
-    lambda_add_ones = ff.Pipeline().stateless_lambda(
+    lambda_add_ones = ff.UniversalPipeline().stateless_lambda(
         apply_fun=lambda df: df.assign(ones=1.0)
     )
     target_add_ones = df.assign(ones=1.0)
@@ -132,43 +139,43 @@ def test_IfHyperparamLambda(diamonds_df):
     condition = lambda bindings: bindings["x"] > 0 and bindings["y"] > 0  # noqa: E731
 
     result = (
-        ff.Pipeline()
-        .if_hyperparam_lambda(condition, then=lambda_demean)
+        ff.UniversalPipeline()
+        .if_hyperparam_lambda(condition, lambda_demean)
         .fit(df, bindings={"x": -1, "y": 1})
         .apply(df)
     )
     assert result.equals(df)
     result = (
-        ff.Pipeline()
-        .if_hyperparam_lambda(condition, then=lambda_demean)
+        ff.UniversalPipeline()
+        .if_hyperparam_lambda(condition, lambda_demean)
         .fit(df, bindings={"x": 1, "y": 1})
         .apply(df)
     )
     assert result.equals(target_demean)
     result = (
-        ff.Pipeline()
-        .if_hyperparam_lambda(condition, then=lambda_demean, otherwise=lambda_add_ones)
+        ff.UniversalPipeline()
+        .if_hyperparam_lambda(condition, lambda_demean, otherwise=lambda_add_ones)
         .fit(df, bindings={"x": -1, "y": 1})
         .apply(df)
     )
     assert result.equals(target_add_ones)
     result = (
-        ff.Pipeline()
-        .if_hyperparam_lambda(condition, then=lambda_add_ones, otherwise=lambda_demean)
+        ff.UniversalPipeline()
+        .if_hyperparam_lambda(condition, lambda_add_ones, otherwise=lambda_demean)
         .fit(df, bindings={"x": -1, "y": 1})
         .apply(df)
     )
     assert result.equals(target_demean)
 
 
-def test_IfFittingDataHasProperty(diamonds_df):
+def test_IfFittingDataHasProperty(diamonds_df: pd.DataFrame):
     df = diamonds_df
-    lambda_demean = ff.Pipeline().stateful_lambda(
+    lambda_demean = ff.UniversalPipeline().stateful_lambda(
         fit_fun=lambda df: df["price"].mean(),
         apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
     )
     target_demean = df.assign(price=df["price"] - df["price"].mean())
-    lambda_add_ones = ff.Pipeline().stateless_lambda(
+    lambda_add_ones = ff.UniversalPipeline().stateless_lambda(
         apply_fun=lambda df: df.assign(ones=1.0)
     )
     target_add_ones = df.assign(ones=1.0)
@@ -176,32 +183,32 @@ def test_IfFittingDataHasProperty(diamonds_df):
     property = lambda df: len(df.columns) > 1  # noqa: E731
 
     result = (
-        ff.Pipeline()
-        .if_fitting_data_has_property(property, then=lambda_demean)
+        ff.UniversalPipeline()
+        .if_fitting_data_has_property(property, lambda_demean)
         .fit(df[["price"]])
         .apply(df)
     )
     assert result.equals(df)
     result = (
-        ff.Pipeline()
-        .if_fitting_data_has_property(property, then=lambda_demean)
+        ff.UniversalPipeline()
+        .if_fitting_data_has_property(property, lambda_demean)
         .fit(df)
         .apply(df)
     )
     assert result.equals(target_demean)
     result = (
-        ff.Pipeline()
+        ff.UniversalPipeline()
         .if_fitting_data_has_property(
-            property, then=lambda_demean, otherwise=lambda_add_ones
+            property, lambda_demean, otherwise=lambda_add_ones
         )
         .fit(df[["price"]])
         .apply(df)
     )
     assert result.equals(target_add_ones)
     result = (
-        ff.Pipeline()
+        ff.UniversalPipeline()
         .if_fitting_data_has_property(
-            property, then=lambda_add_ones, otherwise=lambda_demean
+            property, lambda_add_ones, otherwise=lambda_demean
         )
         .fit(df[["price"]])
         .apply(df)
@@ -209,17 +216,17 @@ def test_IfFittingDataHasProperty(diamonds_df):
     assert result.equals(target_demean)
 
 
-def test_StatelessLambda(diamonds_df):
+def test_StatelessLambda(diamonds_df: pd.DataFrame):
     df = diamonds_df
     result = (
-        ff.Pipeline()
+        ff.UniversalPipeline()
         .stateless_lambda(lambda df: df.rename(columns={"price": "price_orig"}))
         .apply(df)
     )
     assert result.equals(df.rename(columns={"price": "price_orig"}))
 
     result = (
-        ff.Pipeline()
+        ff.UniversalPipeline()
         .stateless_lambda(
             lambda df, bindings: df.rename(columns={bindings["response"]: "foo"})
         )
@@ -228,14 +235,14 @@ def test_StatelessLambda(diamonds_df):
     assert result.equals(df.rename(columns={"price": "foo"}))
 
     with pytest.raises(TypeError):
-        ff.Pipeline().stateless_lambda(
+        ff.UniversalPipeline().stateless_lambda(
             lambda df, bindings, _: df.rename(columns={bindings["response"]: "foo"})
         ).apply(df, bindings={"response": "price"})
 
 
-def test_StatefulLambda(diamonds_df):
+def test_StatefulLambda(diamonds_df: pd.DataFrame):
     df = diamonds_df
-    lambda_demean = ff.Pipeline().stateful_lambda(
+    lambda_demean = ff.UniversalPipeline().stateful_lambda(
         fit_fun=lambda df: df["price"].mean(),
         apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
     )
@@ -243,7 +250,7 @@ def test_StatefulLambda(diamonds_df):
     assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
 
     # with bindings
-    lambda_demean = ff.Pipeline().stateful_lambda(
+    lambda_demean = ff.UniversalPipeline().stateful_lambda(
         fit_fun=lambda df, bindings: df[bindings["col"]].mean(),
         apply_fun=lambda df, mean, bindings: df.assign(
             **{bindings["col"]: df[bindings["col"]] - mean}
@@ -253,7 +260,7 @@ def test_StatefulLambda(diamonds_df):
     assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
 
 
-def test_ForBindings(diamonds_df):
+def test_ForBindings(diamonds_df: pd.DataFrame):
     df = diamonds_df.head()
     result = (
         ff.universal.ForBindings(
@@ -262,9 +269,9 @@ def test_ForBindings(diamonds_df):
                 {"target_col": "depth"},
                 {"target_col": "table"},
             ],
-            ff.dataframe.Select("{target_col}"),
+            ff.dataframe.Select(["{target_col}"]),
         )
-        .fit()
+        .fit(df)
         .apply(df)
     )
 
@@ -272,7 +279,7 @@ def test_ForBindings(diamonds_df):
         assert x.result.equals(df[[x.bindings["target_col"]]])
 
     result = (
-        ff.Pipeline()
+        ff.UniversalPipeline[Any]()
         .for_bindings(
             [
                 {"target_col": "price"},

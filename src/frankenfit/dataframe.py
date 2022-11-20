@@ -28,92 +28,124 @@ the classes and functions defined here through the public API exposed as
 ``frankenfit.*``.
 """
 from __future__ import annotations
-from abc import abstractmethod
-from functools import partial, reduce
+
 import inspect
 import logging
 import operator
-from typing import Any, Callable, Iterable, Optional, TypeVar
-
-from attrs import field, NOTHING
-import numpy as np
-import pandas as pd
-from pyarrow import dataset
-
-from .core import (
-    Bindings,
-    transform,
-    Transform,
-    FitTransform,
-    StatelessTransform,
-    HP,
-    UnresolvedHyperparameterError,
-    dict_field,
-    fmt_str_field,
-    ConstantTransform,
+from abc import abstractmethod
+from functools import partial, reduce
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    TypeVar,
+    cast,
 )
 
-from .universal import Pipeline, Identity, ForBindings
+import numpy as np
+import pandas as pd
+from attrs import NOTHING, define, field
+from pyarrow import dataset  # type: ignore
+
+from .core import (
+    HP,
+    Bindings,
+    ConstantTransform,
+    FitTransform,
+    P_co,
+    StatelessTransform,
+    Transform,
+    UnresolvedHyperparameterError,
+    callchain,
+    dict_field,
+    fmt_str_field,
+    transform,
+)
+from .universal import (
+    ForBindings,
+    Identity,
+    UniversalGrouper,
+    UniversalPipelineInterface,
+)
 
 _LOG = logging.getLogger(__name__)
 
+T = TypeVar("T")
 
-@transform
-class DataFrameTransform(Transform):
+
+class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
     def then(
-        self: DataFrameTransform, other: Optional[Transform | list[Transform]] = None
-    ) -> "DataFramePipeline":
+        self, other: Optional[Transform | list[Transform]] = None
+    ) -> "DataFramePipelineInterface":
         result = super().then(other)
         return DataFramePipeline(transforms=result.transforms)
 
+    # Stubs below are purely for convenience of autocompletion when the user
+    # implements subclasses
+
     @abstractmethod
-    def _fit(self, data_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> Any:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _apply(self, data_apply: pd.DataFrame, state: Any) -> pd.DataFrame:
         raise NotImplementedError
 
 
-@transform
-class StatelessDataFrameTransform(StatelessTransform, DataFrameTransform):
-    def _fit(self, data_fit: pd.DataFrame) -> object:
+class StatelessDataFrameTransform(
+    StatelessTransform[pd.DataFrame, pd.DataFrame], DataFrameTransform
+):
+    def _fit(self, data_fit: pd.DataFrame) -> None:
         return None
 
 
-@transform
-class ConstantDataFrameTransform(ConstantTransform, DataFrameTransform):
-    def _fit(self, data_fit: pd.DataFrame) -> object:
-        return None
+class ConstantDataFrameTransform(
+    ConstantTransform[pd.DataFrame, pd.DataFrame], DataFrameTransform
+):
+    pass
 
 
 @transform
 class ReadDataFrame(ConstantDataFrameTransform):
     df: pd.DataFrame
 
-    def _apply(self, data_apply, _) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, _) -> pd.DataFrame:
         return self.df
 
 
 @transform
 class ReadPandasCSV(ConstantDataFrameTransform):
-    filepath: str | HP = fmt_str_field()
+    filepath: str = fmt_str_field()
     read_csv_args: Optional[dict] = None
 
-    def _apply(self, data_apply, _) -> pd.DataFrame:
+    def _apply(self, data_apply, _: None) -> pd.DataFrame:
         return pd.read_csv(self.filepath, **(self.read_csv_args or {}))
 
 
 @transform
-class WritePandasCSV(Identity, DataFrameTransform):
-    path: str | HP = fmt_str_field()
-    index_label: str | HP = fmt_str_field()
+class WritePandasCSV(Identity[pd.DataFrame], StatelessDataFrameTransform):
+    path: str = fmt_str_field()
+    index_label: str = fmt_str_field()
     to_csv_kwargs: Optional[dict] = None
 
-    def _apply(self, data_apply: pd.DataFrame, _):
-        data_apply.to_csv(
+    def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
+        cast(pd.DataFrame, data_apply).to_csv(
             self.path, index_label=self.index_label, **(self.to_csv_kwargs or {})
         )
         return data_apply
 
+    # Because Identity derives from UniversalTransform, we have to say which
+    # then() to use on instances of WritePandasCSV
+    then = DataFrameTransform.then
 
-@transform
+
+@define
 class HPCols(HP):
     """_summary_
 
@@ -124,13 +156,13 @@ class HPCols(HP):
     """
 
     cols: list[str | HP]
-    name: str = None
+    name: str = "<cols>"
 
     C = TypeVar("C", bound="HPCols")
-    X = TypeVar("X", bound=str | HP | None | Iterable[str | HP])
+    X = str | HP | None
 
     @classmethod
-    def maybe_from_value(cls: C, x: X) -> C | X:
+    def maybe_from_value(cls: type[C], x: X) -> C | X:
         """_summary_
 
         :param x: _description_
@@ -199,25 +231,26 @@ def optional_columns_field(**kwargs):
     :return: _description_
     :rtype: _type_
     """
-    return field(factory=list, converter=HPCols.maybe_from_value, **kwargs)
+    return field(converter=HPCols.maybe_from_value, **kwargs)
 
 
 @transform
 class ReadDataset(ConstantDataFrameTransform):
     paths: list[str] = columns_field()
+    columns: Optional[list[str]] = optional_columns_field(default=None)
     format: Optional[str] = None
-    columns: list[str] = field(default=None, converter=HPCols.maybe_from_value)
-    filter: Optional[HP | dataset.Expression] = None
+    filter: Optional[dataset.Expression] = None
     index_col: Optional[str | int] = None
     dataset_kwargs: Optional[dict] = None
     scanner_kwargs: Optional[dict] = None
 
-    def _apply(self, data_apply: pd.DataFrame, _) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
         ds = dataset.dataset(
             self.paths, format=self.format, **(self.dataset_kwargs or {})
         )
+        columns = self.columns or None
         df_out = ds.to_table(
-            columns=self.columns, filter=self.filter, **(self.scanner_kwargs or {})
+            columns=columns, filter=self.filter, **(self.scanner_kwargs or {})
         ).to_pandas()
         # can we tell arrow this?
         if self.index_col is not None:
@@ -227,26 +260,29 @@ class ReadDataset(ConstantDataFrameTransform):
 
 @transform
 class Join(DataFrameTransform):
-    left: DataFrameTransform
-    right: DataFrameTransform
-    how: str
+    left: Transform[pd.DataFrame, pd.DataFrame]
+    right: Transform[pd.DataFrame, pd.DataFrame]
+    how: Literal["left", "right", "outer", "inner"]
 
     on: Optional[str] = None
     left_on: Optional[str] = None
     right_on: Optional[str] = None
-    suffixes: tuple[str] = ("_x", "_y")
+    suffixes: tuple[str, str] = ("_x", "_y")
 
     # TODO: more merge params like left_index etc.
     # TODO: (when on distributed compute) context extension
 
-    def _fit(self, data_fit: pd.DataFrame, bindings: Bindings) -> object:
+    def _fit(
+        self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
+    ) -> tuple[FitTransform, FitTransform]:
+        bindings = bindings or {}
         return (
             self.left.fit(data_fit, bindings=bindings),
             self.right.fit(data_fit, bindings=bindings),
         )
 
     def _apply(
-        self, data_apply: pd.DataFrame, state: tuple[FitTransform]
+        self, data_apply: pd.DataFrame, state: tuple[FitTransform, FitTransform]
     ) -> pd.DataFrame:
         fit_left, fit_right = state
         # TODO: parallelize
@@ -281,7 +317,7 @@ class ColumnsTransform(DataFrameTransform):
     columns_field().
     """
 
-    cols: list[str | HP] = columns_field()
+    cols: list[str] = columns_field()
 
 
 def fit_group_on_self(group_col_map):
@@ -310,6 +346,10 @@ class UnfitGroupError(ValueError):
     containing groups on which it was not fit."""
 
 
+DfLocIndex = pd.Series | List | slice | np.ndarray
+DfLocPredicate = Callable[[pd.DataFrame], DfLocIndex]
+
+
 # TODO: GroupByRows
 @transform
 class GroupByCols(DataFrameTransform):
@@ -335,18 +375,24 @@ class GroupByCols(DataFrameTransform):
 
     """
 
-    cols: str | HP | list[str | HP] = columns_field()
-    transform: HP | DataFrameTransform = field()  # type: ignore
+    cols: str | list[str] = columns_field()
+    transform: Transform[pd.DataFrame, pd.DataFrame] = field()
     # TODO: what about hyperparams in the fitting schedule? that's a thing.
-    fitting_schedule: Callable[[dict[str, object]], np.array[bool]] = field(
+    fitting_schedule: Callable[[dict[str, Any]], DfLocIndex | DfLocPredicate] = field(
         default=fit_group_on_self
     )
 
-    def _fit(self, data_fit: pd.DataFrame, bindings: Bindings) -> object:
+    def _fit(
+        self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
+    ) -> pd.DataFrame:
         def fit_on_group(df_group: pd.DataFrame):
             # select the fitting data for this group
             group_col_map = {c: df_group[c].iloc[0] for c in self.cols}
-            df_group_fit = data_fit.loc[self.fitting_schedule(group_col_map)]
+            df_group_fit: pd.DataFrame = data_fit.loc[
+                # pandas-stubs seems to be broken here, see:
+                # https://github.com/pandas-dev/pandas-stubs/issues/256
+                self.fitting_schedule(group_col_map)  # type: ignore
+            ]
             # fit the transform on the fitting data for this group
             # TODO: new per-group tags for the FitTransforms? How should find_by_tag()
             # work on FitGroupBy? (By overriding _children())
@@ -383,19 +429,21 @@ class GroupByCols(DataFrameTransform):
 
 @transform
 class GroupByBindings(DataFrameTransform):
-    bindings_sequence: iter[Bindings]
-    transform: DataFrameTransform
+    bindings_sequence: Iterable[Bindings]
+    transform: Transform[pd.DataFrame, pd.DataFrame]
     as_index: bool = True
 
     def _fit(
-        self, data_fit: pd.DataFrame, bindings: Bindings
-    ) -> ForBindings.FitForBindings:
+        self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
+    ) -> FitTransform:
         return ForBindings(self.bindings_sequence, self.transform).fit(
-            data_fit, bindings=bindings
+            data_fit, bindings=bindings or {}
         )
 
     def _apply(
-        self, data_apply: pd.DataFrame, state: ForBindings.FitForBindings
+        self,
+        data_apply: pd.DataFrame,
+        state: FitTransform,  # TODO: actual FitTransform type for ForBindings
     ) -> pd.DataFrame:
         results = state.apply(data_apply)
         binding_cols = set()
@@ -411,31 +459,30 @@ class GroupByBindings(DataFrameTransform):
 
 @transform
 class Filter(StatelessDataFrameTransform):
-    filter_fun: Callable[[pd.DataFrame], pd.Series[bool]]
+    filter_fun: (
+        Callable[[pd.DataFrame], pd.Series[bool]]
+        | Callable[[pd.DataFrame, Bindings], pd.Series[bool]]
+    )
 
     def _apply(
-        self, data_apply: pd.DataFrame, state: object, bindings: Bindings
-    ) -> object:
+        self, data_apply: pd.DataFrame, state: None, bindings: Optional[Bindings] = None
+    ) -> pd.DataFrame:
         sig = inspect.signature(self.filter_fun).parameters
         if len(sig) == 1:
-            return data_apply.loc[self.filter_fun(data_apply)]
+            filter_fun_monovalent = cast(
+                Callable[[pd.DataFrame], "pd.Series[bool]"], self.filter_fun
+            )
+            return data_apply.loc[filter_fun_monovalent(data_apply)]
         elif len(sig) == 2:
-            return data_apply.loc[self.filter_fun(data_apply, bindings)]
+            filter_fun_bivalent = cast(
+                Callable[[pd.DataFrame, Bindings], "pd.Series[bool]"], self.filter_fun
+            )
+            return data_apply.loc[filter_fun_bivalent(data_apply, bindings or {})]
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(
                 f"Expected callable with 1 or 2 parameters, found {len(sig)}"
             )
-
-
-@transform
-class WeightedTransform(DataFrameTransform):
-    """
-    Abstract base class of Transforms that accept an optional weight column as a
-    parameter (w_col).
-    """
-
-    w_col: Optional[str] = None
 
 
 @transform
@@ -446,14 +493,19 @@ class Copy(ColumnsTransform, StatelessDataFrameTransform):
     contents.
     """
 
-    dest_cols: list[str | HP] = columns_field()
+    dest_cols: list[str] = columns_field()
 
-    # FIXME: we actually may not be able to validate this invariant until after
-    # hyperparams are bound
-    @dest_cols.validator
-    def _check_dest_cols(self, attribute, value):
+    def _check_cols(self):
+        # TODO: maybe in general we should provide some way to check that
+        # hyperparemters resolved to expected types
+        if not isinstance(self.cols, list):
+            raise TypeError("Parameter 'cols' resolved to non-list: {self.cols!r}")
+        if not isinstance(self.dest_cols, list):
+            raise TypeError(
+                "Parameter 'dest_cols' resolved to non-list: {self.dest_cols!r}"
+            )
         lc = len(self.cols)
-        lv = len(value)
+        lv = len(self.dest_cols)
         if lc == 1 and lv > 0:
             return
 
@@ -464,7 +516,9 @@ class Copy(ColumnsTransform, StatelessDataFrameTransform):
                 "length."
             )
 
-    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
+        # Now that hyperparams are bound, we can validate parameter shapes
+        self._check_cols()
         if len(self.cols) == 1:
             src_col = self.cols[0]
             return data_apply.assign(
@@ -507,7 +561,7 @@ class Select(ColumnsTransform, StatelessDataFrameTransform):
             )
     """
 
-    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
         return data_apply[self.cols]
 
 
@@ -516,7 +570,7 @@ class Drop(ColumnsTransform, StatelessDataFrameTransform):
     Drop the given columns from the data.
     """
 
-    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
         return data_apply.drop(columns=self.cols)
 
 
@@ -531,15 +585,15 @@ class Rename(StatelessDataFrameTransform):
 
     how: Callable | dict[str, str]
 
-    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
         return data_apply.rename(columns=self.how)
 
 
 @transform
 class Pipe(ColumnsTransform, StatelessDataFrameTransform):
-    apply_fun: Callable[[pd.DataFrame], pd.DataFrame]  # type: ignore
+    apply_fun: Callable[[pd.DataFrame], pd.DataFrame]
 
-    def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
         result = self.apply_fun(data_apply[self.cols])
         return data_apply.assign(**{c: result[c] for c in self.cols})
 
@@ -552,7 +606,7 @@ class Clip(ColumnsTransform, StatelessDataFrameTransform):
     upper: Optional[float] = None
     lower: Optional[float] = None
 
-    def _apply(self, data_apply: pd.DataFrame, _) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
         return data_apply.assign(
             **{
                 col: data_apply[col].clip(upper=self.upper, lower=self.lower)
@@ -564,9 +618,9 @@ class Clip(ColumnsTransform, StatelessDataFrameTransform):
 @transform
 class Winsorize(ColumnsTransform):
     # assume symmetric, i.e. trim the upper and lower `limit` percent of observations
-    limit: float  # type: ignore
+    limit: float
 
-    def _fit(self, data_fit: pd.DataFrame) -> dict[str, pd.Series]:
+    def _fit(self, data_fit: pd.DataFrame) -> Mapping[str, pd.Series]:
         if not isinstance(self.limit, float):
             raise TypeError(
                 f"Winsorize.limit must be a float between 0 and 1. Got: {self.limit}"
@@ -584,7 +638,7 @@ class Winsorize(ColumnsTransform):
         }
 
     def _apply(
-        self, data_apply: pd.DataFrame, state: dict[str, pd.Series]
+        self, data_apply: pd.DataFrame, state: Mapping[str, pd.Series]
     ) -> pd.DataFrame:
         return data_apply.assign(
             **{
@@ -598,7 +652,7 @@ class Winsorize(ColumnsTransform):
 
 @transform
 class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
-    value: object  # type: ignore
+    value: Any
 
     def _apply(self, data_apply: pd.DataFrame, state) -> pd.DataFrame:
         return data_apply.assign(
@@ -606,15 +660,17 @@ class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
         )
 
 
-def _weighted_means(df, cols, w_col):
+def _weighted_means(df: pd.DataFrame, cols: list[str], w_col: str) -> pd.Series:
     return df[cols].multiply(df[w_col], axis="index").sum() / df[w_col].sum()
 
 
 @transform
-class DeMean(WeightedTransform, ColumnsTransform):
+class DeMean(ColumnsTransform):
     """
     De-mean some columns.
     """
+
+    w_col: Optional[str] = None
 
     def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
         if self.w_col is not None:
@@ -627,7 +683,9 @@ class DeMean(WeightedTransform, ColumnsTransform):
 
 
 @transform
-class ImputeMean(WeightedTransform, ColumnsTransform):
+class ImputeMean(ColumnsTransform):
+    w_col: Optional[str] = None
+
     def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
         if self.w_col is not None:
             return _weighted_means(data_fit, self.cols, self.w_col)
@@ -641,7 +699,9 @@ class ImputeMean(WeightedTransform, ColumnsTransform):
 
 
 @transform
-class ZScore(WeightedTransform, ColumnsTransform):
+class ZScore(ColumnsTransform):
+    w_col: Optional[str] = None
+
     def _fit(self, data_fit: pd.DataFrame) -> dict[str, pd.Series]:
         if self.w_col is not None:
             means = _weighted_means(data_fit, self.cols, self.w_col)
@@ -687,14 +747,14 @@ class SKLearn(DataFrameTransform):
             sklearn model you are using.
     """
 
-    sklearn_class: type | HP
+    sklearn_class: type  # TODO: protocol?
     x_cols: list[str] = columns_field()
     response_col: str = fmt_str_field()
     hat_col: str = fmt_str_field()
-    class_params: dict[str, object] = dict_field(factory=dict)
+    class_params: dict[str, Any] = dict_field(factory=dict)
     w_col: Optional[str] = fmt_str_field(factory=str)
 
-    def _fit(self, data_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> Any:
         model = self.sklearn_class(**self.class_params)
         X = data_fit[self.x_cols]
         y = data_fit[self.response_col]
@@ -707,7 +767,7 @@ class SKLearn(DataFrameTransform):
 
         return model
 
-    def _apply(self, data_apply: pd.DataFrame, state: object) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: Any) -> pd.DataFrame:
         model = state
         return data_apply.assign(
             **{self.hat_col: model.predict(data_apply[self.x_cols])}
@@ -720,19 +780,19 @@ class Statsmodels(DataFrameTransform):
     Wrap a statsmodels model.
     """
 
-    sm_class: type | HP
+    sm_class: type  # TODO: protocol?
     x_cols: list[str] = columns_field()
     response_col: str = fmt_str_field()
     hat_col: str = fmt_str_field()
-    class_params: dict[str, object] = dict_field(factory=dict)
+    class_params: dict[str, Any] = dict_field(factory=dict)
 
-    def _fit(self, data_fit: pd.DataFrame) -> object:
+    def _fit(self, data_fit: pd.DataFrame) -> Any:
         X = data_fit[self.x_cols]
         y = data_fit[self.response_col]
         model = self.sm_class(y, X, **self.class_params)
         return model.fit()
 
-    def _apply(self, data_apply: pd.DataFrame, state: object) -> pd.DataFrame:
+    def _apply(self, data_apply: pd.DataFrame, state: Any) -> pd.DataFrame:
         model = state
         return data_apply.assign(
             **{self.hat_col: model.predict(data_apply[self.x_cols])}
@@ -774,8 +834,8 @@ class Correlation(StatelessDataFrameTransform):
 
     left_cols: list[str] = columns_field()
     right_cols: list[str] = columns_field()
-    method: Optional[str | HP] = "pearson"
-    min_obs: Optional[int] = 1
+    method: Literal["pearson", "kendall", "spearman"] = "pearson"
+    min_obs: int = 2
 
     def _apply(self, data_apply: pd.DataFrame, state: object = None) -> pd.DataFrame:
         cm = data_apply[self.left_cols + self.right_cols].corr(
@@ -808,7 +868,7 @@ class Assign(StatelessDataFrameTransform):
         self.__attrs_init__(tag=tag, assignments=assignments)
 
     def _apply(
-        self, data_apply: pd.DataFrame, state: object, bindings: Bindings
+        self, data_apply: pd.DataFrame, state: None, bindings: Optional[Bindings] = None
     ) -> pd.DataFrame:
         kwargs = {}
         for k, v in self.assignments.items():
@@ -829,52 +889,255 @@ class Assign(StatelessDataFrameTransform):
         return data_apply.assign(**kwargs)
 
 
-DP = TypeVar("DP", bound="DataFramePipeline")
+Cols = str | HP | Sequence[str | HP]
 
 
-class DataFramePipeline(
-    Pipeline.with_methods(
-        "DataFramePipeline",
-        read_data_frame=ReadDataFrame,
-        read_pandas_csv=ReadPandasCSV,
-        write_pandas_csv=WritePandasCSV,
-        read_dataset=ReadDataset,
-        select=Select,
-        __getitem__=Select,
-        filter=Filter,
-        copy=Copy,
-        drop=Drop,
-        rename=Rename,
-        assign=Assign,
-        pipe=Pipe,
-        clip=Clip,
-        winsorize=Winsorize,
-        impute_constant=ImputeConstant,
-        de_mean=DeMean,
-        impute_mean=ImputeMean,
-        z_score=ZScore,
-        sk_learn=SKLearn,
-        statsmodels=Statsmodels,
-        correlation=Correlation,
-    )
+class DataFrameCallChain(Generic[P_co]):
+    @callchain(ReadDataFrame)
+    def read_data_frame(  # type: ignore [empty-body]
+        self, df: pd.DataFrame | HP, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`ReadDataFrame` transform to this pipeline.
+        """
+
+    @callchain(ReadPandasCSV)
+    def read_pandas_csv(  # type: ignore [empty-body]
+        self,
+        filepath: str | HP,
+        read_csv_args: Optional[dict | HP] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`ReadPandasCSV` transform to this pipeline.
+        """
+
+    @callchain(WritePandasCSV)
+    def write_pandas_csv(  # type: ignore [empty-body]
+        self,
+        path: str | HP,
+        index_label: str | HP,
+        to_csv_kwargs: Optional[dict | HP] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`WritePandasCSV` transform to this pipeline.
+        """
+
+    @callchain(ReadDataset)
+    def read_dataset(  # type: ignore [empty-body]
+        self,
+        paths: Cols,
+        columns: Optional[list[str]] = None,
+        format: Optional[str] = None,
+        filter: Optional[dataset.Expression] = None,
+        index_col: Optional[str | int] = None,
+        dataset_kwargs: Optional[dict] = None,
+        scanner_kwargs: Optional[dict] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`ReadDataset` transform to this pipeline.
+        """
+
+    @callchain(Select)
+    def select(  # type: ignore [empty-body]
+        self, cols: Cols, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`Select` transform to this pipeline.
+        """
+
+    __getitem__ = select
+
+    @callchain(Filter)
+    def filter(  # type: ignore [empty-body]
+        self,
+        filter_fun: (
+            Callable[[pd.DataFrame], pd.Series[bool]]
+            | Callable[[pd.DataFrame, Bindings], pd.Series[bool]]
+            | HP
+        ),
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`Filter` transform to this pipeline.
+        """
+
+    @callchain(Copy)
+    def copy(  # type: ignore [empty-body]
+        self, cols: Cols, dest_cols: Cols, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`Copy` transform to this pipeline.
+        """
+
+    @callchain(Drop)
+    def drop(  # type: ignore [empty-body]
+        self, cols: Cols, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`Drop` transform to this pipeline.
+        """
+
+    @callchain(Rename)
+    def rename(  # type: ignore [empty-body]
+        self, how: Callable | dict[str, str] | HP, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`Rename` transform to this pipeline.
+        """
+
+    @callchain(Assign)
+    def assign(  # type: ignore [empty-body]
+        self,
+        *args,
+        tag: Optional[str] = None,
+        **kwargs: Any,
+    ) -> P_co:
+        """
+        Append a :class:`Assign` transform to this pipeline.
+        """
+
+    @callchain(Pipe)
+    def pipe(  # type: ignore [empty-body]
+        self,
+        cols: Cols,
+        apply_fun: Callable | HP,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`Pipe` transform to this pipeline.
+        """
+
+    @callchain(Clip)
+    def clip(  # type: ignore [empty-body]
+        self,
+        cols: Cols,
+        upper: Optional[float | HP] = None,
+        lower: Optional[float | HP] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`Clip` transform to this pipeline.
+        """
+
+    @callchain(Winsorize)
+    def winsorize(  # type: ignore [empty-body]
+        self, cols: Cols, limit: float | HP, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`Winsorize` transform to this pipeline.
+        """
+
+    @callchain(ImputeConstant)
+    def impute_constant(  # type: ignore [empty-body]
+        self, cols: Cols, value: Any, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`ImputeConstant` transform to this pipeline.
+        """
+
+    @callchain(DeMean)
+    def de_mean(  # type: ignore [empty-body]
+        self, cols: Cols, w_col: Optional[str | HP] = None, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`DeMean` transform to this pipeline.
+        """
+
+    @callchain(ImputeMean)
+    def impute_mean(  # type: ignore [empty-body]
+        self, cols: Cols, w_col: Optional[str | HP] = None, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`ImputeMean` transform to this pipeline.
+        """
+
+    @callchain(ZScore)
+    def z_score(  # type: ignore [empty-body]
+        self, cols: Cols, w_col: Optional[str | HP] = None, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`ZScore` transform to this pipeline.
+        """
+
+    @callchain(SKLearn)
+    def sk_learn(  # type: ignore [empty-body]
+        self,
+        sklearn_class: type | HP,
+        x_cols: Cols,
+        response_col: str | HP,
+        hat_col: str | HP,
+        class_params: Optional[dict[str, Any]] = None,
+        w_col: Optional[str | HP] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`SKLearn` transform to this pipeline.
+        """
+
+    @callchain(Statsmodels)
+    def statsmodels(  # type: ignore [empty-body]
+        self,
+        sm_class: type | HP,
+        x_cols: Cols,
+        response_col: str | HP,
+        hat_col: str | HP,
+        class_params: Optional[dict[str, Any]] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`Statsmodels` transform to this pipeline.
+        """
+
+    @callchain(Correlation)
+    def correlation(  # type: ignore [empty-body]
+        self,
+        left_cols: Cols,
+        right_cols: Cols,
+        method: Literal["pearson", "kendall", "spearman"] | HP = "pearson",
+        min_obs: int | HP = 2,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`Correlation` transform to this pipeline.
+        """
+
+
+class DataFrameGrouper(Generic[P_co], UniversalGrouper[P_co], DataFrameCallChain[P_co]):
+    ...
+
+
+G_co = TypeVar("G_co", bound=DataFrameGrouper, covariant=True)
+SelfDPI = TypeVar("SelfDPI", bound="DataFramePipelineInterface")
+
+
+class DataFramePipelineInterface(
+    Generic[G_co, P_co],
+    DataFrameCallChain[P_co],
+    UniversalPipelineInterface[pd.DataFrame, G_co, P_co],
 ):
-    # a stub just to specialize the type annotations
-    def _fit(self, data_fit: pd.DataFrame, bindings: Bindings) -> Any:
-        return super()._fit(data_fit, bindings)
-
-    # a stub just to specialize the type annotations
-    def _apply(self, data_apply: pd.DataFrame, state: Any) -> pd.DataFrame:
-        return super()._apply(data_apply, state)
+    _Grouper = DataFrameGrouper
 
     def join(
-        self: DP,
-        right: DataFrameTransform,
-        how: str,
-        on=None,
-        left_on=None,
-        right_on=None,
+        self: SelfDPI,
+        right: Transform[pd.DataFrame, pd.DataFrame],
+        how: Literal["left", "right", "outer", "inner"] | HP,
+        on: Optional[str | HP] = None,
+        left_on: Optional[str | HP] = None,
+        right_on: Optional[str | HP] = None,
         suffixes=("_x", "_y"),
-    ) -> DP:
+    ) -> SelfDPI:
         """
         Return a new :class:`DataFramePipeline` (of the same subclass as
         ``self``) containing a new :class:`Join` transform with this
@@ -885,15 +1148,21 @@ class DataFramePipeline(
         join = Join(
             self,
             right,
-            how,
-            on=on,
-            left_on=left_on,
-            right_on=right_on,
+            how,  # type: ignore [arg-type]
+            on=on,  # type: ignore [arg-type]
+            left_on=left_on,  # type: ignore [arg-type]
+            right_on=right_on,  # type: ignore [arg-type]
             suffixes=suffixes,
         )
         return type(self)(transforms=join)
 
-    def group_by_cols(self: DP, cols, fitting_schedule=None) -> DP.Grouper:
+    def group_by_cols(
+        self,
+        cols: Cols,
+        fitting_schedule: Optional[
+            Callable[[dict[str, Any]], DfLocIndex | DfLocPredicate] | HP
+        ] = None,
+    ) -> G_co:
         """
         Return a :class:`Grouper` object, which will consume the next Transform
         in the call-chain by wrapping it in a :class:`GroupBy` transform and returning
@@ -940,21 +1209,31 @@ class DataFramePipeline(
 
         :rtype: :class:`DataFramePipeline.Grouper`
         """
-        return type(self).Grouper(
+        grouper = type(self)._Grouper(
             self,
             GroupByCols,
             "transform",
             cols=cols,
             fitting_schedule=(fitting_schedule or fit_group_on_self),
         )
+        return cast(G_co, grouper)
 
     def group_by_bindings(
-        self: DP, bindings_sequence: iter[dict[str, object]], as_index: bool = False
-    ) -> DP.Grouper:
-        return type(self).Grouper(
+        self, bindings_sequence: Iterable[Bindings], as_index: bool | HP = False
+    ) -> G_co:
+        grouper = type(self)._Grouper(
             self,
             GroupByBindings,
             "transform",
             bindings_sequence=bindings_sequence,
             as_index=as_index,
         )
+        return cast(G_co, grouper)
+
+
+class DataFramePipeline(
+    DataFramePipelineInterface[
+        DataFrameGrouper["DataFramePipeline"], "DataFramePipeline"
+    ]
+):
+    ...

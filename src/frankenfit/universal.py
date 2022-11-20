@@ -26,68 +26,95 @@ assumptions about the type or shape of the data to which they are applied.
 """
 
 from __future__ import annotations
-import inspect
 
+import inspect
 import logging
+from typing import Any, Callable, Generic, Iterable, Optional, TextIO, TypeVar, cast
+
 from attrs import define
 
-from typing import Callable, Optional, TextIO, TypeVar
-
-from . import core as ffc
+from .backend import Backend
 from .core import (
-    transform,
+    HP,
+    BasePipeline,
     Bindings,
+    DataInOut,
     FitTransform,
-    Transform,
+    NewGrouper,
+    P_co,
+    SentinelDict,
     StatelessTransform,
-    ObjectPipeline,
+    Transform,
+    UnresolvedHyperparameterError,
+    callchain,
+    transform,
 )
 
 _LOG = logging.getLogger(__name__)
 
 U = TypeVar("U", bound="UniversalTransform")
+T = TypeVar("T")
 Obj = TypeVar("Obj")
 
 
 @transform
 class UniversalTransform(Transform):
     def then(
-        self: UniversalTransform, other: Optional[Transform | list[Transform]] = None
-    ) -> "Pipeline":
+        self, other: Optional[Transform | list[Transform]] = None
+    ) -> "UniversalPipelineInterface":
         result = super().then(other)
-        return Pipeline(transforms=result.transforms)
+        return UniversalPipeline(transforms=result.transforms)
 
 
-class Identity(StatelessTransform, UniversalTransform):
+class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform):
     """
     The stateless Transform that, at apply-time, simply returns the input data
     unaltered.
     """
 
-    def _apply(self, data_apply: Obj, state: None) -> Obj:
+    def _apply(self, data_apply: T, state: None) -> T:
         return data_apply
+
+    Self = TypeVar("Self", bound="Identity")
+
+    def fit(
+        self: Self,
+        data_fit: Optional[T] = None,
+        bindings: Optional[Bindings] = None,
+        backend: Optional[Backend] = None,
+    ) -> FitTransform[Self, T, T]:
+        return super().fit(data_fit, bindings, backend)
+
+    def apply(
+        self,
+        data_apply: Optional[T] = None,
+        bindings: Optional[Bindings] = None,
+        backend: Optional[Backend] = None,
+    ) -> T:
+        return super().apply(data_apply, bindings, backend)
 
 
 @transform
 class IfHyperparamIsTrue(UniversalTransform):
     name: str
-    then: Transform
+    then_transform: Transform
     otherwise: Optional[Transform] = None
     allow_unresolved: Optional[bool] = False
 
-    def _fit(self, data_fit: object, bindings: Bindings) -> object:
+    def _fit(self, data_fit: object, bindings: Optional[Bindings] = None) -> Any:
+        bindings = bindings or {}
         if (not self.allow_unresolved) and self.name not in bindings:
-            raise ffc.UnresolvedHyperparameterError(
+            raise UnresolvedHyperparameterError(
                 f"IfHyperparamIsTrue: no binding for {self.name!r} but "
                 "allow_unresolved is False"
             )
         if bindings.get(self.name):
-            return self.then.fit(data_fit, bindings=bindings)
+            return self.then_transform.fit(data_fit, bindings=bindings)
         elif self.otherwise is not None:
             return self.otherwise.fit(data_fit, bindings=bindings)
         return None  # act like Identity
 
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(self, data_apply: Any, state: Any) -> Any:
         if state is not None:
             return state.apply(data_apply)
         return data_apply  # act like Identity
@@ -107,17 +134,18 @@ class IfHyperparamIsTrue(UniversalTransform):
 @transform
 class IfHyperparamLambda(UniversalTransform):
     fun: Callable  # dict[str, object] -> bool
-    then: Transform
+    then_transform: Transform
     otherwise: Optional[Transform] = None
 
-    def _fit(self, data_fit: object, bindings: Bindings) -> object:
+    def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
+        bindings = bindings or {}
         if self.fun(bindings):
-            return self.then.fit(data_fit, bindings=bindings)
+            return self.then_transform.fit(data_fit, bindings=bindings)
         elif self.otherwise is not None:
             return self.otherwise.fit(data_fit, bindings=bindings)
         return None  # act like Identity
 
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(self, data_apply: Any, state: Any) -> Any:
         if state is not None:
             return state.apply(data_apply)
         return data_apply  # act like Identity
@@ -125,7 +153,7 @@ class IfHyperparamLambda(UniversalTransform):
     def hyperparams(self) -> set[str]:
         result = super().hyperparams()
         # find out what bindings our lambda function queries
-        sd = ffc.SentinelDict()
+        sd = SentinelDict()
         self.fun(sd)
         result |= sd.keys_checked or set()
         return result
@@ -140,17 +168,18 @@ class IfHyperparamLambda(UniversalTransform):
 @transform
 class IfFittingDataHasProperty(UniversalTransform):
     fun: Callable  # df -> bool
-    then: Transform
+    then_transform: Transform
     otherwise: Optional[Transform] = None
 
-    def _fit(self, data_fit: object, bindings: Bindings) -> object:
+    def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
+        bindings = bindings or {}
         if self.fun(data_fit):
-            return self.then.fit(data_fit, bindings=bindings)
+            return self.then_transform.fit(data_fit, bindings=bindings)
         elif self.otherwise is not None:
             return self.otherwise.fit(data_fit, bindings=bindings)
         return None  # act like Identity
 
-    def _apply(self, data_apply: object, state: object = None) -> object:
+    def _apply(self, data_apply: Any, state: Any) -> Any:
         if state is not None:
             return state.apply(data_apply)
         return data_apply  # act like Identity
@@ -164,23 +193,29 @@ class IfFittingDataHasProperty(UniversalTransform):
 
 @transform
 class ForBindings(UniversalTransform):
-    bindings_sequence: iter[Bindings]
+    bindings_sequence: Iterable[Bindings]
     transform: Transform
+
+    # TODO: consider: a required function parameter for combining the
+    # ApplyResults, rather than just returning the raw list of ApplyResults from
+    # _apply(). Currently nothing stops us from breaking the decalred DataInOut
+    # type of an enclosing pipeline.
 
     @define
     class FitResult:
-        bindings: dict[str, object]
+        bindings: Bindings
         fit: FitTransform
 
     @define
     class ApplyResult:
-        bindings: dict[str, object]
-        result: object
+        bindings: Bindings
+        result: object  # TODO: make this generic in the result type
 
     def _fit(
-        self, data_fit: object, base_bindings: Bindings
+        self, data_fit: Any, base_bindings: Optional[Bindings] = None
     ) -> list[ForBindings.FitResult]:
         # TODO: parallelize
+        base_bindings = base_bindings or {}
         fits = []
         for bindings in self.bindings_sequence:
             fits.append(
@@ -192,7 +227,7 @@ class ForBindings(UniversalTransform):
         return fits
 
     def _apply(
-        self, data_apply: object, state: list[ForBindings.FitResult]
+        self, data_apply: Any, state: list[ForBindings.FitResult]
     ) -> list[ForBindings.ApplyResult]:
         # TODO: parallelize
         results = []
@@ -209,12 +244,14 @@ class ForBindings(UniversalTransform):
 class StatelessLambda(UniversalTransform, StatelessTransform):
     apply_fun: Callable  # df[, bindings] -> df
 
-    def _apply(self, data_apply: object, state: None, bindings: Bindings) -> object:
+    def _apply(
+        self, data_apply: Any, state: None, bindings: Optional[Bindings] = None
+    ) -> Any:
         sig = inspect.signature(self.apply_fun).parameters
         if len(sig) == 1:
             return self.apply_fun(data_apply)
         elif len(sig) == 2:
-            return self.apply_fun(data_apply, bindings)
+            return self.apply_fun(data_apply, bindings or {})
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
@@ -225,22 +262,24 @@ class StatefulLambda(UniversalTransform):
     fit_fun: Callable  # df[, bindings] -> state
     apply_fun: Callable  # df, state[, bindings] -> df
 
-    def _fit(self, data_fit: object, bindings: Bindings) -> object:
+    def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
         sig = inspect.signature(self.fit_fun).parameters
         if len(sig) == 1:
             return self.fit_fun(data_fit)
         elif len(sig) == 2:
-            return self.fit_fun(data_fit, bindings)
+            return self.fit_fun(data_fit, bindings or {})
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
 
-    def _apply(self, data_apply: object, state: object, bindings: Bindings) -> object:
+    def _apply(
+        self, data_apply: Any, state: Any, bindings: Optional[Bindings] = None
+    ) -> Any:
         sig = inspect.signature(self.apply_fun).parameters
         if len(sig) == 2:
             return self.apply_fun(data_apply, state)
         elif len(sig) == 3:
-            return self.apply_fun(data_apply, state, bindings)
+            return self.apply_fun(data_apply, state, bindings or {})
         else:
             # TODO: raise this earlier in field validator
             raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
@@ -262,7 +301,7 @@ class Print(Identity):
     apply_msg: Optional[str] = None
     dest: Optional[TextIO | str] = None  # if str, will be opened in append mode
 
-    def _fit(self, data_fit: object):
+    def _fit(self, data_fit: T) -> None:
         if self.fit_msg is None:
             return
         if isinstance(self.dest, str):
@@ -273,7 +312,7 @@ class Print(Identity):
 
         return super()._fit(data_fit)
 
-    def _apply(self, data_apply: object, state: None) -> object:
+    def _apply(self, data_apply: T, state: None) -> T:
         if self.apply_msg is None:
             return data_apply
         if isinstance(self.dest, str):
@@ -303,42 +342,148 @@ class LogMessage(Identity):
     logger: Optional[logging.Logger] = None
     level: int = logging.INFO
 
-    def _fit(self, data_fit: object):
+    def _fit(self, data_fit: Any) -> None:
         if self.fit_msg is not None:
             logger = self.logger or _LOG
             logger.log(self.level, self.fit_msg)
         return super()._fit(data_fit)
 
-    def _apply(self, data_apply: object, state: None) -> object:
+    def _apply(self, data_apply: T, state: None) -> T:
         if self.apply_msg is not None:
             logger = self.logger or _LOG
             logger.log(self.level, self.apply_msg)
         return super()._apply(data_apply, state)
 
 
-P = TypeVar("P", bound="Pipeline")
+class UniversalCallChain(Generic[P_co]):
+    @callchain(Identity)
+    def identity(  # type: ignore [empty-body]
+        self, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append an :class:`Identity` transform to this pipeline.
+        """
+
+    @callchain(IfHyperparamIsTrue)
+    def if_hyperparam_is_true(  # type: ignore [empty-body]
+        self,
+        name: str | HP,
+        then_transform: Transform | HP,
+        otherwise: Transform | HP | None = None,
+        allow_unresolved: bool | HP = False,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append an :class:`IfHyperparamIsTrue` transform to this pipeline.
+        """
+
+    @callchain(IfHyperparamLambda)
+    def if_hyperparam_lambda(  # type: ignore [empty-body]
+        self,
+        fun: Callable | HP,
+        then_transform: Transform | HP,
+        otherwise: Transform | HP | None = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append an :class:`IfHyperparamLambda` transform to this pipeline.
+        """
+
+    @callchain(IfFittingDataHasProperty)
+    def if_fitting_data_has_property(  # type: ignore [empty-body]
+        self,
+        fun: Callable | HP,
+        then_transform: Transform | HP,
+        otherwise: Transform | HP | None = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append an :class:`IfFittingDataHasProperty` transform to this pipeline.
+        """
+
+    @callchain(StatelessLambda)
+    def stateless_lambda(  # type: ignore [empty-body]
+        self, apply_fun: Callable | HP, *, tag: Optional[str] = None
+    ) -> P_co:
+        """
+        Append a :class:`StatelessLambda` transform to this pipeline.
+        """
+
+    @callchain(StatefulLambda)
+    def stateful_lambda(  # type: ignore [empty-body]
+        self,
+        fit_fun: Callable | HP,
+        apply_fun: Callable | HP,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`StatefulLambda` transform to this pipeline.
+        """
+
+    @callchain(Print)
+    def print(  # type: ignore [empty-body]
+        self,
+        fit_msg: Optional[str | HP] = None,
+        apply_msg: Optional[str | HP] = None,
+        dest: Optional[TextIO | str | HP] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`Print` transform to this pipeline.
+        """
+
+    @callchain(LogMessage)
+    def log_message(  # type: ignore [empty-body]
+        self,
+        fit_msg: Optional[str | HP] = None,
+        apply_msg: Optional[str | HP] = None,
+        logger: Optional[logging.Logger] = None,
+        level: int | HP = logging.INFO,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append a :class:`LogMessage` transform to this pipeline.
+        """
 
 
-class Pipeline(
-    ObjectPipeline.with_methods(
-        "Pipeline",
-        identity=Identity,
-        if_hyperparam_is_true=IfHyperparamIsTrue,
-        if_hyperparam_lambda=IfHyperparamLambda,
-        if_fitting_data_has_property=IfFittingDataHasProperty,
-        stateless_lambda=StatelessLambda,
-        stateful_lambda=StatefulLambda,
-        print=Print,
-        log_message=LogMessage,
-    )
+class UniversalGrouper(Generic[P_co], NewGrouper[P_co], UniversalCallChain[P_co]):
+    ...
+
+
+G_co = TypeVar("G_co", bound=UniversalGrouper, covariant=True)
+
+
+class UniversalPipelineInterface(
+    Generic[DataInOut, G_co, P_co], UniversalCallChain[P_co], BasePipeline[DataInOut]
 ):
-    def for_bindings(self: P, bindings_sequence: iter[dict[str, object]]) -> P.Grouper:
-        return type(self).Grouper(
+    # Self = TypeVar("Self", bound="UniversalPipelineInterface")
+
+    _Grouper: type[UniversalGrouper[P_co]] = UniversalGrouper[P_co]
+
+    def for_bindings(self, bindings_sequence: Iterable[Bindings]) -> G_co:
+        """
+        Consume the next transform ``T`` in the call-chain by appending
+        ``ForBindings(bindings_sequence=..., transform=T)`` to this pipeline.
+        """
+        grouper = type(self)._Grouper(
             self,
             ForBindings,
             "transform",
             bindings_sequence=bindings_sequence,
         )
+        return cast(G_co, grouper)
 
 
-# UniversalTransform.pipeline_type = Pipeline
+class UniversalPipeline(
+    Generic[DataInOut],
+    UniversalPipelineInterface[
+        DataInOut, UniversalGrouper["UniversalPipeline"], "UniversalPipeline"
+    ],
+):
+    ...
