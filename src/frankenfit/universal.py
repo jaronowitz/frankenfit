@@ -33,9 +33,13 @@ from typing import Any, Callable, Generic, Iterable, Optional, TextIO, TypeVar, 
 
 from attrs import define
 
+from .params import (
+    HP,
+    transform,
+    UnresolvedHyperparameterError,
+)
 from .backend import Backend
 from .core import (
-    HP,
     BasePipeline,
     Bindings,
     DataInOut,
@@ -45,9 +49,7 @@ from .core import (
     SentinelDict,
     StatelessTransform,
     Transform,
-    UnresolvedHyperparameterError,
     callchain,
-    transform,
 )
 
 _LOG = logging.getLogger(__name__)

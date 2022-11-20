@@ -61,19 +61,25 @@ from frankenfit.backend import (
     DaskBackend,
 )
 
-from frankenfit.core import (
+from frankenfit.params import (
     transform,
+    HP,
+    HPFmtStr,
+    HPLambda,
+    HPDict,
+    HPCols,
+    fmt_str_field,
+    dict_field,
+    columns_field,
+    optional_columns_field,
+)
+
+from frankenfit.core import (
     Bindings,
     Transform,
     FitTransform,
     StatelessTransform,
     ConstantTransform,
-    HP,
-    HPFmtStr,
-    HPLambda,
-    HPDict,
-    fmt_str_field,
-    dict_field,
     BasePipeline,
     # Exceptions that users can catch
     UnresolvedHyperparameterError,
@@ -96,8 +102,6 @@ from frankenfit.dataframe import (
     ReadDataFrame,
     ReadPandasCSV,
     ReadDataset,
-    HPCols,
-    columns_field,
     fit_group_on_self,
     fit_group_on_all_other_groups,
     # Exceptions that users can catch

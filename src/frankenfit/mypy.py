@@ -7,13 +7,13 @@ from mypy.plugins.attrs import attr_attrib_makers, attr_define_makers
 from mypy.plugins.common import add_attribute_to_class
 from mypy.types import AnyType, Instance, TypeOfAny, TypeType
 
-TRANSFORM_DECORATOR = "frankenfit.core.transform"
+TRANSFORM_DECORATOR = "frankenfit.params.transform"
 TRANSFORM_BASE_CLASS = "frankenfit.core.Transform"
 TRANSFORM_FIELD_MAKERS = {
-    "frankenfit.core.fmt_str_field",
-    "frankenfit.core.dict_field",
-    "frankenfit.dataframe.columns_field",
-    "frankenfit.dataframe.optional_columns_field",
+    "frankenfit.params.fmt_str_field",
+    "frankenfit.params.dict_field",
+    "frankenfit.params.columns_field",
+    "frankenfit.params.optional_columns_field",
 }
 
 # Make @transform type-check like @define

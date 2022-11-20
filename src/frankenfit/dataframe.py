@@ -50,22 +50,25 @@ from typing import (
 
 import numpy as np
 import pandas as pd
-from attrs import NOTHING, define, field
+from attrs import NOTHING, field
 from pyarrow import dataset  # type: ignore
 
-from .core import (
+from .params import (
     HP,
+    dict_field,
+    fmt_str_field,
+    columns_field,
+    optional_columns_field,
+    transform,
+)
+from .core import (
     Bindings,
     ConstantTransform,
     FitTransform,
     P_co,
     StatelessTransform,
     Transform,
-    UnresolvedHyperparameterError,
     callchain,
-    dict_field,
-    fmt_str_field,
-    transform,
 )
 from .universal import (
     ForBindings,
@@ -143,95 +146,6 @@ class WritePandasCSV(Identity[pd.DataFrame], StatelessDataFrameTransform):
     # Because Identity derives from UniversalTransform, we have to say which
     # then() to use on instances of WritePandasCSV
     then = DataFrameTransform.then
-
-
-@define
-class HPCols(HP):
-    """_summary_
-
-    :param HP: _description_
-    :type HP: _type_
-    :return: _description_
-    :rtype: _type_
-    """
-
-    cols: list[str | HP]
-    name: str = "<cols>"
-
-    C = TypeVar("C", bound="HPCols")
-    X = str | HP | None
-
-    @classmethod
-    def maybe_from_value(cls: type[C], x: X) -> C | X:
-        """_summary_
-
-        :param x: _description_
-        :type x: str | HP | Iterable[str  |  HP]
-        :return: _description_
-        :rtype: HPCols | HP
-        """
-        if isinstance(x, HP):
-            return x
-        if isinstance(x, str):
-            return cls([x])
-        if x is None:
-            return None
-        return cls(list(x))
-
-    def resolve(self, bindings):
-        try:
-            return [
-                c.resolve(bindings)
-                if isinstance(c, HP)
-                else c.format_map(bindings)
-                if isinstance(c, str)
-                else c
-                for c in self.cols
-            ]
-        except KeyError as e:
-            raise UnresolvedHyperparameterError(e)
-
-    def __repr__(self):
-        return repr(self.cols)
-
-    def __len__(self):
-        return len(self.cols)
-
-    def __iter__(self):
-        return iter(self.cols)
-
-
-def _validate_not_empty(instance, attribute, value):
-    """
-    attrs field validator that throws a ValueError if the field value is empty.
-    """
-    if hasattr(value, "__len__"):
-        if len(value) < 1:
-            raise ValueError(f"{attribute.name} must not be empty but got {value}")
-    elif isinstance(value, HP):
-        return
-    else:
-        raise TypeError(f"{attribute.name} value has no length: {value}")
-
-
-def columns_field(**kwargs):
-    """_summary_
-
-    :return: _description_
-    :rtype: _type_
-    """
-    return field(
-        validator=_validate_not_empty, converter=HPCols.maybe_from_value, **kwargs
-    )
-
-
-def optional_columns_field(**kwargs):
-    """_summary_
-
-    :return: _description_
-    :rtype: _type_
-    """
-    return field(converter=HPCols.maybe_from_value, **kwargs)
 
 
 @transform
