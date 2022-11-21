@@ -7,7 +7,7 @@ from mypy.plugins.attrs import attr_attrib_makers, attr_define_makers
 from mypy.plugins.common import add_attribute_to_class
 from mypy.types import AnyType, Instance, TypeOfAny, TypeType
 
-TRANSFORM_DECORATOR = "frankenfit.params.transform"
+PARAMS_DECORATOR = "frankenfit.params.params"
 TRANSFORM_BASE_CLASS = "frankenfit.core.Transform"
 TRANSFORM_FIELD_MAKERS = {
     "frankenfit.params.fmt_str_field",
@@ -18,7 +18,7 @@ TRANSFORM_FIELD_MAKERS = {
 
 # Make @transform type-check like @define
 # See: https://github.com/python/mypy/issues/5406
-attr_define_makers.add(TRANSFORM_DECORATOR)
+attr_define_makers.add(PARAMS_DECORATOR)
 
 # Make fmt_str_field, columns_field, etc. behave like attrs.field
 for maker in TRANSFORM_FIELD_MAKERS:

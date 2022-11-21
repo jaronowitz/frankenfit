@@ -59,7 +59,7 @@ from .params import (
     fmt_str_field,
     columns_field,
     optional_columns_field,
-    transform,
+    params,
 )
 from .core import (
     Bindings,
@@ -114,7 +114,7 @@ class ConstantDataFrameTransform(
     pass
 
 
-@transform
+@params
 class ReadDataFrame(ConstantDataFrameTransform):
     df: pd.DataFrame
 
@@ -122,7 +122,7 @@ class ReadDataFrame(ConstantDataFrameTransform):
         return self.df
 
 
-@transform
+@params
 class ReadPandasCSV(ConstantDataFrameTransform):
     filepath: str = fmt_str_field()
     read_csv_args: Optional[dict] = None
@@ -131,7 +131,7 @@ class ReadPandasCSV(ConstantDataFrameTransform):
         return pd.read_csv(self.filepath, **(self.read_csv_args or {}))
 
 
-@transform
+@params
 class WritePandasCSV(Identity[pd.DataFrame], StatelessDataFrameTransform):
     path: str = fmt_str_field()
     index_label: str = fmt_str_field()
@@ -148,7 +148,7 @@ class WritePandasCSV(Identity[pd.DataFrame], StatelessDataFrameTransform):
     then = DataFrameTransform.then
 
 
-@transform
+@params
 class ReadDataset(ConstantDataFrameTransform):
     paths: list[str] = columns_field()
     columns: Optional[list[str]] = optional_columns_field(default=None)
@@ -172,7 +172,7 @@ class ReadDataset(ConstantDataFrameTransform):
         return df_out
 
 
-@transform
+@params
 class Join(DataFrameTransform):
     left: Transform[pd.DataFrame, pd.DataFrame]
     right: Transform[pd.DataFrame, pd.DataFrame]
@@ -212,7 +212,7 @@ class Join(DataFrameTransform):
         )
 
 
-@transform
+@params
 class ColumnsTransform(DataFrameTransform):
     """
     Abstract base clase of all Transforms that require a list of columns as a parameter
@@ -265,7 +265,7 @@ DfLocPredicate = Callable[[pd.DataFrame], DfLocIndex]
 
 
 # TODO: GroupByRows
-@transform
+@params
 class GroupByCols(DataFrameTransform):
     """
     Group the fitting and application of a :class:`DataFrameTransform` by the
@@ -341,7 +341,7 @@ class GroupByCols(DataFrameTransform):
         )
 
 
-@transform
+@params
 class GroupByBindings(DataFrameTransform):
     bindings_sequence: Iterable[Bindings]
     transform: Transform[pd.DataFrame, pd.DataFrame]
@@ -371,7 +371,7 @@ class GroupByBindings(DataFrameTransform):
         return df
 
 
-@transform
+@params
 class Filter(StatelessDataFrameTransform):
     filter_fun: (
         Callable[[pd.DataFrame], pd.Series[bool]]
@@ -399,7 +399,7 @@ class Filter(StatelessDataFrameTransform):
             )
 
 
-@transform
+@params
 class Copy(ColumnsTransform, StatelessDataFrameTransform):
     """
     A stateless Transform that copies values from one or more source columns into
@@ -447,7 +447,7 @@ class Copy(ColumnsTransform, StatelessDataFrameTransform):
         )
 
 
-@transform
+@params
 class Select(ColumnsTransform, StatelessDataFrameTransform):
     """
     Select the given columns from the data.
@@ -488,7 +488,7 @@ class Drop(ColumnsTransform, StatelessDataFrameTransform):
         return data_apply.drop(columns=self.cols)
 
 
-@transform
+@params
 class Rename(StatelessDataFrameTransform):
     """
     Rename columns.
@@ -503,7 +503,7 @@ class Rename(StatelessDataFrameTransform):
         return data_apply.rename(columns=self.how)
 
 
-@transform
+@params
 class Pipe(ColumnsTransform, StatelessDataFrameTransform):
     apply_fun: Callable[[pd.DataFrame], pd.DataFrame]
 
@@ -515,7 +515,7 @@ class Pipe(ColumnsTransform, StatelessDataFrameTransform):
 # TODO Rank, MapQuantiles
 
 
-@transform
+@params
 class Clip(ColumnsTransform, StatelessDataFrameTransform):
     upper: Optional[float] = None
     lower: Optional[float] = None
@@ -529,7 +529,7 @@ class Clip(ColumnsTransform, StatelessDataFrameTransform):
         )
 
 
-@transform
+@params
 class Winsorize(ColumnsTransform):
     # assume symmetric, i.e. trim the upper and lower `limit` percent of observations
     limit: float
@@ -564,7 +564,7 @@ class Winsorize(ColumnsTransform):
         )
 
 
-@transform
+@params
 class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
     value: Any
 
@@ -578,7 +578,7 @@ def _weighted_means(df: pd.DataFrame, cols: list[str], w_col: str) -> pd.Series:
     return df[cols].multiply(df[w_col], axis="index").sum() / df[w_col].sum()
 
 
-@transform
+@params
 class DeMean(ColumnsTransform):
     """
     De-mean some columns.
@@ -596,7 +596,7 @@ class DeMean(ColumnsTransform):
         return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
 
 
-@transform
+@params
 class ImputeMean(ColumnsTransform):
     w_col: Optional[str] = None
 
@@ -612,7 +612,7 @@ class ImputeMean(ColumnsTransform):
         )
 
 
-@transform
+@params
 class ZScore(ColumnsTransform):
     w_col: Optional[str] = None
 
@@ -632,7 +632,7 @@ class ZScore(ColumnsTransform):
         )
 
 
-@transform
+@params
 class SKLearn(DataFrameTransform):
     """
     Wrap a scikit-learn ("sklearn") model. At fit-time, the given sklearn model class
@@ -688,7 +688,7 @@ class SKLearn(DataFrameTransform):
         )
 
 
-@transform
+@params
 class Statsmodels(DataFrameTransform):
     """
     Wrap a statsmodels model.
@@ -713,7 +713,7 @@ class Statsmodels(DataFrameTransform):
         )
 
 
-@transform
+@params
 class Correlation(StatelessDataFrameTransform):
     """
     Compute the correlation between each pair of columns in the cross-product of
@@ -758,7 +758,7 @@ class Correlation(StatelessDataFrameTransform):
         return cm.loc[self.left_cols, self.right_cols]
 
 
-@transform
+@params
 class Assign(StatelessDataFrameTransform):
     # TODO: keys as fmt str hyperparams
     assignments: dict[str, Callable] = dict_field()

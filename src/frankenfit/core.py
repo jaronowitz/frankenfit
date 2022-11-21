@@ -56,7 +56,7 @@ from typing import (
 import graphviz  # type: ignore
 from attrs import NOTHING, Factory, field, fields_dict
 
-from .params import transform, HP, UnresolvedHyperparameterError
+from .params import params, HP, UnresolvedHyperparameterError
 from .backend import Backend, DummyBackend, DummyFuture
 
 _LOG = logging.getLogger(__name__)
@@ -281,7 +281,7 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
 
 
 # TODO: remove need for Transform subclasses to write @transform?
-@transform
+@params
 class Transform(ABC, Generic[DataIn, DataResult]):
     """
     The abstract base class of all (unfit) Transforms. Subclasses must implement the
@@ -936,7 +936,7 @@ class Grouper(Generic[P_co]):
 DataInOut = TypeVar("DataInOut")
 
 
-@transform
+@params
 class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     _pipeline_methods: ClassVar[list[str]] = []
 

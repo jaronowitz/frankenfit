@@ -35,7 +35,7 @@ from attrs import define
 
 from .params import (
     HP,
-    transform,
+    params,
     UnresolvedHyperparameterError,
 )
 from .backend import Backend
@@ -59,7 +59,7 @@ T = TypeVar("T")
 Obj = TypeVar("Obj")
 
 
-@transform
+@params
 class UniversalTransform(Transform):
     def then(
         self, other: Optional[Transform | list[Transform]] = None
@@ -96,7 +96,7 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform):
         return super().apply(data_apply, bindings, backend)
 
 
-@transform
+@params
 class IfHyperparamIsTrue(UniversalTransform):
     name: str
     then_transform: Transform
@@ -133,7 +133,7 @@ class IfHyperparamIsTrue(UniversalTransform):
         return entries, exits
 
 
-@transform
+@params
 class IfHyperparamLambda(UniversalTransform):
     fun: Callable  # dict[str, object] -> bool
     then_transform: Transform
@@ -167,7 +167,7 @@ class IfHyperparamLambda(UniversalTransform):
         return entries, exits
 
 
-@transform
+@params
 class IfFittingDataHasProperty(UniversalTransform):
     fun: Callable  # df -> bool
     then_transform: Transform
@@ -193,7 +193,7 @@ class IfFittingDataHasProperty(UniversalTransform):
         return entries, exits
 
 
-@transform
+@params
 class ForBindings(UniversalTransform):
     bindings_sequence: Iterable[Bindings]
     transform: Transform
@@ -242,7 +242,7 @@ class ForBindings(UniversalTransform):
         return results
 
 
-@transform
+@params
 class StatelessLambda(UniversalTransform, StatelessTransform):
     apply_fun: Callable  # df[, bindings] -> df
 
@@ -259,7 +259,7 @@ class StatelessLambda(UniversalTransform, StatelessTransform):
             raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
 
 
-@transform
+@params
 class StatefulLambda(UniversalTransform):
     fit_fun: Callable  # df[, bindings] -> state
     apply_fun: Callable  # df, state[, bindings] -> df
@@ -287,7 +287,7 @@ class StatefulLambda(UniversalTransform):
             raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
 
 
-@transform
+@params
 class Print(Identity):
     """
     An identity transform that has the side-effect of printing a message at fit- and/or
@@ -326,7 +326,7 @@ class Print(Identity):
         return super()._apply(data_apply, state)
 
 
-@transform
+@params
 class LogMessage(Identity):
     """
     An identity transform that has the side-effect of logging a message at fit- and/or

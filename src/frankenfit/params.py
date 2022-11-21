@@ -273,7 +273,7 @@ else:
         optional_columns_field,
     )
 )
-def transform(*args, **kwargs):
+def params(*args, **kwargs):
     """
     @transform docstr.
     """

@@ -62,7 +62,7 @@ from frankenfit.backend import (
 )
 
 from frankenfit.params import (
-    transform,
+    params,
     HP,
     HPFmtStr,
     HPLambda,

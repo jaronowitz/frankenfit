@@ -44,7 +44,7 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
         # should be abstract
         ff.Transform()  # type: ignore
 
-    @ff.transform
+    @ff.params
     class DeMean(ff.Transform):
         cols: list[str]
 
@@ -70,7 +70,7 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
 
 
 def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
-    @ff.transform
+    @ff.params
     class TestTransform(ff.Transform):
         # _fit method can optionally accept a bindings arg
         def _fit(self, data_fit: object, bindings: Optional[ff.Bindings] = None):
@@ -85,7 +85,7 @@ def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
 
 
 def test_Transform_signatures() -> None:
-    @ff.transform
+    @ff.params
     class DeMean(ff.Transform):
         """
         De-mean some columns.
@@ -142,7 +142,7 @@ def test_override_fit_apply(
             print("my overridden apply")
             return super().apply(data_apply=data_apply, backend=backend)
 
-    @ff.transform
+    @ff.params
     class DeMean(ff.Transform[pd.DataFrame, pd.DataFrame]):
         """
         De-mean some columns.
@@ -197,7 +197,7 @@ def test_hyperparams(diamonds_df: pd.DataFrame) -> None:
         == "price_train"
     )
 
-    @ff.transform
+    @ff.params
     class TestTransform(ff.Transform):
         some_param: str | ff.HP
 
