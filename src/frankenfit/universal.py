@@ -29,7 +29,17 @@ from __future__ import annotations
 
 import inspect
 import logging
-from typing import Any, Callable, Generic, Iterable, Optional, TextIO, TypeVar, cast
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Optional,
+    TextIO,
+    TypeVar,
+    cast,
+    overload,
+)
 
 from attrs import define
 
@@ -38,7 +48,7 @@ from .params import (
     params,
     UnresolvedHyperparameterError,
 )
-from .backend import Backend
+from .backend import Backend, Future
 from .core import (
     BasePipeline,
     Bindings,
@@ -81,19 +91,40 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform):
 
     def fit(
         self: Self,
-        data_fit: Optional[T] = None,
+        data_fit: Optional[T | Future[T]] = None,
         bindings: Optional[Bindings] = None,
         backend: Optional[Backend] = None,
     ) -> FitTransform[Self, T, T]:
-        return super().fit(data_fit, bindings, backend)
+        return super().fit(data_fit, bindings, backend=backend)
+
+    @overload
+    def apply(
+        self,
+        data_apply: Optional[T | Future[T]] = None,
+        bindings: Optional[Bindings] = None,
+        *,
+        backend: None = None,
+    ) -> T:
+        ...
+
+    @overload
+    def apply(
+        self,
+        data_apply: Optional[T | Future[T]] = None,
+        bindings: Optional[Bindings] = None,
+        *,
+        backend: Backend,
+    ) -> Future[T]:
+        ...
 
     def apply(
         self,
-        data_apply: Optional[T] = None,
+        data_apply: Optional[T | Future[T]] = None,
         bindings: Optional[Bindings] = None,
+        *,
         backend: Optional[Backend] = None,
-    ) -> T:
-        return super().apply(data_apply, bindings, backend)
+    ) -> T | Future[T]:
+        return super().apply(data_apply, bindings, backend=backend)
 
 
 @params

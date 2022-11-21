@@ -47,6 +47,7 @@ from typing import (
     Generic,
     Iterable,
     Optional,
+    overload,
     Sized,
     Type,
     TypeVar,
@@ -57,7 +58,7 @@ import graphviz  # type: ignore
 from attrs import NOTHING, Factory, field, fields_dict
 
 from .params import params, HP, UnresolvedHyperparameterError
-from .backend import Backend, DummyBackend, DummyFuture
+from .backend import DummyFuture, Future, Backend, DummyBackend
 
 _LOG = logging.getLogger(__name__)
 
@@ -152,22 +153,20 @@ DEFAULT_VISUALIZE_DIGRAPH_KWARGS = {
 }
 
 
-# TODO: Strictly speaking, could/should not be freely specified, but rather
-# follow from the other type params as Transform[DataIn, DataResult]
 class FitTransform(Generic[R_co, DataIn, DataResult]):
     """
-    The result of fitting a :class:`{transform_class_name}` Transform. Call this
-    object's :meth:`apply()` method on some data to get the result of applying the
+    The result of fitting a :class:`Transform`. Call this object's
+    :meth:`apply()` method on some data to get the result of applying the
     now-fit transformation.
 
-    All parameters of the fit {transform_class_name} are available as instance
-    variables, with any hyperparameters fully resolved against whatever bindings were
-    provided at fit-time.
+    The ``Transform`` object that was fit, with any hyperparameters resolved
+    against whatever bindings were provided at fit-time, is available as
+    :meth:`resolved_transform()``.
 
-    The fit state of the transformation, as returned by {transform_class_name}'s
-    ``_fit()`` method at fit-time, is available from :meth:`state()`, and this is the
-    state that will be used at apply-time (i.e., passed as the ``state``
-    argument of the user's ``_fit()`` method).
+    The fit state of the transformation, as returned by the ``Transform``
+    object's ``_fit()`` method at fit-time, is available from :meth:`state()`,
+    and this is the state that will be used at apply-time (i.e., passed as the
+    ``state`` argument of the user's ``_apply()`` method).
     """
 
     def __init__(
@@ -190,13 +189,27 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
             f")"
         )
 
-    # TODO: shouldn't return type be Optional? Like, what happens when
-    # data_apply is None?
+    @overload
     def apply(
         self,
-        data_apply: Optional[DataIn] = None,
-        backend: Optional[Backend] = None,
+        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        *,
+        backend: None = None,
     ) -> DataResult:
+        ...
+
+    @overload
+    def apply(
+        self, data_apply: Optional[DataIn | Future[DataIn]] = None, *, backend: Backend
+    ) -> Future[DataResult]:
+        ...
+
+    def apply(
+        self,
+        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        *,
+        backend: Optional[Backend] = None,
+    ) -> DataResult | Future[DataResult]:
         """
         Return the result of applying this FitTransform to the given data.
         """
@@ -210,10 +223,8 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
             f"{f' (len={data_len})' if data_len is not None else ''} "
         )
 
-        if backend is None:
-            backend = DummyBackend()
-
-        # run user _apply function on backend
+        # prepare args for user _apply method, then invoke directly or run on backend
+        args: tuple[Any, ...] = (data_apply, self.state())
         tf = self.resolved_transform()
         sig = inspect.signature(tf._apply).parameters
         if len(sig) not in (2, 3):
@@ -221,15 +232,16 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
                 f"I don't know how to invoke user _apply() method with "
                 f"{len(sig)} arguments: {tf._apply} with signature {str(sig)}"
             )
-        args: tuple[Any, ...] = (data_apply, self.state())
-        # pass bindings if _apply has the signature for it
+        # include bindings if _apply has the signature for it
         if len(sig) == 3:
             args += (self.bindings(),)
 
-        result = backend.submit(f"{self.tag}._apply", tf._apply, *args)
-        if isinstance(result, DummyFuture):
-            return result.result()
-        return result
+        if backend is None:
+            return (
+                DummyBackend().submit(f"{self.tag}._apply", tf._apply, *args).result()
+            )
+        else:
+            return backend.submit(f"{self.tag}._apply", tf._apply, *args)
 
     # TODO: refit()? incremental_fit()?
 
@@ -428,8 +440,9 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     def fit(
         self: _Self,
-        data_fit: Optional[DataIn] = None,
+        data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
+        *,
         backend: Optional[Backend] = None,
     ) -> FitTransform[_Self, DataIn, DataResult]:
         """
@@ -450,10 +463,8 @@ class Transform(ABC, Generic[DataIn, DataResult]):
             f"with bindings={bindings!r}"
         )
 
-        if backend is None:
-            backend = DummyBackend()
-
         # resolve hyperparams and run user _fit function on backend
+        args: tuple[Any, ...] = (data_fit,)
         resolved_transform = self._resolve_hyperparams(bindings)
         sig = inspect.signature(resolved_transform._fit).parameters
         if len(sig) not in (1, 2):
@@ -462,13 +473,18 @@ class Transform(ABC, Generic[DataIn, DataResult]):
                 f"{len(sig)} arguments: {resolved_transform._fit} with signature "
                 f"{str(sig)}"
             )
-        args: tuple[Any, ...] = (data_fit,)
         # pass bindings if _fit has a second argument
         if len(sig) == 2:
             args += (bindings or {},)
-        state = backend.submit(f"{self.tag}._fit", resolved_transform._fit, *args)
-        if isinstance(state, DummyFuture):
-            state = state.result()
+
+        if backend is None:
+            state = (
+                DummyBackend()
+                .submit(f"{self.tag}._fit", resolved_transform._fit, *args)
+                .result()
+            )
+        else:
+            state = backend.submit(f"{self.tag}._fit", resolved_transform._fit, *args)
 
         # fit_class: type[FitTransform] = getattr(self, self._fit_class_name)
         return type(self).FitTransformClass(resolved_transform, state, bindings)
@@ -743,14 +759,33 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
     def _fit(self, data_fit: DataIn) -> None:
         return None
 
-    # TODO: subclasses should automagically get a return type consistent with
-    # the return type of self.fit().apply()
+    @overload
     def apply(
         self,
-        data_apply: Optional[DataIn] = None,
+        data_apply: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
-        backend: Optional[Backend] = None,
+        *,
+        backend: None = None,
     ) -> DataResult:
+        ...
+
+    @overload
+    def apply(
+        self,
+        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        bindings: Optional[Bindings] = None,
+        *,
+        backend: Backend,
+    ) -> Future[DataResult]:
+        ...
+
+    def apply(
+        self,
+        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        bindings: Optional[Bindings] = None,
+        *,
+        backend: Optional[Backend] = None,
+    ) -> DataResult | Future[DataResult]:
         """
         Convenience function allowing one to apply a StatelessTransform without
         an explicit preceding call to fit. Implemented by calling fit() on no
@@ -758,9 +793,12 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
         returning the result of applying the resulting FitTransform to the given
         object.
         """
-        return self.fit(None, bindings=bindings, backend=backend).apply(
-            data_apply, backend=backend
-        )
+        if backend is None:
+            return self.fit(None, bindings=bindings).apply(data_apply)
+        else:
+            return self.fit(None, bindings=bindings, backend=backend).apply(
+                data_apply, backend=backend
+            )
 
 
 class NonInitialConstantTransformWarning(RuntimeWarning):
@@ -791,14 +829,15 @@ class ConstantTransform(
     non-initial in a Pipeline.
     """
 
-    Self = TypeVar("Self", bound="ConstantTransform")
+    _Self = TypeVar("_Self", bound="ConstantTransform")
 
     def fit(
-        self: Self,
-        data_fit: Optional[DataIn] = None,
+        self: _Self,
+        data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
+        *,
         backend: Optional[Backend] = None,
-    ) -> FitTransform[Self, DataIn, DataResult]:
+    ) -> FitTransform[_Self, DataIn, DataResult]:
         if data_fit is not None:
             warning_msg = (
                 "A ConstantTransform's fit method received non-empty input data. "
@@ -1038,13 +1077,32 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     def __len__(self):
         return len(self.transforms)
 
+    @overload
+    def apply(
+        self,
+        data_fit: Optional[DataInOut | Future[DataInOut]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> DataInOut:
+        ...
+
+    @overload
+    def apply(
+        self,
+        data_fit: Optional[DataInOut | Future[DataInOut]] = None,
+        bindings: Optional[Bindings] = None,
+        *,
+        backend: Backend,
+    ) -> Future[DataInOut]:
+        ...
+
     # TODO: should return type be optional?
     def apply(
         self,
-        data_fit: Optional[DataInOut] = None,
+        data_fit: Optional[DataInOut | Future[DataInOut]] = None,
         bindings: Optional[Bindings] = None,
+        *,
         backend: Optional[Backend] = None,
-    ) -> DataInOut:
+    ) -> DataInOut | Future[DataInOut]:
         """
         An efficient alternative to ``Pipeline.fit(...).apply(...)``.  When the
         fit-time data and apply-time data are identical, it is more efficient to
@@ -1059,6 +1117,25 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         :return: The result of fitting this :class:`Pipeline` and applying it to its own
             fitting data.
         """
+        # TODO: think more about what to do when applying an empty pipeline.
+        # Identity? Collapse to None? Subclass-specific empty result? (E.g.
+        # empty DataFramePipeline produces an emtpy DataFrame.)
+        # Current implementation is like Identity | None
+        if len(self.transforms) == 0:
+            if backend is not None:
+                # Caller expects us to return a Future if they provided a backend
+                if isinstance(data_fit, Future):
+                    return data_fit
+                else:
+                    # TODO: what if data_fit is None?
+                    return DummyFuture(data_fit)  # type: ignore [arg-type]
+            elif isinstance(data_fit, Future):
+                # No backend provided: must return materialized data
+                return data_fit.result()
+            else:
+                # TODO: what if data_fit is None?
+                return data_fit  # type: ignore [return-value]
+
         for t in self.transforms:
             ft = t.fit(data_fit, bindings=bindings, backend=backend)
             data_fit = ft.apply(data_fit, backend=backend)

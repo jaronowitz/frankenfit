@@ -29,11 +29,19 @@ ray.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Any, cast, Callable, Optional, TypeVar, Generic
 
 from attrs import define, field
 from dask import distributed
 from dask.base import tokenize
+
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Future(Generic[T_co], ABC):
+    @abstractmethod
+    def result(self) -> T_co:
+        raise NotImplementedError
 
 
 class Backend(ABC):
@@ -44,15 +52,15 @@ class Backend(ABC):
         function: Callable,
         *function_args,
         **function_kwargs,
-    ):
+    ) -> Future[Any]:
         raise NotImplementedError
 
 
 @define
-class DummyFuture:
-    obj: object
+class DummyFuture(Generic[T_co], Future[T_co]):
+    obj: T_co
 
-    def result(self):
+    def result(self) -> T_co:
         return self.obj
 
 
@@ -64,13 +72,13 @@ class DummyBackend(Backend):
         function: Callable,
         *function_args,
         **function_kwargs,
-    ):
-        # "materialize" any DummyFuture args
+    ) -> DummyFuture[Any]:
+        # materialize any Future args
         function_args = tuple(
-            (a.result() if isinstance(a, DummyFuture) else a) for a in function_args
+            (a.result() if isinstance(a, Future) else a) for a in function_args
         )
         function_kwargs = {
-            k: (v.result() if isinstance(v, DummyFuture) else v)
+            k: (v.result() if isinstance(v, Future) else v)
             for k, v in function_kwargs.items()
         }
         result = function(*function_args, **function_kwargs)
@@ -88,6 +96,28 @@ def _convert_to_address(obj: str | None | distributed.Client):
 
 
 @define
+class DaskFuture(Generic[T_co], Future[T_co]):
+    dask_future: distributed.Future
+
+    def result(self) -> T_co:
+        return cast(T_co, self.dask_future.result())
+
+    def unwrap(self) -> distributed.Future:
+        return self.dask_future
+
+    @staticmethod
+    def unwrap_or_result(obj):
+        if isinstance(obj, DaskFuture):
+            return obj.unwrap()
+        if isinstance(obj, Future):
+            # A future from some other backend, so we need to materialize it.
+            # this will probably emit a warning about putting a large object
+            # into the scheduler
+            return obj.result()
+        return obj
+
+
+@define
 class DaskBackend(Backend):
     address: Optional[str] = field(converter=_convert_to_address, default=None)
 
@@ -97,13 +127,15 @@ class DaskBackend(Backend):
         function: Callable,
         *function_args,
         **function_kwargs,
-    ):
-        client = distributed.get_client(self.address)
+    ) -> DaskFuture[Any]:
+        client: distributed.Client = distributed.get_client(self.address)
         # TODO: should we do anything about impure functions? i.e., data readers
         key = key_prefix + "-" + tokenize(function, function_kwargs, *function_args)
         # hmm, there could be a problem here with collision between function
         # kwargs and submit kwargs, but this is inherent to distributed's API
         # design :/. In general I suppose callers should prefer to provide
         # everything as positoinal arguments.
-        fut = client.submit(function, *function_args, key=key, **function_kwargs)
-        return fut
+        args = tuple(DaskFuture.unwrap_or_result(a) for a in function_args)
+        kwargs = {k: DaskFuture.unwrap_or_result(v) for k, v in function_kwargs.items()}
+        fut = client.submit(function, *args, key=key, **kwargs)
+        return DaskFuture(fut)

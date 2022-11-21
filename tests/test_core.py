@@ -23,8 +23,7 @@
 from __future__ import annotations
 
 import inspect
-from abc import abstractmethod
-from typing import Any, ClassVar, Optional, Type, TypeVar
+from typing import Any, ClassVar, Optional, Type, TypeVar, cast, overload
 
 import pandas as pd
 import pytest
@@ -32,6 +31,7 @@ from pydataset import data  # type: ignore
 
 import frankenfit as ff
 import frankenfit.core as core
+from frankenfit.backend import Future
 
 
 @pytest.fixture
@@ -132,12 +132,30 @@ def test_override_fit_apply(
     diamonds_df: pd.DataFrame, capsys: pytest.CaptureFixture
 ) -> None:
     class FitDeMean(ff.FitTransform["DeMean", pd.DataFrame, pd.DataFrame]):
-        @abstractmethod
+        @overload
         def apply(
             self,
-            data_apply: Optional[pd.DataFrame] = None,
-            backend: Optional[ff.Backend] = None,
+            data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+            *,
+            backend: None = None,
         ) -> pd.DataFrame:
+            ...
+
+        @overload
+        def apply(
+            self,
+            data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+            *,
+            backend: ff.Backend,
+        ) -> Future[pd.DataFrame]:
+            ...
+
+        def apply(
+            self,
+            data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+            *,
+            backend: Optional[ff.Backend] = None,
+        ) -> pd.DataFrame | Future[pd.DataFrame]:
             """My apply docstr"""
             print("my overridden apply")
             return super().apply(data_apply=data_apply, backend=backend)
@@ -163,13 +181,13 @@ def test_override_fit_apply(
 
         def fit(
             self: Self,
-            data_fit: Optional[pd.DataFrame] = None,
+            data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
             bindings: Optional[ff.Bindings] = None,
             backend: Optional[ff.Backend] = None,
-        ) -> ff.FitTransform[Self, pd.DataFrame, pd.DataFrame]:
+        ) -> FitDeMean:
             """My fit docstr"""
             print("my overridden fit")
-            return super().fit(data_fit, bindings, backend)
+            return cast(FitDeMean, super().fit(data_fit, bindings, backend=backend))
 
     dmn = DeMean(["price"])
 
