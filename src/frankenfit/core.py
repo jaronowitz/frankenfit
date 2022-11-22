@@ -758,8 +758,22 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
     ``t.fit(df, bindings=bindings).apply(df)``.
     """
 
+    _Self = TypeVar("_Self", bound="StatelessTransform")
+
     def _fit(self, data_fit: DataIn) -> None:
         return None
+
+    def fit(
+        self: _Self,
+        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        bindings: Optional[Bindings] = None,
+        *,
+        backend: Optional[Backend] = None,
+    ) -> FitTransform[_Self, DataIn, DataResult]:
+        # A small optimization to avoid scheduling stateless _fit on real backends
+        if backend is not None:
+            backend = DummyBackend()
+        return super().fit(data_fit, bindings, backend=backend)
 
     @overload
     def apply(
