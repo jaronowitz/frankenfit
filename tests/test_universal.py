@@ -136,22 +136,17 @@ def test_IfHyperparamLambda(diamonds_df: pd.DataFrame):
     )
     target_add_ones = df.assign(ones=1.0)
 
-    condition = lambda bindings: bindings["x"] > 0 and bindings["y"] > 0  # noqa: E731
+    def condition(bindings):
+        return bindings.get("x", 1) > 0 and bindings.get("y", 0) > 0
 
-    result = (
-        ff.UniversalPipeline()
-        .if_hyperparam_lambda(condition, lambda_demean)
-        .fit(df, bindings={"x": -1, "y": 1})
-        .apply(df)
-    )
+    pip = ff.UniversalPipeline().if_hyperparam_lambda(condition, lambda_demean)
+    assert pip.hyperparams() == {"x", "y"}
+
+    result = pip.fit(df, bindings={"x": -1, "y": 1}).apply(df)
     assert result.equals(df)
-    result = (
-        ff.UniversalPipeline()
-        .if_hyperparam_lambda(condition, lambda_demean)
-        .fit(df, bindings={"x": 1, "y": 1})
-        .apply(df)
-    )
+    result = pip.fit(df, bindings={"x": 1, "y": 1}).apply(df)
     assert result.equals(target_demean)
+
     result = (
         ff.UniversalPipeline()
         .if_hyperparam_lambda(condition, lambda_demean, otherwise=lambda_add_ones)

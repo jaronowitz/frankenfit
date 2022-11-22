@@ -1,3 +1,4 @@
+# pragma: no cover
 from typing import Callable, cast
 from warnings import warn
 

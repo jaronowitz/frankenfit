@@ -241,7 +241,7 @@ def optional_columns_field(**kwargs):
     return field(converter=HPCols.maybe_from_value, **kwargs)
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     # This is so that pylance/pyright can autocomplete Transform constructor
     # arguments and instance variables.
     # See: https://www.attrs.org/en/stable/extending.html#pyright

@@ -19,7 +19,7 @@ dependencies = [
     'pandas',
     'pyarrow',
     'graphviz',
-    'distributed',  # TODO: make this an optional feature dependency?
+    'distributed',  # TODO: make this an extra?
 ]
 
 [tool.mypy]
@@ -40,4 +40,12 @@ filterwarnings = [
     "error",
     # note the use of single quote below to denote "raw" strings in TOML
     'ignore:There is no current event loop:DeprecationWarning',
+]
+addopts = "-n auto"
+
+[tool.coverage]
+
+[tool.coverage.run]
+omit = [
+    "src/frankenfit/mypy.py"
 ]

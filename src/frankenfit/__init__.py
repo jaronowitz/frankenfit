@@ -51,7 +51,7 @@ from importlib.metadata import (  # noqa: N814
 
 try:
     __version__ = _version("frankenfit")
-except _PNFE:
+except _PNFE:  # pragma: no cover
     # package is not installed
     pass
 

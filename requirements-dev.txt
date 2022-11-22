@@ -11,6 +11,8 @@ tox
 
 # for editor autocomplete (tox and pre-commit actually get these on their own)
 pytest
+pytest-xdist
+pytest-cov
 pydataset
 
 # for using dev notebooks

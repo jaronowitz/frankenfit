@@ -729,6 +729,7 @@ class SentinelDict(dict):
     """
 
     keys_checked: Optional[set] = None
+    default: Any = None
 
     def _record_key(self, key):
         if self.keys_checked is None:
@@ -737,11 +738,11 @@ class SentinelDict(dict):
 
     def __getitem__(self, key):
         self._record_key(key)
-        return None
+        return self.default
 
-    def get(self, key, *args, **kwargs):
+    def get(self, key, default=None, /):
         self._record_key(key)
-        return None
+        return default
 
 
 class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):

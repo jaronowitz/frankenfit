@@ -105,7 +105,7 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform):
         *,
         backend: None = None,
     ) -> T:
-        ...
+        ...  # pragma: no cover
 
     @overload
     def apply(
@@ -115,7 +115,7 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform):
         *,
         backend: Backend,
     ) -> Future[T]:
-        ...
+        ...  # pragma: no cover
 
     def apply(
         self,

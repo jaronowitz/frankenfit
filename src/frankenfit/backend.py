@@ -41,7 +41,7 @@ T_co = TypeVar("T_co", covariant=True)
 class Future(Generic[T_co], ABC):
     @abstractmethod
     def result(self) -> T_co:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class Backend(ABC):
@@ -53,7 +53,7 @@ class Backend(ABC):
         *function_args,
         **function_kwargs,
     ) -> Future[Any]:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 @define
