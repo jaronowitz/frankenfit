@@ -39,6 +39,16 @@ def diamonds_df():
     return data("diamonds")
 
 
+def test_then(diamonds_df: pd.DataFrame):
+    t: ff.DataFramePipeline = (
+        ff.ReadDataFrame(diamonds_df)
+        .then()
+        .z_score(["price"])
+        .clip(["price"], lower=-2, upper=2)
+    )
+    assert isinstance(t, ff.DataFramePipeline)
+
+
 def test_ColumnsTransform(diamonds_df: pd.DataFrame):
     df = diamonds_df
     # test cols behavior

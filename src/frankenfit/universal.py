@@ -73,7 +73,7 @@ Obj = TypeVar("Obj")
 class UniversalTransform(Transform):
     def then(
         self, other: Optional[Transform | list[Transform]] = None
-    ) -> "UniversalPipelineInterface":
+    ) -> "UniversalPipeline":
         result = super().then(other)
         return UniversalPipeline(transforms=result.transforms)
 

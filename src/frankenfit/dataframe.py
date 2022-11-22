@@ -74,6 +74,7 @@ from .universal import (
     ForBindings,
     Identity,
     UniversalGrouper,
+    UniversalPipeline,
     UniversalPipelineInterface,
 )
 
@@ -85,7 +86,7 @@ T = TypeVar("T")
 class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
     def then(
         self, other: Optional[Transform | list[Transform]] = None
-    ) -> "DataFramePipelineInterface":
+    ) -> "DataFramePipeline":
         result = super().then(other)
         return DataFramePipeline(transforms=result.transforms)
 
@@ -132,7 +133,7 @@ class ReadPandasCSV(ConstantDataFrameTransform):
 
 
 @params
-class WritePandasCSV(Identity[pd.DataFrame], StatelessDataFrameTransform):
+class WritePandasCSV(StatelessDataFrameTransform, Identity[pd.DataFrame]):
     path: str = fmt_str_field()
     index_label: str = fmt_str_field()
     to_csv_kwargs: Optional[dict] = None
@@ -1148,6 +1149,7 @@ class DataFramePipelineInterface(
 class DataFramePipeline(
     DataFramePipelineInterface[
         DataFrameGrouper["DataFramePipeline"], "DataFramePipeline"
-    ]
+    ],
+    UniversalPipeline,
 ):
     ...
