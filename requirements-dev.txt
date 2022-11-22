@@ -26,5 +26,6 @@ furo
 
 # for linting and type-checking
 flake8
+flake8-pyproject
 mypy
 pandas-stubs

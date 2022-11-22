@@ -22,6 +22,28 @@ dependencies = [
     'distributed',  # TODO: make this an extra?
 ]
 
+[tool.flake8]
+# for compat with black
+max-line-length = 88
+
+filename = [
+	'src/frankenfit/*.py',
+	'tests/*.py',
+]
+
+# compat with black around slice operators
+extend-ignore = ["E203"]
+
+per-file-ignores = [
+	# Unused imports are expected in package __init__.
+	'__init__.py: F401',
+
+	# function name should be lower case. Our convention can include class
+	# names (which are upper case) in test function names.
+	'*/tests/*.py: N802',
+]
+
+
 [tool.mypy]
 plugins = "frankenfit.mypy"
 warn_unused_ignores = true
@@ -43,7 +65,6 @@ filterwarnings = [
 addopts = "-n auto"
 
 [tool.coverage]
-
 [tool.coverage.run]
 omit = [
     "src/frankenfit/mypy.py"
