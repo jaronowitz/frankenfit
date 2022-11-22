@@ -139,7 +139,7 @@ class WritePandasCSV(StatelessDataFrameTransform, Identity[pd.DataFrame]):
     to_csv_kwargs: Optional[dict] = None
 
     def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
-        cast(pd.DataFrame, data_apply).to_csv(
+        data_apply.to_csv(
             self.path, index_label=self.index_label, **(self.to_csv_kwargs or {})
         )
         return data_apply
