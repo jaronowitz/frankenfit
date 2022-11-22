@@ -254,7 +254,9 @@ class ForBindings(UniversalTransform):
             fits.append(
                 ForBindings.FitResult(
                     bindings,
-                    self.transform.fit(data_fit, bindings=base_bindings | bindings),
+                    self.transform.fit(
+                        data_fit, bindings={**base_bindings, **bindings}
+                    ),
                 )
             )
         return fits

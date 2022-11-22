@@ -276,4 +276,4 @@ def params(*args, **kwargs):
     """
     @transform docstr.
     """
-    return define(*args, **(kwargs | {"slots": False}))
+    return define(*args, **{**kwargs, **{"slots": False}})

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import inspect
 from typing import Any, ClassVar, Optional, Type, TypeVar, cast, overload
+from sys import version_info
 
 import pandas as pd
 import pytest
@@ -32,6 +33,8 @@ from pydataset import data  # type: ignore
 import frankenfit as ff
 import frankenfit.core as core
 from frankenfit.backend import Future
+
+PYVERSION = (version_info.major, version_info.minor)
 
 
 @pytest.fixture
@@ -84,6 +87,7 @@ def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
     assert fit_t.state() == {"foo": 1}
 
 
+@pytest.mark.skipif(PYVERSION < (3, 9), reason="Python < 3.9")
 def test_Transform_signatures() -> None:
     @ff.params
     class DeMean(ff.Transform):

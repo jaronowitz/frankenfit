@@ -44,6 +44,7 @@ from typing import (
     Any,
     Callable,
     ClassVar,
+    Dict,
     Generic,
     Iterable,
     Optional,
@@ -71,7 +72,7 @@ State_co = TypeVar("State_co", covariant=True)
 DataIn = TypeVar("DataIn", contravariant=True)
 DataResult = TypeVar("DataResult", covariant=True)
 
-Bindings = dict[str, Any]
+Bindings = Dict[str, Any]
 
 
 def is_iterable(obj):
@@ -881,7 +882,7 @@ def method_wrapping_transform(
         return self + transform_class(*args, **kwargs)
 
     method_impl.__annotations__.update(
-        transform_class.__init__.__annotations__ | {"return": class_qualname}
+        {**transform_class.__init__.__annotations__, **{"return": class_qualname}}
     )
     method_impl.__name__ = method_name
     method_impl.__qualname__ = ".".join((class_qualname, method_name))
@@ -959,14 +960,11 @@ class Grouper(Generic[P_co]):
         if not isinstance(other, Transform):
             other = type(self._pipeline_upstream)(transforms=other)
 
-        wrapping_transform = self._wrapper_class(
-            **(
-                {
-                    self._wrapper_kwarg_name_for_wrappee: other,
-                }
-                | self._wrapper_other_kwargs
-            )
+        wrapping_kwargs = dict(
+            **{self._wrapper_kwarg_name_for_wrappee: other},
+            **self._wrapper_other_kwargs,
         )
+        wrapping_transform = self._wrapper_class(**wrapping_kwargs)
         return self._pipeline_upstream + cast(Transform, wrapping_transform)
 
     def __add__(self, other: Optional[Transform | list[Transform]]) -> P_co:
