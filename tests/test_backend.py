@@ -57,7 +57,7 @@ def test_DaskBackend():
         backend.submit("key-foo", foo, 42)
 
     # spin up a local cluster and client
-    client = distributed.Client()
+    client = distributed.Client(dashboard_address=None)
     backend = ff.DaskBackend(client)
 
     fut = backend.submit("key-foo", foo, 42)

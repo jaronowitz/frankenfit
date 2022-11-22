@@ -134,7 +134,7 @@ class IfHyperparamIsTrue(UniversalTransform):
     otherwise: Optional[Transform] = None
     allow_unresolved: Optional[bool] = False
 
-    def _fit(self, data_fit: object, bindings: Optional[Bindings] = None) -> Any:
+    def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
         bindings = bindings or {}
         if (not self.allow_unresolved) and self.name not in bindings:
             raise UnresolvedHyperparameterError(
