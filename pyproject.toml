@@ -38,7 +38,6 @@ files = [
 [tool.pytest.ini_options]
 filterwarnings = [
     "error",
-    # note the use of single quote below to denote "raw" strings in TOML
     'ignore:There is no current event loop:DeprecationWarning',
 ]
 addopts = "-n auto"

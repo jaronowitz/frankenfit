@@ -1,6 +1,7 @@
-wheel
-setuptools
-setuptools_scm~=7.0.3
+# editable install of source
+-e .
+
+# for building sdist/wheels manually
 build
 
 # For enforcement of pre-commit hooks
@@ -8,22 +9,16 @@ pre-commit ~= 2.19
 
 # For running tests
 tox
-
-# for editor autocomplete (tox and pre-commit actually get these on their own)
 pytest
 pytest-xdist
 pytest-cov
 pydataset
+scikit-learn
+statsmodels
 
 # for using dev notebooks
 jupyter
 seaborn
-scikit-learn
-statsmodels
-
-# for editor autocomplete
-attrs
-pandas
 
 # for building docs
 jupyter-book
