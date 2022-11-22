@@ -176,10 +176,9 @@ class HPCols(HP):
     name: str = "<cols>"
 
     C = TypeVar("C", bound="HPCols")
-    X = str | HP | None
 
     @classmethod
-    def maybe_from_value(cls: type[C], x: X) -> C | X:
+    def maybe_from_value(cls: type[C], x: str | HP | None) -> C | str | HP | None:
         """_summary_
 
         :param x: _description_

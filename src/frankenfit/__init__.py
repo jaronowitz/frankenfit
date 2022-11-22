@@ -41,6 +41,7 @@ In case you use a star-import (:code:`from frankenfit import *`), care is taken 
 ensure that all and only the public API names are imported, so that your namespace is
 not polluted with unrelated names.
 """
+from __future__ import annotations
 
 from importlib.metadata import (  # noqa: N814
     # import-as with leading _ so that we don't pollute the globals of anyone

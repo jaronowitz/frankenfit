@@ -20,6 +20,8 @@
 # OR IMPLY ANY RIGHTS TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, NOR TO
 # MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
 
+from __future__ import annotations
+
 from io import StringIO
 from typing import Any
 

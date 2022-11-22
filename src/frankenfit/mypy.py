@@ -1,4 +1,4 @@
-# pragma: no cover
+from __future__ import annotations
 from typing import Callable, cast
 from warnings import warn
 

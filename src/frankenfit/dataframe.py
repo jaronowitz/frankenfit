@@ -45,6 +45,7 @@ from typing import (
     Optional,
     Sequence,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -261,7 +262,7 @@ class UnfitGroupError(ValueError):
     containing groups on which it was not fit."""
 
 
-DfLocIndex = pd.Series | List | slice | np.ndarray
+DfLocIndex = Union[pd.Series, List, slice, np.ndarray]
 DfLocPredicate = Callable[[pd.DataFrame], DfLocIndex]
 
 
@@ -804,7 +805,7 @@ class Assign(StatelessDataFrameTransform):
         return data_apply.assign(**kwargs)
 
 
-Cols = str | HP | Sequence[str | HP]
+Cols = Union[str, HP, Sequence[Union[str, HP]]]
 
 
 class DataFrameCallChain(Generic[P_co]):
