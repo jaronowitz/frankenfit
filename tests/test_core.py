@@ -32,7 +32,7 @@ from pydataset import data  # type: ignore
 
 import frankenfit as ff
 import frankenfit.core as core
-from frankenfit.backend import Future
+from frankenfit.backend import DummyBackend, Future
 
 PYVERSION = (version_info.major, version_info.minor)
 
@@ -167,7 +167,31 @@ def test_Transform_fit_apply_valence() -> None:
 
 
 def test_fit_apply_futures() -> None:
-    pass
+    t = ff.Identity[str]()
+    p = t.then()
+    dummy = DummyBackend()
+
+    # fit with no backend -> materialized state
+    # fit with backend -> future state
+    t_fit_1 = t.fit()
+    t_fit_2 = t.fit(backend=dummy)
+    p_fit_1 = p.fit()
+    p_fit_2 = p.fit(backend=dummy)
+    assert t_fit_1.state() is None
+    assert isinstance(t_fit_2.state(), Future)
+    assert isinstance(p_fit_1.state(), list)
+    assert isinstance(p_fit_2.state(), Future)
+
+    # apply with no backend -> materialized DataResult
+    # apply with backend -> future DataResult
+    assert t_fit_1.apply("x") == "x"
+    assert t_fit_2.apply("x") == "x"
+    assert isinstance(t_fit_1.apply("x", backend=dummy), Future)
+    assert isinstance(t_fit_2.apply("x", backend=dummy), Future)
+    assert p_fit_1.apply("x") == "x"
+    assert p_fit_2.apply("x") == "x"
+    assert isinstance(p_fit_1.apply("x", backend=dummy), Future)
+    assert isinstance(p_fit_2.apply("x", backend=dummy), Future)
 
 
 def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
@@ -207,27 +231,6 @@ def test_Transform_signatures() -> None:
         str(inspect.signature(DeMean))
         == "(cols: 'list[str]', *, tag: 'str' = NOTHING) -> None"
     )
-    # assert (
-    #     str(inspect.signature(DeMean.fit))
-    #     == "(self, data_fit: pandas.core.frame.DataFrame = None, "
-    #     "bindings: 'Optional[Bindings]' = None, "
-    #     "backend: 'Optional[Backend]' = None) "
-    #     "-> 'test_Transform_signatures.<locals>.DeMean.FitDeMean'"
-    # )
-    # assert (
-    #     str(inspect.signature(DeMean.FitDeMean))
-    #     == "(resolved_transform: 'DeMean', state: pandas.core.series.Series, "
-    #     "bindings: 'Optional[Bindings]' = None)"
-    # )
-    # assert (
-    #     str(inspect.signature(DeMean.FitDeMean.state))
-    #     == "(self) -> pandas.core.series.Series"
-    # )
-    # assert (
-    #     str(inspect.signature(DeMean.FitDeMean.apply))
-    #     == "(self, data_apply: pandas.core.frame.DataFrame = None, "
-    #     "backend: 'Optional[Backend]' = None) -> pandas.core.frame.DataFrame"
-    # )
 
 
 def test_override_fit_apply(
