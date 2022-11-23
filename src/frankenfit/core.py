@@ -152,7 +152,7 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
             f"{self.__class__.__name__}("
             f"resolved_transform={self.__resolved_transform!r}, "
             f"state={type(self.__state)!r}, "
-            f"bindings={self.__bindings!r}, "
+            f"bindings={self.__bindings!r}"
             f")"
         )
 

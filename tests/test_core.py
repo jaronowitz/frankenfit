@@ -63,6 +63,11 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
     assert repr(t) == ("DeMean(tag=%r, cols=%r)" % ("mytag", cols))
     assert t.params() == ["tag", "cols"]
     fit = t.fit(diamonds_df)
+    assert repr(fit) == (
+        f"FitTransform(resolved_transform={t!r}, "
+        "state=<class 'pandas.core.series.Series'>, "
+        "bindings={})"
+    )
     assert fit.state().equals(diamonds_df[cols].mean())
     result = fit.apply(diamonds_df)
     assert result[cols].equals(diamonds_df[cols] - diamonds_df[cols].mean())
