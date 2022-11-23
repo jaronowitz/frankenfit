@@ -256,6 +256,22 @@ def test_StatefulLambda(diamonds_df: pd.DataFrame):
     result = lambda_demean.fit(df, bindings={"col": "price"}).apply(df)
     assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
 
+    # lambdas with too many args
+    with pytest.raises(TypeError):
+        ff.UniversalPipeline().stateful_lambda(
+            fit_fun=lambda df, bindings, _: df[bindings["col"]].mean(),
+            apply_fun=lambda df, mean, bindings: df.assign(
+                **{bindings["col"]: df[bindings["col"]] - mean}
+            ),
+        ).fit(df, bindings={"col": "price"})
+    with pytest.raises(TypeError):
+        ff.UniversalPipeline().stateful_lambda(
+            fit_fun=lambda df, bindings: df[bindings["col"]].mean(),
+            apply_fun=lambda df, mean, bindings, _: df.assign(
+                **{bindings["col"]: df[bindings["col"]] - mean}
+            ),
+        ).fit(df, bindings={"col": "price"}).apply(df)
+
 
 def test_ForBindings(diamonds_df: pd.DataFrame):
     df = diamonds_df.head()
