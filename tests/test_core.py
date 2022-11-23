@@ -197,6 +197,24 @@ def test_fit_apply_futures() -> None:
     assert isinstance(p_fit_1.apply("x", backend=dummy), Future)
     assert isinstance(p_fit_2.apply("x", backend=dummy), Future)
 
+    # stateless apply
+    assert t.apply("x") == "x"
+    assert isinstance(t.apply("x", backend=dummy), Future)
+
+
+def test_then() -> None:
+    t = ff.Identity[str]()
+    t2 = ff.Identity[str]()
+    assert isinstance(t.then(), ff.BasePipeline)
+    p = t.then(t2)
+    assert isinstance(p, ff.BasePipeline)
+    assert len(p) == 2
+    p = t.then([t2])
+    assert isinstance(p, ff.BasePipeline)
+    assert len(p) == 2
+    with pytest.raises(TypeError):
+        t.then(42)  # type: ignore [arg-type]
+
 
 def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
     @ff.params
@@ -456,3 +474,6 @@ def test_FitTransform_materialize_state() -> None:
     fit_mat = fit.materialize_state()
     assert not isinstance(fit_mat.state(), Future)
     assert isinstance(fit_mat.find_by_tag("mytag").resolved_transform(), ff.Identity)
+
+    fit = pip.fit()
+    assert fit.materialize_state() is fit

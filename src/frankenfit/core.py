@@ -410,7 +410,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
             :meth:`_apply()` at apply-time.
         :rtype: ``object``
         """
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     FitTransformClass: ClassVar[Type[FitTransform]] = FitTransform
 
@@ -478,7 +478,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
         TODO.
         """
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     def params(self) -> list[str]:
         """
@@ -752,7 +752,7 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
         *,
         backend: None = None,
     ) -> DataResult:
-        ...
+        ...  # pragma: no cover
 
     @overload
     def apply(
@@ -762,7 +762,7 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
         *,
         backend: Backend,
     ) -> Future[DataResult]:
-        ...
+        ...  # pragma: no cover
 
     def apply(
         self,
@@ -899,7 +899,7 @@ def _convert_pipeline_transforms(value):
         tf_seq = value.transforms
     elif isinstance(value, Transform):
         tf_seq = [value]
-    elif value is None:
+    elif value is None:  # pragma: no cover
         tf_seq = []
     else:
         tf_seq = list(value)
@@ -933,7 +933,7 @@ class Grouper(Generic[P_co]):
         self._wrapper_other_kwargs = wrapper_other_kwargs
 
     def then(self, other: Optional[Transform | list[Transform]]) -> P_co:
-        if not isinstance(self._pipeline_upstream, BasePipeline):
+        if not isinstance(self._pipeline_upstream, BasePipeline):  # pragma: no cover
             raise TypeError(
                 f"Grouper cannot be applied to non-BasePipeline upstream: "
                 f"{self._pipeline_upstream} with type "
