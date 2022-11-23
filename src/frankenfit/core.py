@@ -163,13 +163,13 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         *,
         backend: None = None,
     ) -> DataResult:
-        ...
+        ...  # pragma: no cover
 
     @overload
     def apply(
         self, data_apply: Optional[DataIn | Future[DataIn]] = None, *, backend: Backend
     ) -> Future[DataResult]:
-        ...
+        ...  # pragma: no cover
 
     def apply(
         self,

@@ -77,6 +77,99 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
     assert isinstance(fit, ff.FitTransform)
 
 
+def test_Transform_fit_apply_valence() -> None:
+    foo_str = "foo"
+    meow_bindings = {"meow": "cat"}
+
+    class Fit1(ff.Transform):
+        def _fit(self, data_fit: Any) -> Any:
+            assert data_fit == foo_str
+            return None
+
+        def _apply(self, data_apply: Any, state: Any) -> Any:
+            return data_apply
+
+    Fit1().fit(foo_str)
+
+    class Fit2(ff.Transform):
+        def _fit(self, data_fit: Any, bindings=None) -> Any:
+            assert data_fit == foo_str
+            assert bindings == meow_bindings
+            return None
+
+        def _apply(self, data_apply: Any, state: Any) -> Any:
+            return data_apply
+
+    Fit2().fit(foo_str, bindings=meow_bindings)
+
+    class Fit0(ff.Transform):
+        def _fit(self) -> Any:  # type: ignore [override]
+            return None
+
+        def _apply(self, data_apply: Any, state: Any) -> Any:
+            return data_apply
+
+    with pytest.raises(TypeError):
+        Fit0().fit(foo_str)
+
+    class Fit3(ff.Transform):
+        def _fit(self, data_apply, bindings=None, superfluous=None) -> Any:
+            return None
+
+        def _apply(self, data_apply: Any, state: Any) -> Any:
+            return data_apply
+
+    with pytest.raises(TypeError):
+        Fit3().fit(foo_str)
+
+    class Apply2(ff.Transform):
+        def _fit(self, data_fit: Any) -> Any:
+            return "woof"
+
+        def _apply(self, data_apply: Any, state: Any) -> Any:
+            assert data_apply == foo_str
+            assert state == "woof"
+
+    Apply2().fit().apply(foo_str)
+
+    class Apply3(ff.Transform):
+        def _fit(self, data_fit: Any) -> Any:
+            return "woof"
+
+        def _apply(self, data_apply: Any, state: Any, bindings=None) -> Any:
+            assert data_apply == foo_str
+            assert state == "woof"
+            assert bindings == meow_bindings
+
+    Apply3().fit(bindings=meow_bindings).apply(foo_str)
+
+    class Apply1(ff.Transform):
+        def _fit(self, data_fit: Any) -> Any:
+            return "woof"
+
+        def _apply(self, data_apply: Any) -> Any:  # type: ignore [override]
+            assert data_apply == foo_str
+
+    with pytest.raises(TypeError):
+        Apply1().fit(bindings=meow_bindings).apply(foo_str)
+
+    class Apply4(ff.Transform):
+        def _fit(self, data_fit: Any) -> Any:
+            return "woof"
+
+        def _apply(self, data_apply: Any, state: Any, bindings=None, xxx=None) -> Any:
+            assert data_apply == foo_str
+            assert state == "woof"
+            assert bindings == meow_bindings
+
+    with pytest.raises(TypeError):
+        Apply4().fit(bindings=meow_bindings).apply(foo_str)
+
+
+def test_fit_apply_futures() -> None:
+    pass
+
+
 def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
     @ff.params
     class TestTransform(ff.Transform):
