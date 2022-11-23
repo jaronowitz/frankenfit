@@ -685,7 +685,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         object. The caller may render it to file or screen.
         """
         digraph = graphviz.Digraph(
-            **(DEFAULT_VISUALIZE_DIGRAPH_KWARGS | digraph_kwargs)
+            **{**DEFAULT_VISUALIZE_DIGRAPH_KWARGS, **digraph_kwargs}
         )
         self._visualize(digraph, ("lightgrey", "white"))
         return digraph
