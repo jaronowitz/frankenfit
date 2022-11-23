@@ -26,9 +26,16 @@ dependencies = [
 # for compat with black
 max-line-length = 88
 
-filename = [
-	'src/frankenfit/*.py',
-	'tests/*.py',
+# in case someone runs `flake8` with no file args
+extend-exclude = [
+    'scratch_*',
+    'docs',
+    'dist',
+    '.venv-dev',
+    '.mypy-cache',
+    '.pytest_cache',
+    '.vscode',
+    'notebooks',
 ]
 
 # compat with black around slice operators
