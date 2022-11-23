@@ -132,7 +132,7 @@ class IfHyperparamIsTrue(UniversalTransform):
     name: str
     then_transform: Transform
     otherwise: Optional[Transform] = None
-    allow_unresolved: Optional[bool] = False
+    allow_unresolved: bool = False
 
     def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
         bindings = bindings or {}
