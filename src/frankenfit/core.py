@@ -34,11 +34,9 @@ from __future__ import annotations
 import copy
 import inspect
 import logging
-import operator
-import types
 import warnings
 from abc import ABC, abstractmethod
-from functools import reduce, wraps
+from functools import wraps
 from textwrap import dedent
 from typing import (
     Any,
@@ -84,38 +82,6 @@ def is_iterable(obj):
     except TypeError:
         return False
     return True
-
-
-def flatten_tuples(xs):
-    for x in xs:
-        if isinstance(x, tuple):
-            yield from flatten_tuples(x)
-        else:
-            yield x
-
-
-def copy_function(f):
-    # Based on http://stackoverflow.com/a/6528148/190597 (Glenn Maynard)
-    g = types.FunctionType(
-        f.__code__,
-        f.__globals__,
-        name=f.__name__,
-        argdefs=f.__defaults__,
-        closure=f.__closure__,
-    )
-    # NOTE: we must not use functools.update_wrapper, because that sets the
-    # __wrapped__ attribute, which we DON'T want, because it causes help() and
-    # friends to do the wrong thing. E.g., we won't be able to change the
-    # signature reported by help(). PyPI package `makefun` could also work, but
-    # does more than we need.
-    g.__name__ = f.__name__
-    g.__qualname__ = f.__qualname__
-    g.__doc__ = f.__doc__
-    g.__module__ = f.__module__
-    g.__dict__.update(f.__dict__)
-    g.__kwdefaults__ = f.__kwdefaults__
-    g.__annotations__ = dict(inspect.get_annotations(f))
-    return g
 
 
 # last auto-generated tag number for a given Transform class name. Used for
@@ -513,13 +479,6 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         field_names = list(fields_dict(self.__class__).keys())
         return field_names
 
-    def annotations(self) -> dict[str, str]:
-        def _get_annos(t: type) -> tuple[dict, ...]:
-            return tuple(inspect.get_annotations(x) for x in (t,) + t.__bases__)
-
-        dicts = list(flatten_tuples(_get_annos(type(self))))
-        return reduce(operator.or_, dicts)
-
     def hyperparams(self) -> set[str]:
         """
         Return the set of hyperparameter names that this :class:`Transform` expects to
@@ -560,7 +519,6 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         bindings = bindings or {}
         params = self.params()
         # TODO someday: check types of bound values against annotations
-        # annos = self.annotations()
         resolved_transform = copy.copy(self)
         unresolved = []
         for name in params:
