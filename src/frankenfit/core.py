@@ -224,8 +224,6 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         Return the bindings dict according to which the transformation's hyperparameters
         were resolved.
         """
-        if self.__bindings is None:
-            return {}
         return self.__bindings
 
     def state(self) -> Any:

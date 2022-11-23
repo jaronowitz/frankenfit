@@ -68,6 +68,7 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
         "state=<class 'pandas.core.series.Series'>, "
         "bindings={})"
     )
+    assert fit.bindings() == {}
     assert fit.state().equals(diamonds_df[cols].mean())
     result = fit.apply(diamonds_df)
     assert result[cols].equals(diamonds_df[cols] - diamonds_df[cols].mean())
@@ -237,6 +238,8 @@ def test_override_fit_apply(
     diamonds_df: pd.DataFrame, capsys: pytest.CaptureFixture
 ) -> None:
     class FitDeMean(ff.FitTransform["DeMean", pd.DataFrame, pd.DataFrame]):
+        # FIXME: It's kind of unfortunate that the user has to provide all of these
+        # overloads for mypy to pass
         @overload
         def apply(
             self,
