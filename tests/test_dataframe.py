@@ -401,6 +401,9 @@ def test_complex_pipeline_1(diamonds_df: pd.DataFrame):
 
     assert cloudpickle.loads(cloudpickle.dumps(pipeline)) == pipeline
 
+    # should visualize without error
+    pipeline.visualize()
+
     # TODO: test more stuff with this pipeline
 
 

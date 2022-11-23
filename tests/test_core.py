@@ -477,3 +477,9 @@ def test_FitTransform_materialize_state() -> None:
 
     fit = pip.fit()
     assert fit.materialize_state() is fit
+
+
+def test_simple_visualize() -> None:
+    p = ff.Identity[str]().then()
+    # for now, just ensure no exceptions
+    p.visualize()
