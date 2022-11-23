@@ -136,6 +136,8 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
     ``state`` argument of the user's ``_apply()`` method).
     """
 
+    _Self = TypeVar("_Self", bound="FitTransform")
+
     def __init__(
         self,
         resolved_transform: R_co,
@@ -233,14 +235,25 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         """
         return self.__state
 
+    def materialize_state(self: _Self) -> _Self:
+        state = self.state()
+        if isinstance(state, Future):
+            return type(self)(
+                self.resolved_transform(), state.result(), self.bindings()
+            )
+        else:
+            return self
+
     def find_by_tag(self, tag: str):
-        # TODO: address implementation of find_by_tag on FitTransform. We should
-        # consider both FitTransform-valued params and FitTransform objects in
-        # our state.
         if self.tag == tag:
             return self
 
         val = self.state()
+        if isinstance(val, Future):
+            raise ValueError(
+                "FitTransform.find_by_tag: impossible on Future state. "
+                "Try materialize_state() first."
+            )
         if isinstance(val, FitTransform):
             try:
                 return val.find_by_tag(tag)

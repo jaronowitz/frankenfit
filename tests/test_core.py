@@ -32,6 +32,7 @@ from pydataset import data  # type: ignore
 
 import frankenfit as ff
 import frankenfit.core as core
+import frankenfit.universal as universal
 from frankenfit.backend import DummyBackend, Future
 
 PYVERSION = (version_info.major, version_info.minor)
@@ -76,6 +77,8 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
     assert isinstance(t, ff.Transform)
     assert not isinstance(fit, ff.Transform)
     assert isinstance(fit, ff.FitTransform)
+    with pytest.raises(TypeError):
+        DeMean(cols, tag=42)  # type: ignore [arg-type]
 
 
 def test_Transform_fit_apply_valence() -> None:
@@ -422,6 +425,34 @@ def test_tags(diamonds_df: pd.DataFrame) -> None:
         transforms=[ff.Identity(), tagged_ident, ff.Identity()]
     )
     assert pip.find_by_tag("mytag") is tagged_ident
+    with pytest.raises(KeyError):
+        pip.find_by_tag("mingus dew")
 
     fit = pip.fit(diamonds_df)
     assert isinstance(fit.find_by_tag("mytag").resolved_transform(), ff.Identity)
+    with pytest.raises(KeyError):
+        fit.find_by_tag("mingus dew")
+
+    ihp = universal.IfHyperparamIsTrue("my-hp", ff.Identity(), otherwise=tagged_ident)
+    assert ihp.find_by_tag("mytag") is tagged_ident
+    ihp_fit = ihp.fit(bindings={"my-hp": False})
+    assert isinstance(ihp_fit.find_by_tag("mytag").resolved_transform(), ff.Identity)
+
+    ihp_fit = ihp.fit(bindings={"my-hp": True})
+    with pytest.raises(KeyError):
+        ihp_fit.find_by_tag("mytag")
+
+
+def test_FitTransform_materialize_state() -> None:
+    tagged_ident = ff.Identity[Any](tag="mytag")
+    pip = core.BasePipeline[Any](
+        transforms=[ff.Identity(), tagged_ident, ff.Identity()]
+    )
+    fit = pip.fit(backend=DummyBackend())
+    assert isinstance(fit.state(), Future)
+    with pytest.raises(ValueError):
+        fit.find_by_tag("mytag")
+
+    fit_mat = fit.materialize_state()
+    assert not isinstance(fit_mat.state(), Future)
+    assert isinstance(fit_mat.find_by_tag("mytag").resolved_transform(), ff.Identity)
