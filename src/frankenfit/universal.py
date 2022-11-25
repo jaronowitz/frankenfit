@@ -374,18 +374,24 @@ class LogMessage(Identity):
 
     fit_msg: Optional[str] = None
     apply_msg: Optional[str] = None
-    logger: Optional[logging.Logger] = None
+    logger_name: Optional[str] = None
     level: int = logging.INFO
 
     def _fit(self, data_fit: Any) -> None:
         if self.fit_msg is not None:
-            logger = self.logger or _LOG
+            if self.logger_name is not None:
+                logger = logging.getLogger(self.logger_name)
+            else:
+                logger = _LOG
             logger.log(self.level, self.fit_msg)
         return super()._fit(data_fit)
 
     def _apply(self, data_apply: T, state: None) -> T:
         if self.apply_msg is not None:
-            logger = self.logger or _LOG
+            if self.logger_name is not None:
+                logger = logging.getLogger(self.logger_name)
+            else:
+                logger = _LOG
             logger.log(self.level, self.apply_msg)
         return super()._apply(data_apply, state)
 
