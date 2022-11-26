@@ -19,7 +19,37 @@ dependencies = [
     'pandas',
     'pyarrow',
     'graphviz',
-    'distributed',  # TODO: make this an extra?
+]
+
+[project.optional-dependencies]
+dask = [
+    'distributed'
+]
+
+tests = [
+    'frankenfit[dask]',
+    'tox',
+    'pytest',
+    'pytest-xdist',
+    'pytest-cov',
+    'pydataset',
+    'scikit-learn',
+    'statsmodels',
+    'mypy',
+    'pandas-stubs',
+]
+
+docs = [
+    'jupyter-book',
+    'furo',
+]
+
+dev = [
+    'frankenfit[dask,docs,tests]',
+    'flake8',
+    'flake8-pyproject',
+    'pre-commit',
+    'build',
 ]
 
 [tool.flake8]

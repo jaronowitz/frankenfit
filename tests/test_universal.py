@@ -61,12 +61,14 @@ def test_Print(diamonds_df: pd.DataFrame):
     df = t.fit(diamonds_df).apply(diamonds_df)
     assert buf.getvalue() == fit_msg + "\n" + apply_msg + "\n" + apply_msg + "\n"
     assert df.equals(diamonds_df)
+    buf.close()
 
     buf = StringIO()
     t = ff.UniversalPipeline().print(fit_msg=None, apply_msg=None, dest=buf)
     df = t.fit(diamonds_df).apply(diamonds_df)
     assert buf.getvalue() == ""
     assert df.equals(diamonds_df)
+    buf.close()
 
 
 def test_IfHyperparamIsTrue(diamonds_df: pd.DataFrame):

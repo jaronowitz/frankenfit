@@ -30,10 +30,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from typing import Any, cast, Callable, Optional, TypeVar, Generic
+import warnings
 
 from attrs import define, field
-from dask import distributed
-from dask.base import tokenize
+
+try:
+    from dask import distributed
+    from dask.base import tokenize
+except ImportError:  # pragma: no cover
+    distributed = None  # type: ignore [assignment]
 
 T_co = TypeVar("T_co", covariant=True)
 
@@ -86,6 +91,12 @@ class DummyBackend(Backend):
 
 
 def _convert_to_address(obj: str | None | distributed.Client):
+    if distributed is None:  # pragma: no cover
+        warnings.warn(
+            "Creating a DaskBackend but dask.distributed is not installed. Try "
+            'installing frankenfit with the "dask" extra; that is:  `pip install '
+            "frankenfit[dask]`."
+        )
     if obj is None:
         return None
     if isinstance(obj, str):
