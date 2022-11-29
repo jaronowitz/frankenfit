@@ -96,11 +96,11 @@ class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
 
     @abstractmethod
     def _fit(self, data_fit: pd.DataFrame) -> Any:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
     @abstractmethod
     def _apply(self, data_apply: pd.DataFrame, state: Any) -> pd.DataFrame:
-        raise NotImplementedError
+        raise NotImplementedError  # pragma: no cover
 
 
 class StatelessDataFrameTransform(
@@ -577,7 +577,13 @@ class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
 
 
 def _weighted_means(df: pd.DataFrame, cols: list[str], w_col: str) -> pd.Series:
-    return df[cols].multiply(df[w_col], axis="index").sum() / df[w_col].sum()
+    df = df.loc[df[w_col].notnull()]
+    w = df[w_col]
+    wsums = df[cols].multiply(w, axis="index").sum()
+    return pd.Series(
+        [wsums[col] / w.loc[df[col].notnull()].sum() for col in wsums.index],
+        index=wsums.index,
+    )
 
 
 @params

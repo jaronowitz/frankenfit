@@ -91,6 +91,20 @@ def test_DeMean(diamonds_df: pd.DataFrame):
     result = t.fit(diamonds_df).apply(diamonds_df)
     assert (result[cols].mean().abs() < 1e-10).all()
 
+    df = pd.DataFrame(
+        {
+            "col1": pd.Series([1.0, np.nan, 2.0]),
+            "col2": pd.Series([0.3, 0.3, 0.4]),
+        }
+    )
+    wmean = (0.3 / 0.7) * 1 + (0.4 / 0.7) * 2
+    assert (
+        ff.DataFramePipeline()
+        .de_mean(["col1"], w_col="col2")
+        .apply(df)["col1"]
+        .equals(df["col1"] - wmean)
+    )
+
 
 def test_CopyColumns(diamonds_df: pd.DataFrame):
     cols = ["price", "x", "y", "z"]
@@ -162,6 +176,13 @@ def test_CopyColumns(diamonds_df: pd.DataFrame):
             .copy(ff.HP("response"), "{response}_copy")
             .fit(df, bindings=bindings)
         )
+    with pytest.raises(TypeError):
+        # HP("dest") resolves to a str, not a list of str
+        _ = (
+            ff.DataFramePipeline()
+            .copy(["price"], ff.HP("dest"))
+            .fit(df, bindings={"dest": "price_copy"})
+        )
 
 
 def test_Select(diamonds_df: pd.DataFrame):
@@ -186,6 +207,17 @@ def test_Filter(diamonds_df: pd.DataFrame):
     for which_cut in ("Premium", "Good"):
         result_df = pip.apply(diamonds_df, bindings={"which_cut": which_cut})
         assert (result_df["cut"] == which_cut).all()
+
+    # TypeError if filter_fun takes wrong number of args
+    with pytest.raises(TypeError):
+        ff.DataFramePipeline().filter(lambda: True).apply(  # type: ignore [arg-type]
+            diamonds_df
+        )
+
+    with pytest.raises(TypeError):
+        ff.DataFramePipeline().filter(
+            lambda a, b, c: True  # type: ignore [arg-type]
+        ).apply(diamonds_df)
 
 
 def test_RenameColumns(diamonds_df: pd.DataFrame):
@@ -235,6 +267,16 @@ def test_Winsorize() -> None:
     result = ff.DataFramePipeline().winsorize(["col1"], 0.2).fit(df).apply(df)
     assert (result["col1"] > 20).all() and (result["col1"] < 81).all()
 
+    # limits out of bounds
+    with pytest.raises(ValueError):
+        ff.DataFramePipeline().winsorize(["col1"], -0.2).fit(df)
+    with pytest.raises(ValueError):
+        ff.DataFramePipeline().winsorize(["col1"], 1.2).fit(df)
+    with pytest.raises(TypeError):
+        ff.DataFramePipeline().winsorize(["col1"], ff.HP("limit")).fit(
+            df, bindings={"limit": "a"}  # non-float
+        )
+
 
 def test_ImputeMean() -> None:
     df = pd.DataFrame({"col1": pd.Series([1.0, np.nan, 2.0])})
@@ -245,6 +287,32 @@ def test_ImputeMean() -> None:
         .apply(df)
         .equals(pd.DataFrame({"col1": pd.Series([1.0, 1.5, 2.0])}))
     )
+    # with weights
+    df = pd.DataFrame(
+        {
+            "col1": pd.Series([1.0, np.nan, 2.0]),
+            "col2": pd.Series([0.1, np.nan, 0.9]),
+        }
+    )
+    assert (
+        ff.DataFramePipeline()
+        .impute_mean(["col1"], w_col="col2")
+        .apply(df)["col1"]
+        .equals(pd.Series([1.0, 0.1 * 1 + 0.9 * 2, 2.0]))
+    )
+    # with weights (ignoring weights of missing obs)
+    df = pd.DataFrame(
+        {
+            "col1": pd.Series([1.0, np.nan, 2.0]),
+            "col2": pd.Series([0.3, 0.3, 0.4]),
+        }
+    )
+    assert (
+        ff.DataFramePipeline()
+        .impute_mean(["col1"], w_col="col2")
+        .apply(df)["col1"]
+        .equals(pd.Series([1.0, (0.3 / 0.7) * 1 + (0.4 / 0.7) * 2, 2.0]))
+    )
 
 
 def test_ZScore(diamonds_df: pd.DataFrame):
@@ -254,6 +322,20 @@ def test_ZScore(diamonds_df: pd.DataFrame):
     assert result["price"].equals(
         (diamonds_df["price"] - diamonds_df["price"].mean())
         / diamonds_df["price"].std()
+    )
+
+    df = pd.DataFrame(
+        {
+            "col1": pd.Series([1.0, np.nan, 2.0]),
+            "col2": pd.Series([0.3, 0.3, 0.4]),
+        }
+    )
+    wmean = (0.3 / 0.7) * 1 + (0.4 / 0.7) * 2
+    assert (
+        ff.DataFramePipeline()
+        .z_score(["col1"], w_col="col2")
+        .apply(df)["col1"]
+        .equals((df["col1"] - wmean) / df["col1"].std())
     )
 
 
@@ -336,7 +418,28 @@ def test_SKLearn(diamonds_df: pd.DataFrame):
     result = sk.fit(diamonds_df).apply(diamonds_df)
     assert result.equals(target)
 
-    # TODO: test w_col
+    # with sample weight
+    target_preds = (
+        LinearRegression(fit_intercept=True)
+        .fit(
+            diamonds_df[["depth", "table"]],
+            diamonds_df["price"],
+            sample_weight=diamonds_df["carat"],
+        )
+        .predict(diamonds_df[["depth", "table"]])
+    )
+    target = diamonds_df.assign(price_hat=target_preds)
+    sk = ff.DataFramePipeline().sk_learn(
+        LinearRegression,
+        ["depth", "table"],
+        "price",
+        "price_hat",
+        w_col="carat",
+        class_params={"fit_intercept": True},
+    )
+    result = sk.fit(diamonds_df).apply(diamonds_df)
+    assert result.equals(target)
+
     # TODO: test hyperparameterizations
 
 
@@ -562,10 +665,12 @@ def test_read_write_dataset(diamonds_df: pd.DataFrame, tmp_path):
 
 
 def test_Assign(diamonds_df: pd.DataFrame):
+    # kwargs style
     result = (
         ff.DataFramePipeline().assign(
             intercept=1,
             grp=lambda df: df.index % 5,
+            grp_self=lambda self, df: df.index % len(self.assignments),
             grp_2=lambda self, bindings, df: df.index % bindings["k"],
         )
     ).apply(diamonds_df, bindings={"k": 3})
@@ -580,6 +685,7 @@ def test_Assign(diamonds_df: pd.DataFrame):
         result["grp_2"] == (diamonds_df.index % 3),  # type: ignore [operator]
     ).all()
 
+    # assignment_dict style
     result = (
         ff.DataFramePipeline().assign(
             {
@@ -595,6 +701,16 @@ def test_Assign(diamonds_df: pd.DataFrame):
         pd.DataFrame,
         result["grp_3"] == (diamonds_df.index % 3),  # type: ignore [operator]
     ).all()
+
+    with pytest.raises(ValueError):
+        ff.DataFramePipeline().assign({"foo": 1}, bar=1)
+
+    with pytest.raises(ValueError):
+        ff.DataFramePipeline().assign({"foo": 1}, {"bar": 1})
+
+    with pytest.raises(TypeError):
+        # lambda takes too many args
+        ff.DataFramePipeline().assign(foo=lambda self, bindings, df, extra: 1).apply()
 
 
 def test_GroupByBindings(diamonds_df: pd.DataFrame):
@@ -622,3 +738,16 @@ def test_GroupByBindings(diamonds_df: pd.DataFrame):
     ).set_index("target_col")
 
     assert result.equals(target)
+
+
+def test_Drop(diamonds_df: pd.DataFrame):
+    result = ff.DataFramePipeline().drop(["price"]).apply(diamonds_df)
+    assert result.equals(diamonds_df.drop(["price"], axis=1))
+
+
+def test_Pipe(diamonds_df: pd.DataFrame):
+    result = (
+        ff.DataFramePipeline().pipe(["carat", "price"], np.log1p).apply(diamonds_df)
+    )
+    assert (result["carat"] == np.log1p(diamonds_df["carat"])).all()
+    assert (result["price"] == np.log1p(diamonds_df["price"])).all()
