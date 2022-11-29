@@ -71,3 +71,16 @@ def test_DaskBackend():
     backend = ff.DaskBackend()
     fut = backend.submit("key-foo", foo, 42)
     assert fut.result() == "foo(42)"
+
+    # string address
+    backend = ff.DaskBackend(client.scheduler.address)
+    fut = backend.submit("key-foo", foo, 42)
+    assert fut.result() == "foo(42)"
+
+    with pytest.raises(TypeError):
+        ff.DaskBackend(42.0)
+
+    # Dummy future should be materialized seamlessly
+    dummy_fut = ff.DummyBackend().submit("forty_two", forty_two)
+    fut = backend.submit("key-foo", foo, dummy_fut)
+    assert fut.result() == "foo(42)"
