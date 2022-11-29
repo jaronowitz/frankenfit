@@ -166,6 +166,15 @@ def test_IfHyperparamLambda(diamonds_df: pd.DataFrame):
     )
     assert result.equals(target_demean)
 
+    (
+        ff.UniversalPipeline().if_hyperparam_lambda(condition, lambda_add_ones)
+    ).visualize()
+    (
+        ff.UniversalPipeline().if_hyperparam_lambda(
+            condition, lambda_add_ones, otherwise=lambda_demean
+        )
+    ).visualize()
+
 
 def test_IfFittingDataHasProperty(diamonds_df: pd.DataFrame):
     df = diamonds_df
@@ -213,6 +222,15 @@ def test_IfFittingDataHasProperty(diamonds_df: pd.DataFrame):
         .apply(df)
     )
     assert result.equals(target_demean)
+
+    (
+        ff.UniversalPipeline().if_fitting_data_has_property(property, lambda_add_ones)
+    ).visualize()
+    (
+        ff.UniversalPipeline().if_fitting_data_has_property(
+            property, lambda_add_ones, otherwise=lambda_demean
+        )
+    ).visualize()
 
 
 def test_StatelessLambda(diamonds_df: pd.DataFrame):
