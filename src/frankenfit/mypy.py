@@ -23,7 +23,7 @@
 """
 A Mypy plugin for use when typechecking code that uses the frankenfit library.
 Piggy-backs on the built-in attrs plugin to make Mypy aware of the automagic
-that the @param decorator does, and also expands the constructor signatures of
+that the @params decorator does, and also expands the constructor signatures of
 Transform subclasses to allow hyperparameters (`HP` instances) for all
 parameters, in addition to their annotated types.
 
@@ -34,14 +34,12 @@ Example mypy config in `pyroject.toml`::
 
 """
 from __future__ import annotations
-from typing import Callable, cast
-from warnings import warn
+from typing import Callable
 
-from mypy.nodes import ClassDef, TypeInfo
-from mypy.plugin import ClassDefContext, Plugin, SemanticAnalyzerPluginInterface
+from mypy.plugin import ClassDefContext, Plugin, FunctionSigContext
 from mypy.plugins.attrs import attr_attrib_makers, attr_define_makers
-from mypy.plugins.common import add_attribute_to_class
-from mypy.types import AnyType, Instance, TypeOfAny, TypeType
+from mypy.types import Instance, FunctionLike
+from mypy.typeops import make_simplified_union
 
 PARAMS_DECORATOR = "frankenfit.params.params"
 TRANSFORM_BASE_CLASS = "frankenfit.core.Transform"
@@ -60,69 +58,55 @@ attr_define_makers.add(PARAMS_DECORATOR)
 for maker in TRANSFORM_FIELD_MAKERS:
     attr_attrib_makers.add(maker)
 
-
-def make_fit_transform_subclass_type_info(
-    api: SemanticAnalyzerPluginInterface, transform_classdef: ClassDef
-) -> TypeInfo:
-    transform_class_name = transform_classdef.name
-    fit_transform_subclass_name = f"Fit{transform_class_name}"
-
-    base_type = api.lookup_fully_qualified("frankenfit.core.FitTransform").node
-    assert base_type is not None
-    base_type = cast("TypeInfo", base_type)
-    sub_type = api.basic_new_typeinfo(
-        fit_transform_subclass_name, Instance(base_type, []), -1
-    )
-
-    return sub_type
+known_transform_subclasses: set[str] = {TRANSFORM_BASE_CLASS}
 
 
 def transform_base_class_callback(ctx: ClassDefContext) -> None:
     """
-    Callback invoked when mypy encounters a subclass deriving from
-    frankenfit.core.Transform. Makes mypy aware of the metaclass automagic
-    that Transform subclasses do.
+    Keeps track of Transform subclasses.
     """
+    known_transform_subclasses.add(ctx.cls.fullname)
+    return
 
-    # TODO: patch every __init__ arg to be a Union with HP
 
-    transform_class_name = ctx.cls.name
-    fit_transform_class_name = f"Fit{transform_class_name}"
+def transform_constructor_sig_callback(ctx: FunctionSigContext) -> FunctionLike:
+    """
+    Adjust the signature of every Transform subclass's constructor such that all
+    non-`tag` arguments have their types unioned with `HP`.
+    """
+    sig = ctx.default_signature
+    new_arg_types = []
+    # For some reason ctx.api.lookup_typeinfo() raises an AssertionError, so we
+    # to dig into the modules ourselves to find frankenfit.params.HP
+    params_module = ctx.api.modules["frankenfit.params"]  # type: ignore [attr-defined]
+    hp_typeinfo = params_module.names["HP"].node
+    hp_type = Instance(hp_typeinfo, [])
+    for arg_name, arg_type in zip(sig.arg_names, sig.arg_types):
+        if arg_name == "tag":
+            # don't allow special "tag" param to be hyperparameterized
+            new_arg_types.append(arg_type)
+        else:
+            new_arg_types.append(make_simplified_union([arg_type, hp_type]))
 
-    # Make a new TypeInfo for the FitTransform subclass that gets generated for
-    # this Transform
-    fit_transform_class_type: AnyType | TypeType
-    try:
-        fit_transform_type_info = make_fit_transform_subclass_type_info(
-            ctx.api, ctx.cls
-        )
-    except Exception as e:
-        warn(f"Unable to FitTransform subclass typeinfo with mypy API: {e}")
-        fit_transform_class_type = AnyType(TypeOfAny.unannotated)
-    else:
-        fit_transform_class_type = TypeType(Instance(fit_transform_type_info, []))
-
-    # Make mypy aware of the dynamically created class variable for the
-    # FitTransform subclass. E.g., DeMean.FitDemean
-    add_attribute_to_class(
-        ctx.api,
-        ctx.cls,
-        fit_transform_class_name,
-        fit_transform_class_type,
-        is_classvar=True,
-    )
-
-    # Tell mypy that e.g. DeMean.fit() returns a DeMean.FitDemean instance
+    return sig.copy_modified(arg_types=new_arg_types)
 
 
 class FrankenfitPlugin(Plugin):
+    def get_function_signature_hook(
+        self, fullname: str
+    ) -> Callable[[FunctionSigContext], FunctionLike] | None:
+        if fullname in known_transform_subclasses:
+            return transform_constructor_sig_callback
+        else:
+            return None
+
     def get_base_class_hook(
         self, fullname: str
     ) -> Callable[[ClassDefContext], None] | None:
-        return None
-        if fullname == TRANSFORM_BASE_CLASS:
-            # print("get_base_class_hook:", fullname)
+        if fullname in known_transform_subclasses:
             return transform_base_class_callback
+        else:
+            return None
 
 
 def plugin(version: str):

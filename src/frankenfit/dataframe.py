@@ -1064,10 +1064,10 @@ class DataFramePipelineInterface(
         join = Join(
             self,
             right,
-            how,  # type: ignore [arg-type]
-            on=on,  # type: ignore [arg-type]
-            left_on=left_on,  # type: ignore [arg-type]
-            right_on=right_on,  # type: ignore [arg-type]
+            how,
+            on=on,
+            left_on=left_on,
+            right_on=right_on,
             suffixes=suffixes,
         )
         return type(self)(transforms=join)

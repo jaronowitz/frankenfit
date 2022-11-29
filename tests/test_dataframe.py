@@ -59,7 +59,7 @@ def test_ColumnsTransform(diamonds_df: pd.DataFrame):
     assert t.apply(df).equals(df[["x", "y", "z"]])
     t = ffdf.Select("z")  # type: ignore [arg-type]
     assert t.apply(df).equals(df[["z"]])
-    t = ffdf.Select(ff.HP("which_cols"))  # type: ignore [arg-type]
+    t = ffdf.Select(ff.HP("which_cols"))
     assert (
         t.fit(df, bindings={"which_cols": ["x", "y", "z"]})
         .apply(df)
