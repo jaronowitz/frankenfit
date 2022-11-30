@@ -475,8 +475,9 @@ def test_FitTransform_materialize_state() -> None:
     assert not isinstance(fit_mat.state(), Future)
     assert isinstance(fit_mat.find_by_tag("mytag").resolved_transform(), ff.Identity)
 
+    # there should be nothing to materialize
     fit = pip.fit()
-    assert fit.materialize_state() is fit
+    assert fit.materialize_state() == fit
 
 
 def test_simple_visualize() -> None:

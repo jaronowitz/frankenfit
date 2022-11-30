@@ -158,6 +158,13 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
             f")"
         )
 
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        if repr(self) != repr(other):
+            return False
+        return self.state() == cast(FitTransform, other).state()
+
     @overload
     def apply(
         self,
@@ -957,9 +964,64 @@ class Grouper(Generic[P_co]):
 DataInOut = TypeVar("DataInOut")
 
 
+class FitBasePipeline(
+    Generic[P_co, DataInOut], FitTransform[P_co, DataInOut, DataInOut]
+):
+    _Self = TypeVar("_Self", bound="FitBasePipeline")
+
+    def materialize_state(self: _Self) -> _Self:
+        # because a pipeline's state is just a list of FitTransform objects, we
+        # may need to materialize its contents
+        ft = super().materialize_state()
+        state: list[FitTransform] = ft.state()
+        assert isinstance(state, list)
+        mat_state = [sub_ft.materialize_state() for sub_ft in state]
+        return type(self)(self.resolved_transform(), mat_state, self.bindings())
+
+    @overload
+    def apply(
+        self,
+        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
+        *,
+        backend: None = None,
+    ) -> DataInOut:
+        ...  # pragma: no cover
+
+    @overload
+    def apply(
+        self,
+        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
+        *,
+        backend: Backend,
+    ) -> Future[DataInOut]:
+        ...  # pragma: no cover
+
+    def apply(
+        self,
+        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
+        *,
+        backend: Optional[Backend] = None,
+    ) -> DataInOut | Future[DataInOut]:
+        state = self.state()
+        fit_transforms: list[FitTransform]
+        if isinstance(state, Future):
+            fit_transforms = state.result()
+        else:
+            fit_transforms = state
+
+        data = data_apply
+        for fit_transform in fit_transforms:
+            data = fit_transform.apply(data, backend=backend)
+
+        # FIXME: if pipeline is empty! Future[None]?
+        return data  # type: ignore [return-value]
+
+
 @params
 class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     _pipeline_methods: ClassVar[list[str]] = []
+
+    FitTransformClass: ClassVar[Type[FitTransform]] = FitBasePipeline
 
     class _Grouper(Grouper):
         pass
@@ -1041,20 +1103,36 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     def _fit(
         self, data_fit: Any, bindings: Optional[Bindings] = None
     ) -> list[FitTransform]:
-        # TODO: run on backend
+        raise NotImplementedError(  # pragma: no cover
+            "frankenfit internal error: BasePipeline._fit not implemented."
+        )
+
+    def fit(
+        self: P,
+        data_fit: Optional[DataInOut | Future[DataInOut]] = None,
+        bindings: Optional[Bindings] = None,
+        *,
+        backend: Optional[Backend] = None,
+    ) -> FitTransform[P, DataInOut, DataInOut]:
+        resolved_self = self._resolve_hyperparams(bindings)
         fit_transforms = []
-        for t in self.transforms:
-            ft = t.fit(data_fit, bindings=bindings)
-            data_fit = ft.apply(data_fit)
+        for t in resolved_self.transforms:
+            ft = t.fit(data_fit, bindings=bindings, backend=backend)
+            data_fit = ft.apply(data_fit, backend=backend)
             fit_transforms.append(ft)
-        return fit_transforms
+
+        state: list[FitTransform] | Future[list[FitTransform]]
+        if backend is not None:
+            state = DummyFuture(fit_transforms)
+        else:
+            state = fit_transforms
+
+        return type(self).FitTransformClass(resolved_self, state, bindings)
 
     def _apply(self, data_apply: Any, state: list[FitTransform]) -> Any:
-        # TODO: run on backend
-        df = data_apply
-        for fit_transform in state:
-            df = fit_transform.apply(df)
-        return df
+        raise NotImplementedError(  # pragma: no cover
+            "frankenfit internal error: BasePipeline._apply not implemented."
+        )
 
     def __len__(self):
         return len(self.transforms)
@@ -1065,7 +1143,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         data_fit: Optional[DataInOut | Future[DataInOut]] = None,
         bindings: Optional[Bindings] = None,
     ) -> DataInOut:
-        ...
+        ...  # pragma: no cover
 
     @overload
     def apply(
@@ -1075,7 +1153,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         *,
         backend: Backend,
     ) -> Future[DataInOut]:
-        ...
+        ...  # pragma: no cover
 
     # TODO: should return type be optional?
     def apply(
