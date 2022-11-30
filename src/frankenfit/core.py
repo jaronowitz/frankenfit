@@ -50,6 +50,7 @@ from typing import (
     Sized,
     Type,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -1009,19 +1010,54 @@ class FitBasePipeline(
         else:
             fit_transforms = state
 
+        # Empty pipeline:
+        # Identity when applied to data; empty_constructor() when applied to None.
+        if len(fit_transforms) == 0:
+            empty_constructor = type(self.resolved_transform()).empty_constructor
+            if backend is not None:
+                # Caller expects us to return a Future if they provided a backend
+                if isinstance(data_apply, Future):
+                    # we don't know what the future will materialize to!
+                    return data_apply
+                elif data_apply is None:
+                    return DummyFuture[DataInOut](empty_constructor())
+                else:
+                    return DummyFuture[DataInOut](data_apply)
+            elif isinstance(data_apply, Future):
+                # No backend provided: must return materialized data
+                result = data_apply.result()
+                if result is None:
+                    return empty_constructor()
+                else:
+                    return result
+            else:
+                if data_apply is None:
+                    return empty_constructor()
+                else:
+                    return data_apply
+
         data = data_apply
         for fit_transform in fit_transforms:
             data = fit_transform.apply(data, backend=backend)
 
-        # FIXME: if pipeline is empty! Future[None]?
-        return data  # type: ignore [return-value]
+        # cast: we know that fit_transforms is non-empty (but mypy isn't smart
+        # enough to infer this), and because fit_transform.apply() does NOT return
+        # Optional, we know that data is not None
+        data = cast(Union[DataInOut, Future[DataInOut]], data)
+        return data
 
 
-@params
+def make_none():
+    return None
+
+
+@params(auto_attribs=False)
 class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     _pipeline_methods: ClassVar[list[str]] = []
 
     FitTransformClass: ClassVar[Type[FitTransform]] = FitBasePipeline
+
+    empty_constructor: Callable[[], DataInOut] = make_none
 
     class _Grouper(Grouper):
         pass
@@ -1177,29 +1213,40 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         :return: The result of fitting this :class:`Pipeline` and applying it to its own
             fitting data.
         """
-        # TODO: think more about what to do when applying an empty pipeline.
-        # Identity? Collapse to None? Subclass-specific empty result? (E.g.
-        # empty DataFramePipeline produces an emtpy DataFrame.)
-        # Current implementation is like Identity | None
+        # Empty pipeline:
+        # Identity when applied to data; empty_constructor() when applied to None.
         if len(self.transforms) == 0:
             if backend is not None:
                 # Caller expects us to return a Future if they provided a backend
                 if isinstance(data_fit, Future):
+                    # we don't know what the future will materialize to!
                     return data_fit
+                elif data_fit is None:
+                    return DummyFuture[DataInOut](type(self).empty_constructor())
                 else:
-                    # TODO: what if data_fit is None?
-                    return DummyFuture(data_fit)  # type: ignore [arg-type]
+                    return DummyFuture[DataInOut](data_fit)
             elif isinstance(data_fit, Future):
                 # No backend provided: must return materialized data
-                return data_fit.result()
+                result = data_fit.result()
+                if result is None:
+                    return type(self).empty_constructor()
+                else:
+                    return result
             else:
-                # TODO: what if data_fit is None?
-                return data_fit  # type: ignore [return-value]
+                if data_fit is None:
+                    return type(self).empty_constructor()
+                else:
+                    return data_fit
 
         for t in self.transforms:
             ft = t.fit(data_fit, bindings=bindings, backend=backend)
             data_fit = ft.apply(data_fit, backend=backend)
-        return data_fit  # type: ignore [return-value]
+
+        # cast: we know that self.transforms is non-empty (but mypy isn't smart
+        # enough to infer this), and because ft.apply() does NOT return
+        # Optional, we know that data_fit is not None
+        data_fit = cast(Union[DataInOut, Future[DataInOut]], data_fit)
+        return data_fit
 
     def __add__(
         self: P,

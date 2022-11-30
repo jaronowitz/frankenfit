@@ -33,7 +33,7 @@ from pydataset import data  # type: ignore
 import frankenfit as ff
 import frankenfit.core as core
 import frankenfit.universal as universal
-from frankenfit.backend import DummyBackend, Future
+from frankenfit.backend import DummyBackend, Future, DummyFuture
 
 PYVERSION = (version_info.major, version_info.minor)
 
@@ -484,3 +484,82 @@ def test_simple_visualize() -> None:
     p = ff.Identity[str]().then()
     # for now, just ensure no exceptions
     p.visualize()
+
+
+def test_empty_BasePipeline() -> None:
+    pip = ff.BasePipeline[str]()
+    fit = pip.fit()
+
+    # data_apply is not None, backend is None: identity
+    assert pip.apply("foo") == "foo"
+    assert fit.apply("foo") == "foo"
+
+    # data_apply is None, backend is None: empty_constructor() -> None
+    assert pip.apply() is None
+    assert fit.apply() is None
+
+    # data_apply is not None, backend is not None: future identity
+    dummy = DummyBackend()
+    assert pip.apply("foo", backend=dummy).result() == "foo"
+    assert fit.apply("foo", backend=dummy).result() == "foo"
+
+    # data_apply is None, backend is not None: future empty_constructor() -> future None
+    assert pip.apply(backend=dummy).result() is None
+    assert fit.apply(backend=dummy).result() is None
+
+    # data_apply is future not None, backend is None: identity
+    assert pip.apply(DummyFuture("foo")) == "foo"
+    assert fit.apply(DummyFuture("foo")) == "foo"
+
+    # data_apply is future None, backend is None: future empty_constructor() ->
+    # future None. This is actually an ill-formed call according to typechecker
+    # but we test it anyway
+    assert pip.apply(DummyFuture(None)) is None  # type: ignore [arg-type]
+    assert fit.apply(DummyFuture(None)) is None  # type: ignore [arg-type]
+
+    # data_apply is future not None, backend is not None: future identity
+    assert pip.apply(DummyFuture("foo"), backend=dummy).result() == "foo"
+    assert fit.apply(DummyFuture("foo"), backend=dummy).result() == "foo"
+
+    # data_apply is future None, backend is not None: future empty_constructor() ->
+    # future None
+    assert (
+        pip.apply(DummyFuture(None), backend=dummy).result()  # type: ignore [arg-type]
+        is None
+    )
+    assert (
+        fit.apply(DummyFuture(None), backend=dummy).result()  # type: ignore [arg-type]
+        is None
+    )
+
+
+def test_pipeline_then() -> None:
+    pip = ff.BasePipeline[str](transforms=[ff.Identity[str]()])
+    pip2 = ff.BasePipeline[str](transforms=[ff.Identity[str](), ff.Identity[str]()])
+    pip3 = ff.BasePipeline[str](
+        transforms=[ff.Identity[str](), ff.Identity[str](), ff.Identity[str]()]
+    )
+
+    assert pip.then() == pip
+    assert (pip + None) == pip
+
+    assert pip.then(pip) == pip2
+    assert pip + pip == pip2
+
+    assert pip.then(ff.Identity[str]()) == pip2
+    assert pip + ff.Identity[str]() == pip2
+
+    assert pip.then([ff.Identity[str]()]) == pip2
+    assert pip + [ff.Identity[str]()] == pip2
+
+    assert pip.then(pip2) == pip3
+    assert pip + pip2 == pip3
+
+    assert pip.then(pip2.transforms) == pip3
+    assert pip + pip2.transforms == pip3
+
+    with pytest.raises(TypeError):
+        pip.then("meow")  # type: ignore [arg-type]
+
+    with pytest.raises(TypeError):
+        pip + "meow"  # type: ignore [operator]

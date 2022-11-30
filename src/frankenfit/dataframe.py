@@ -1153,10 +1153,14 @@ class DataFramePipelineInterface(
         return cast(G_co, grouper)
 
 
+def make_empty_dataframe():
+    return pd.DataFrame()
+
+
 class DataFramePipeline(
     DataFramePipelineInterface[
         DataFrameGrouper["DataFramePipeline"], "DataFramePipeline"
     ],
     UniversalPipeline,
 ):
-    ...
+    empty_constructor: Callable[[], pd.DataFrame] = make_empty_dataframe

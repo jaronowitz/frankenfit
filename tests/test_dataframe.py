@@ -34,6 +34,7 @@ from pydataset import data  # type: ignore
 import frankenfit as ff
 import frankenfit.core as ffc
 import frankenfit.dataframe as ffdf
+from frankenfit.backend import DummyBackend, DummyFuture
 
 
 @pytest.fixture
@@ -751,3 +752,42 @@ def test_Pipe(diamonds_df: pd.DataFrame):
     )
     assert (result["carat"] == np.log1p(diamonds_df["carat"])).all()
     assert (result["price"] == np.log1p(diamonds_df["price"])).all()
+
+
+def test_empty_dataframe_pipeline(diamonds_df: pd.DataFrame):
+    df = diamonds_df
+    empty_df = pd.DataFrame()
+    pip = ff.DataFramePipeline()
+    fit = pip.fit()
+
+    # data_apply is not None, backend is None: identity
+    assert pip.apply(df).equals(df)
+    assert fit.apply(df).equals(df)
+
+    # data_apply is None, backend is None: empty_constructor() -> empty_df
+    assert pip.apply().equals(empty_df)
+    assert fit.apply().equals(empty_df)
+
+    # data_apply is not None, backend is not None: future identity
+    dummy = DummyBackend()
+    assert pip.apply(df, backend=dummy).result().equals(df)
+    assert fit.apply(df, backend=dummy).result().equals(df)
+
+    # data_apply is None, backend is not None: future empty_constructor() ->
+    # future empty_df
+    assert pip.apply(backend=dummy).result().equals(empty_df)
+    assert fit.apply(backend=dummy).result().equals(empty_df)
+
+    # data_apply is future not None, backend is None: identity
+    assert pip.apply(DummyFuture(df)).equals(df)
+    assert fit.apply(DummyFuture(df)).equals(df)
+
+    # data_apply is future None, backend is None: future empty_constructor() ->
+    # future empty_df. This is actually an ill-formed call according to
+    # typechecker but we test it anyway
+    assert pip.apply(DummyFuture(None)).equals(empty_df)  # type: ignore [arg-type]
+    assert fit.apply(DummyFuture(None)).equals(empty_df)  # type: ignore [arg-type]
+
+    # data_apply is future not None, backend is not None: future identity
+    assert pip.apply(DummyFuture(df), backend=dummy).result().equals(df)
+    assert fit.apply(DummyFuture(df), backend=dummy).result().equals(df)
