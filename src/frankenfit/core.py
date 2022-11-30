@@ -162,9 +162,20 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
             return False
-        if repr(self) != repr(other):
+        other = cast(FitTransform, other)
+        if self.resolved_transform() != other.resolved_transform():
             return False
-        return self.state() == cast(FitTransform, other).state()
+        my_state = self.state()
+        other_state = other.state()
+        try:
+            return my_state.equals(other_state)
+        except AttributeError:
+            pass
+        try:
+            return (my_state == other_state).all()
+        except AttributeError:
+            pass
+        return my_state == other_state
 
     @overload
     def apply(
@@ -578,6 +589,19 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     def __add__(self, other: Optional[Transform | list[Transform]]) -> BasePipeline:
         return self.then(other)
+
+    def __eq__(self, other: object) -> bool:
+        if type(self) is not type(other):
+            return False
+        other = cast(Transform, other)
+        my_params = sorted([p for p in self.params() if p != "tag"])
+        other_params = sorted([p for p in other.params() if p != "tag"])
+        # assertion should be true because our types are the same
+        assert my_params == other_params
+        for p in my_params:
+            if getattr(self, p) != getattr(other, p):
+                return False
+        return True
 
     def _children(self) -> Iterable[Transform]:
         """

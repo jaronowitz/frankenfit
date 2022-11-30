@@ -26,6 +26,7 @@ import inspect
 from typing import Any, ClassVar, Optional, Type, TypeVar, cast, overload
 from sys import version_info
 
+import numpy as np
 import pandas as pd
 import pytest
 from pydataset import data  # type: ignore
@@ -79,6 +80,30 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
     assert isinstance(fit, ff.FitTransform)
     with pytest.raises(TypeError):
         DeMean(cols, tag=42)  # type: ignore [arg-type]
+
+    assert DeMean(cols) != 42
+    m1 = DeMean(cols)
+    m2 = DeMean(cols)
+    assert m1 == m2  # tag doesn't matter for equality
+    assert DeMean(cols, tag="foo") == DeMean(cols, tag="foo")
+
+    assert m1.fit(diamonds_df) == m2.fit(diamonds_df)
+    assert m1.fit(diamonds_df) == m1.fit(diamonds_df)
+    assert m1.fit(diamonds_df) != 42
+
+    class Remember(ff.Transform):
+        def _fit(self, data_fit: Any) -> Any:
+            return data_fit
+
+        def _apply(self, data_apply: Any, state: Any) -> Any:
+            return state
+
+    r1 = Remember()
+    assert r1.fit("x") == r1.fit("x")
+    assert r1.fit("x") != r1.fit("y")
+    assert r1.fit(diamonds_df) == r1.fit(diamonds_df)
+    assert r1.fit(np.array([1, 2])) == r1.fit(np.array([1, 2]))
+    assert m1.fit(diamonds_df) != r1.fit("x")
 
 
 def test_Transform_fit_apply_valence() -> None:
