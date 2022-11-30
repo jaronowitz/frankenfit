@@ -29,6 +29,15 @@ import frankenfit as ff
 from frankenfit.backend import DummyFuture
 
 
+@pytest.fixture(scope="module")
+def dask_client():
+    # spin up a local cluster and client
+    client = distributed.Client(dashboard_address=":0", scheduler_port=0)
+    yield client
+    # client.shutdown()
+    # client.close()
+
+
 def test_DummyBackend():
     def foo(x):
         return f"foo({x})"
@@ -43,22 +52,15 @@ def test_DummyBackend():
     assert dummy_fut.result() == "foo(24)"
 
 
-def test_DaskBackend():
+def test_DaskBackend(dask_client):
     def foo(x):
         return f"foo({x})"
 
     def forty_two():
         return 42
 
-    backend = ff.DaskBackend()
-
-    # should fail with no dask client having yet been created
-    with pytest.raises(ValueError):
-        backend.submit("key-foo", foo, 42)
-
     # spin up a local cluster and client
-    client = distributed.Client(dashboard_address=None, scheduler_port=0)
-    backend = ff.DaskBackend(client)
+    backend = ff.DaskBackend(dask_client)
 
     fut = backend.submit("key-foo", foo, 42)
     assert fut.result() == "foo(42)"
@@ -73,7 +75,7 @@ def test_DaskBackend():
     assert fut.result() == "foo(42)"
 
     # string address
-    backend = ff.DaskBackend(client.scheduler.address)
+    backend = ff.DaskBackend(dask_client.scheduler.address)
     fut = backend.submit("key-foo", foo, 42)
     assert fut.result() == "foo(42)"
 

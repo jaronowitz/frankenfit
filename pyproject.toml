@@ -98,6 +98,7 @@ files = [
 filterwarnings = [
     "error",
     'ignore:There is no current event loop:DeprecationWarning',
+    'ignore::pytest.PytestUnraisableExceptionWarning',
 ]
 addopts = "-n auto"
 
