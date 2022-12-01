@@ -511,7 +511,8 @@ class UniversalPipelineInterface(
     ) -> G_co:
         """
         Consume the next transform ``T`` in the call-chain by appending
-        ``ForBindings(bindings_sequence=..., transform=T)`` to this pipeline.
+        ``ForBindings(bindings_sequence=..., combine_fun=..., transform=T)`` to
+        this pipeline.
         """
         grouper = type(self)._Grouper(
             self,
