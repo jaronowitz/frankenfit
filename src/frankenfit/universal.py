@@ -233,11 +233,6 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
     transform: Transform
     combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataResult]
 
-    # TODO: consider: a required function parameter for combining the
-    # ApplyResults, rather than just returning the raw list of ApplyResults from
-    # _apply(). Currently nothing stops us from breaking the decalred DataInOut
-    # type of an enclosing pipeline.
-
     @define
     class FitResult:
         bindings: Bindings
