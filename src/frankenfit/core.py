@@ -1003,25 +1003,7 @@ class FitBasePipeline(
         mat_state = [sub_ft.materialize_state() for sub_ft in state]
         return type(self)(self.resolved_transform(), mat_state, self.bindings())
 
-    @overload
-    def apply(
-        self,
-        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
-        *,
-        backend: None = None,
-    ) -> DataInOut:
-        ...  # pragma: no cover
-
-    @overload
-    def apply(
-        self,
-        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
-        *,
-        backend: Backend,
-    ) -> Future[DataInOut]:
-        ...  # pragma: no cover
-
-    def apply(
+    def apply(  # type: ignore [override]
         self,
         data_apply: Optional[DataInOut | Future[DataInOut]] = None,
         *,
