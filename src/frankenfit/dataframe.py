@@ -349,20 +349,18 @@ class GroupByBindings(DataFrameTransform):
     transform: Transform[pd.DataFrame, pd.DataFrame]
     as_index: bool = True
 
+    # TODO: move this into fit() so that we can distribute on backend
     def _fit(
         self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
-    ) -> FitTransform:
-        return ForBindings(self.bindings_sequence, self.transform).fit(
-            data_fit, bindings=bindings or {}
-        )
+    ) -> FitTransform[ForBindings, pd.DataFrame, pd.DataFrame]:
+        return ForBindings[pd.DataFrame, pd.DataFrame](
+            self.bindings_sequence, self.transform, self._combine_results_as_dataframe
+        ).fit(data_fit, bindings=bindings or {})
 
-    def _apply(
-        self,
-        data_apply: pd.DataFrame,
-        state: FitTransform,  # TODO: actual FitTransform type for ForBindings
+    def _combine_results_as_dataframe(
+        self, results: Sequence[ForBindings.ApplyResult]
     ) -> pd.DataFrame:
-        results = state.apply(data_apply)
-        binding_cols = set()
+        binding_cols: set[str] = set()
         dfs = []
         for x in results:
             dfs.append(x.result.assign(**x.bindings))
@@ -371,6 +369,14 @@ class GroupByBindings(DataFrameTransform):
         if self.as_index:
             df = df.set_index(list(binding_cols))
         return df
+
+    # TODO: move this into apply() so that we can distribute on backend
+    def _apply(
+        self,
+        data_apply: pd.DataFrame,
+        state: FitTransform[ForBindings, pd.DataFrame, pd.DataFrame],
+    ) -> pd.DataFrame:
+        return state.apply(data_apply)
 
 
 @params

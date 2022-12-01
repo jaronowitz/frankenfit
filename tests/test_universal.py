@@ -296,13 +296,14 @@ def test_StatefulLambda(diamonds_df: pd.DataFrame):
 def test_ForBindings(diamonds_df: pd.DataFrame):
     df = diamonds_df.head()
     result = (
-        ff.universal.ForBindings(
+        ff.universal.ForBindings[pd.DataFrame, list](
             [
                 {"target_col": "price"},
                 {"target_col": "depth"},
                 {"target_col": "table"},
             ],
             ff.dataframe.Select(["{target_col}"]),
+            combine_fun=list,
         )
         .fit(df)
         .apply(df)
@@ -318,7 +319,8 @@ def test_ForBindings(diamonds_df: pd.DataFrame):
                 {"target_col": "price"},
                 {"target_col": "depth"},
                 {"target_col": "table"},
-            ]
+            ],
+            combine_fun=list,
         )
         .stateless_lambda(lambda df, bindings: df[[bindings["target_col"]]])
     ).apply(df)

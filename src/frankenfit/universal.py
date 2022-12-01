@@ -35,6 +35,7 @@ from typing import (
     Generic,
     Iterable,
     Optional,
+    Sequence,
     TextIO,
     TypeVar,
     cast,
@@ -52,6 +53,8 @@ from .backend import Backend, Future
 from .core import (
     BasePipeline,
     Bindings,
+    DataIn,
+    DataResult,
     DataInOut,
     FitTransform,
     Grouper,
@@ -70,7 +73,7 @@ Obj = TypeVar("Obj")
 
 
 @params
-class UniversalTransform(Transform):
+class UniversalTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
     def then(
         self, other: Optional[Transform | list[Transform]] = None
     ) -> "UniversalPipeline":
@@ -78,7 +81,7 @@ class UniversalTransform(Transform):
         return UniversalPipeline(transforms=result.transforms)
 
 
-class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform):
+class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
     """
     The stateless Transform that, at apply-time, simply returns the input data
     unaltered.
@@ -225,9 +228,10 @@ class IfFittingDataHasProperty(UniversalTransform):
 
 
 @params
-class ForBindings(UniversalTransform):
+class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataResult]):
     bindings_sequence: Iterable[Bindings]
     transform: Transform
+    combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataResult]
 
     # TODO: consider: a required function parameter for combining the
     # ApplyResults, rather than just returning the raw list of ApplyResults from
@@ -242,7 +246,7 @@ class ForBindings(UniversalTransform):
     @define
     class ApplyResult:
         bindings: Bindings
-        result: object  # TODO: make this generic in the result type
+        result: Any  # TODO: make this generic in DataResult type?
 
     def _fit(
         self, data_fit: Any, base_bindings: Optional[Bindings] = None
@@ -261,9 +265,7 @@ class ForBindings(UniversalTransform):
             )
         return fits
 
-    def _apply(
-        self, data_apply: Any, state: list[ForBindings.FitResult]
-    ) -> list[ForBindings.ApplyResult]:
+    def _apply(self, data_apply: Any, state: list[ForBindings.FitResult]) -> DataResult:
         # TODO: parallelize
         results = []
         for fit_result in state:
@@ -272,7 +274,7 @@ class ForBindings(UniversalTransform):
                     fit_result.bindings, fit_result.fit.apply(data_apply)
                 )
             )
-        return results
+        return self.combine_fun(results)
 
 
 @params
@@ -507,7 +509,11 @@ class UniversalPipelineInterface(
 
     _Grouper: type[UniversalGrouper[P_co]] = UniversalGrouper[P_co]
 
-    def for_bindings(self, bindings_sequence: Iterable[Bindings]) -> G_co:
+    def for_bindings(
+        self,
+        bindings_sequence: Iterable[Bindings],
+        combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataInOut],
+    ) -> G_co:
         """
         Consume the next transform ``T`` in the call-chain by appending
         ``ForBindings(bindings_sequence=..., transform=T)`` to this pipeline.
@@ -517,6 +523,7 @@ class UniversalPipelineInterface(
             ForBindings,
             "transform",
             bindings_sequence=bindings_sequence,
+            combine_fun=combine_fun,
         )
         return cast(G_co, grouper)
 
