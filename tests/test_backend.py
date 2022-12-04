@@ -26,7 +26,7 @@ import pytest
 from dask import distributed
 
 import frankenfit as ff
-from frankenfit.backend import DummyFuture
+from frankenfit.core import LocalFuture
 
 
 @pytest.fixture(scope="module")
@@ -42,13 +42,13 @@ def test_DummyBackend():
     def foo(x):
         return f"foo({x})"
 
-    backend = ff.DummyBackend()
+    backend = ff.LocalBackend()
 
     dummy_fut = backend.submit("key-foo", foo, 42)
     assert dummy_fut.result() == "foo(42)"
 
     # future arg gets materialized
-    dummy_fut = backend.submit("key-foo", foo, DummyFuture(24))
+    dummy_fut = backend.submit("key-foo", foo, LocalFuture(24))
     assert dummy_fut.result() == "foo(24)"
 
 
@@ -83,6 +83,6 @@ def test_DaskBackend(dask_client):
         ff.DaskBackend(42.0)
 
     # Dummy future should be materialized seamlessly
-    dummy_fut = ff.DummyBackend().submit("forty_two", forty_two)
+    dummy_fut = ff.LocalBackend().submit("forty_two", forty_two)
     fut = backend.submit("key-foo", foo, dummy_fut)
     assert fut.result() == "foo(42)"

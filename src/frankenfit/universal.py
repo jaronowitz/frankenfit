@@ -39,7 +39,6 @@ from typing import (
     TextIO,
     TypeVar,
     cast,
-    overload,
 )
 
 from attrs import define
@@ -49,7 +48,6 @@ from .params import (
     params,
     UnresolvedHyperparameterError,
 )
-from .backend import Backend, Future
 from .core import (
     BasePipeline,
     Bindings,
@@ -57,6 +55,7 @@ from .core import (
     DataResult,
     DataInOut,
     FitTransform,
+    Future,
     Grouper,
     P_co,
     SentinelDict,
@@ -90,44 +89,23 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
     def _apply(self, data_apply: T, state: None) -> T:
         return data_apply
 
-    Self = TypeVar("Self", bound="Identity")
+    _Self = TypeVar("_Self", bound="Identity")
+
+    # The overrides below are just to present a more specific type signature
 
     def fit(
-        self: Self,
+        self: _Self,
         data_fit: Optional[T | Future[T]] = None,
         bindings: Optional[Bindings] = None,
-        backend: Optional[Backend] = None,
-    ) -> FitTransform[Self, T, T]:
-        return super().fit(data_fit, bindings, backend=backend)
+    ) -> FitTransform[_Self, T, T]:
+        return super().fit(data_fit, bindings)
 
-    @overload
     def apply(
         self,
         data_apply: Optional[T | Future[T]] = None,
         bindings: Optional[Bindings] = None,
-        *,
-        backend: None = None,
     ) -> T:
-        ...  # pragma: no cover
-
-    @overload
-    def apply(
-        self,
-        data_apply: Optional[T | Future[T]] = None,
-        bindings: Optional[Bindings] = None,
-        *,
-        backend: Backend,
-    ) -> Future[T]:
-        ...  # pragma: no cover
-
-    def apply(
-        self,
-        data_apply: Optional[T | Future[T]] = None,
-        bindings: Optional[Bindings] = None,
-        *,
-        backend: Optional[Backend] = None,
-    ) -> T | Future[T]:
-        return super().apply(data_apply, bindings, backend=backend)
+        return super().apply(data_apply, bindings)
 
 
 @params

@@ -56,12 +56,6 @@ except _PNFE:  # pragma: no cover
     # package is not installed
     pass
 
-from frankenfit.backend import (
-    Backend,
-    DummyBackend,
-    DaskBackend,
-)
-
 from frankenfit.params import (
     params,
     HP,
@@ -77,6 +71,9 @@ from frankenfit.params import (
 
 from frankenfit.core import (
     Bindings,
+    Future,
+    Backend,
+    LocalBackend,
     Transform,
     FitTransform,
     StatelessTransform,
@@ -107,4 +104,8 @@ from frankenfit.dataframe import (
     fit_group_on_all_other_groups,
     # Exceptions that users can catch
     UnfitGroupError,
+)
+
+from frankenfit.backend import (
+    DaskBackend,
 )

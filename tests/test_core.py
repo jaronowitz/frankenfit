@@ -23,7 +23,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, ClassVar, Optional, Type, TypeVar, cast, overload
+from typing import Any, ClassVar, Optional, Type, TypeVar, cast
 from sys import version_info
 
 import numpy as np
@@ -34,7 +34,7 @@ from pydataset import data  # type: ignore
 import frankenfit as ff
 import frankenfit.core as core
 import frankenfit.universal as universal
-from frankenfit.backend import DummyBackend, Future, DummyFuture
+from frankenfit.core import Future, LocalFuture
 
 PYVERSION = (version_info.major, version_info.minor)
 
@@ -109,6 +109,7 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
 def test_Transform_fit_apply_valence() -> None:
     foo_str = "foo"
     meow_bindings = {"meow": "cat"}
+    local = ff.LocalBackend()
 
     class Fit1(ff.Transform):
         def _fit(self, data_fit: Any) -> Any:
@@ -131,6 +132,20 @@ def test_Transform_fit_apply_valence() -> None:
 
     Fit2().fit(foo_str, bindings=meow_bindings)
 
+    class Fit3(ff.Transform):
+        def _fit(self, data_fit: Any, bindings=None, backend=None) -> Any:
+            assert data_fit == foo_str
+            assert bindings == meow_bindings
+            assert backend is local
+            return None
+
+        def _apply(self, data_apply: Any, state: Any) -> Any:
+            return data_apply
+
+    # TODO:
+    # ff.LocalBackend().fit(Fit3(), foo_str, meow_bindings, backend=local)
+    # Fit3().fit(foo_str, bindings=meow_bindings, )
+
     class Fit0(ff.Transform):
         def _fit(self) -> Any:  # type: ignore [override]
             return None
@@ -140,16 +155,6 @@ def test_Transform_fit_apply_valence() -> None:
 
     with pytest.raises(TypeError):
         Fit0().fit(foo_str)
-
-    class Fit3(ff.Transform):
-        def _fit(self, data_apply, bindings=None, superfluous=None) -> Any:
-            return None
-
-        def _apply(self, data_apply: Any, state: Any) -> Any:
-            return data_apply
-
-    with pytest.raises(TypeError):
-        Fit3().fit(foo_str)
 
     class Apply2(ff.Transform):
         def _fit(self, data_fit: Any) -> Any:
@@ -182,49 +187,37 @@ def test_Transform_fit_apply_valence() -> None:
     with pytest.raises(TypeError):
         Apply1().fit(bindings=meow_bindings).apply(foo_str)
 
-    class Apply4(ff.Transform):
-        def _fit(self, data_fit: Any) -> Any:
-            return "woof"
-
-        def _apply(self, data_apply: Any, state: Any, bindings=None, xxx=None) -> Any:
-            assert data_apply == foo_str
-            assert state == "woof"
-            assert bindings == meow_bindings
-
-    with pytest.raises(TypeError):
-        Apply4().fit(bindings=meow_bindings).apply(foo_str)
-
 
 def test_fit_apply_futures() -> None:
     t = ff.Identity[str]()
     p = t.then()
-    dummy = DummyBackend()
+    local = ff.LocalBackend()
 
     # fit with no backend -> materialized state
     # fit with backend -> future state
     t_fit_1 = t.fit()
-    t_fit_2 = t.fit(backend=dummy)
+    t_fit_2 = local.fit(t)
     p_fit_1 = p.fit()
-    p_fit_2 = p.fit(backend=dummy)
+    p_fit_2 = local.fit(p)
     assert t_fit_1.state() is None
-    assert isinstance(t_fit_2.state(), Future)
+    assert isinstance(t_fit_2.state(), ff.Future)
     assert isinstance(p_fit_1.state(), list)
-    assert isinstance(p_fit_2.state(), Future)
+    assert isinstance(p_fit_2.state(), ff.Future)
 
     # apply with no backend -> materialized DataResult
     # apply with backend -> future DataResult
     assert t_fit_1.apply("x") == "x"
     assert t_fit_2.apply("x") == "x"
-    assert isinstance(t_fit_1.apply("x", backend=dummy), Future)
-    assert isinstance(t_fit_2.apply("x", backend=dummy), Future)
+    assert isinstance(local.apply(t_fit_1, "x"), ff.Future)
+    assert isinstance(local.apply(t_fit_2, "x"), ff.Future)
     assert p_fit_1.apply("x") == "x"
     assert p_fit_2.apply("x") == "x"
-    assert isinstance(p_fit_1.apply("x", backend=dummy), Future)
-    assert isinstance(p_fit_2.apply("x", backend=dummy), Future)
+    assert isinstance(local.apply(p_fit_1, "x"), ff.Future)
+    assert isinstance(local.apply(p_fit_2, "x"), ff.Future)
 
     # stateless apply
     assert t.apply("x") == "x"
-    assert isinstance(t.apply("x", backend=dummy), Future)
+    assert isinstance(local.apply(t, "x"), ff.Future)
 
 
 def test_then() -> None:
@@ -284,35 +277,13 @@ def test_override_fit_apply(
     diamonds_df: pd.DataFrame, capsys: pytest.CaptureFixture
 ) -> None:
     class FitDeMean(ff.FitTransform["DeMean", pd.DataFrame, pd.DataFrame]):
-        # FIXME: It's kind of unfortunate that the user has to provide all of these
-        # overloads for mypy to pass
-        @overload
         def apply(
             self,
             data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
-            *,
-            backend: None = None,
         ) -> pd.DataFrame:
-            ...
-
-        @overload
-        def apply(
-            self,
-            data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
-            *,
-            backend: ff.Backend,
-        ) -> Future[pd.DataFrame]:
-            ...
-
-        def apply(
-            self,
-            data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
-            *,
-            backend: Optional[ff.Backend] = None,
-        ) -> pd.DataFrame | Future[pd.DataFrame]:
             """My apply docstr"""
             print("my overridden apply")
-            return super().apply(data_apply=data_apply, backend=backend)
+            return super().apply(data_apply=data_apply)
 
     @ff.params
     class DeMean(ff.Transform[pd.DataFrame, pd.DataFrame]):
@@ -341,7 +312,8 @@ def test_override_fit_apply(
         ) -> FitDeMean:
             """My fit docstr"""
             print("my overridden fit")
-            return cast(FitDeMean, super().fit(data_fit, bindings, backend=backend))
+            # return cast(FitDeMean, super().fit(data_fit, bindings, backend=backend))
+            return cast(FitDeMean, super().fit(data_fit, bindings))
 
     dmn = DeMean(["price"])
 
@@ -491,7 +463,7 @@ def test_FitTransform_materialize_state() -> None:
     pip = core.BasePipeline[Any](
         transforms=[ff.Identity(), tagged_ident, ff.Identity()]
     )
-    fit = pip.fit(backend=DummyBackend())
+    fit = ff.LocalBackend().fit(pip)  # .fit(backend=ff.LocalBackend())
     assert isinstance(fit.state(), Future)
     with pytest.raises(ValueError):
         fit.find_by_tag("mytag")
@@ -524,37 +496,35 @@ def test_empty_BasePipeline() -> None:
     assert fit.apply() is None
 
     # data_apply is not None, backend is not None: future identity
-    dummy = DummyBackend()
-    assert pip.apply("foo", backend=dummy).result() == "foo"
-    assert fit.apply("foo", backend=dummy).result() == "foo"
+    local = ff.LocalBackend()
+    assert local.apply(pip, "foo").result() == "foo"
+    assert local.apply(fit, "foo").result() == "foo"
 
     # data_apply is None, backend is not None: future empty_constructor() -> future None
-    assert pip.apply(backend=dummy).result() is None
-    assert fit.apply(backend=dummy).result() is None
+    assert local.apply(pip).result() is None
+    assert local.apply(fit).result() is None
 
     # data_apply is future not None, backend is None: identity
-    assert pip.apply(DummyFuture("foo")) == "foo"
-    assert fit.apply(DummyFuture("foo")) == "foo"
+    assert pip.apply(LocalFuture("foo")) == "foo"
+    assert fit.apply(LocalFuture("foo")) == "foo"
 
-    # data_apply is future None, backend is None: future empty_constructor() ->
-    # future None. This is actually an ill-formed call according to typechecker
-    # but we test it anyway
-    assert pip.apply(DummyFuture(None)) is None  # type: ignore [arg-type]
-    assert fit.apply(DummyFuture(None)) is None  # type: ignore [arg-type]
+    # data_apply is future None, backend is None: future empty_constructor() -> future
+    # None. We don't actually like to allow Future[None]s in the type checker but we
+    # test anyway
+    assert pip.apply(LocalFuture(None)) is None  # type: ignore [arg-type]
+    assert fit.apply(LocalFuture(None)) is None  # type: ignore [arg-type]
 
     # data_apply is future not None, backend is not None: future identity
-    assert pip.apply(DummyFuture("foo"), backend=dummy).result() == "foo"
-    assert fit.apply(DummyFuture("foo"), backend=dummy).result() == "foo"
+    assert local.apply(pip, LocalFuture("foo")).result() == "foo"
+    assert local.apply(fit, LocalFuture("foo")).result() == "foo"
 
     # data_apply is future None, backend is not None: future empty_constructor() ->
     # future None
     assert (
-        pip.apply(DummyFuture(None), backend=dummy).result()  # type: ignore [arg-type]
-        is None
+        local.apply(pip, LocalFuture(None)).result() is None  # type: ignore [arg-type]
     )
     assert (
-        fit.apply(DummyFuture(None), backend=dummy).result()  # type: ignore [arg-type]
-        is None
+        local.apply(fit, LocalFuture(None)).result() is None  # type: ignore [arg-type]
     )
 
 

@@ -114,16 +114,14 @@ def test_pipeline_straight(
 
     result_pandas = pipeline.apply(bindings=bindings)
 
-    result_dask = pipeline.apply(bindings=bindings, backend=dask).result()
+    result_dask = dask.apply(pipeline, bindings=bindings).result()
     assert result_pandas.equals(result_dask)
 
-    result_dask = pipeline.fit(bindings=bindings, backend=dask).apply()
+    result_dask = dask.fit(pipeline, bindings=bindings).apply()
     assert result_pandas.equals(result_dask)
 
-    result_dask = pipeline.fit(bindings=bindings).apply(backend=dask).result()
+    result_dask = dask.apply(pipeline.fit(bindings=bindings)).result()
     assert result_pandas.equals(result_dask)
 
-    result_dask = (
-        pipeline.fit(bindings=bindings, backend=dask).apply(backend=dask).result()
-    )
+    result_dask = dask.apply(dask.fit(pipeline, bindings=bindings)).result()
     assert result_pandas.equals(result_dask)

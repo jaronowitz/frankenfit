@@ -28,7 +28,7 @@ ray.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+import logging
 from typing import Any, cast, Callable, Optional, TypeVar, Generic
 import warnings
 
@@ -40,54 +40,11 @@ try:
 except ImportError:  # pragma: no cover
     distributed = None  # type: ignore [assignment]
 
+from .core import Future, Backend
+
+_LOG = logging.getLogger(__name__)
+
 T_co = TypeVar("T_co", covariant=True)
-
-
-class Future(Generic[T_co], ABC):
-    @abstractmethod
-    def result(self) -> T_co:
-        raise NotImplementedError  # pragma: no cover
-
-
-class Backend(ABC):
-    @abstractmethod
-    def submit(
-        self,
-        key_prefix: str,
-        function: Callable,
-        *function_args,
-        **function_kwargs,
-    ) -> Future[Any]:
-        raise NotImplementedError  # pragma: no cover
-
-
-@define
-class DummyFuture(Generic[T_co], Future[T_co]):
-    obj: T_co
-
-    def result(self) -> T_co:
-        return self.obj
-
-
-@define
-class DummyBackend(Backend):
-    def submit(
-        self,
-        key_prefix: str,
-        function: Callable,
-        *function_args,
-        **function_kwargs,
-    ) -> DummyFuture[Any]:
-        # materialize any Future args
-        function_args = tuple(
-            (a.result() if isinstance(a, Future) else a) for a in function_args
-        )
-        function_kwargs = {
-            k: (v.result() if isinstance(v, Future) else v)
-            for k, v in function_kwargs.items()
-        }
-        result = function(*function_args, **function_kwargs)
-        return DummyFuture(result)
 
 
 def _convert_to_address(obj: str | None | distributed.Client):
@@ -139,9 +96,14 @@ class DaskBackend(Backend):
         *function_args,
         **function_kwargs,
     ) -> DaskFuture[Any]:
+        # attempt import so that we fail with a sensible exception if distributed is not
+        # installed:
+        from dask import distributed
+
         client: distributed.Client = distributed.get_client(self.address)
         # TODO: should we do anything about impure functions? i.e., data readers
         key = key_prefix + "-" + tokenize(function, function_kwargs, *function_args)
+        _LOG.debug("%r: submitting task %r to %r", self, key, client)
         # hmm, there could be a problem here with collision between function
         # kwargs and submit kwargs, but this is inherent to distributed's API
         # design :/. In general I suppose callers should prefer to provide

@@ -34,7 +34,7 @@ from pydataset import data  # type: ignore
 import frankenfit as ff
 import frankenfit.core as ffc
 import frankenfit.dataframe as ffdf
-from frankenfit.backend import DummyBackend, DummyFuture
+from frankenfit.core import LocalFuture
 
 
 @pytest.fixture
@@ -593,6 +593,9 @@ def test_ReadPandasCSV(diamonds_df: pd.DataFrame, tmp_path: str):
     fp = path.join(tmp_path, "diamonds.csv")
     df.to_csv(fp)
 
+    with pytest.warns(ffc.NonInitialConstantTransformWarning):
+        ff.ReadPandasCSV(fp).apply(df)
+
     result = ff.DataFramePipeline().read_pandas_csv(fp, dict(index_col=0)).apply()
     assert result.equals(df)
 
@@ -600,7 +603,13 @@ def test_ReadPandasCSV(diamonds_df: pd.DataFrame, tmp_path: str):
         pip = ff.DataFramePipeline()[["price"]].read_pandas_csv(fp)
 
     with pytest.warns(ffc.NonInitialConstantTransformWarning):
-        pip.fit(df)
+        pip.apply(df)
+
+    with pytest.warns(ffc.NonInitialConstantTransformWarning):
+        fit = pip.fit(df)
+
+    with pytest.warns(ffc.NonInitialConstantTransformWarning):
+        fit.apply(df)
 
 
 def test_read_write_csv(diamonds_df: pd.DataFrame, tmp_path):
@@ -769,25 +778,25 @@ def test_empty_dataframe_pipeline(diamonds_df: pd.DataFrame):
     assert fit.apply().equals(empty_df)
 
     # data_apply is not None, backend is not None: future identity
-    dummy = DummyBackend()
-    assert pip.apply(df, backend=dummy).result().equals(df)
-    assert fit.apply(df, backend=dummy).result().equals(df)
+    local = ff.LocalBackend()
+    assert local.apply(pip, df).result().equals(df)
+    assert local.apply(fit, df).result().equals(df)
 
     # data_apply is None, backend is not None: future empty_constructor() ->
     # future empty_df
-    assert pip.apply(backend=dummy).result().equals(empty_df)
-    assert fit.apply(backend=dummy).result().equals(empty_df)
+    assert local.apply(pip).result().equals(empty_df)
+    assert local.apply(fit).result().equals(empty_df)
 
     # data_apply is future not None, backend is None: identity
-    assert pip.apply(DummyFuture(df)).equals(df)
-    assert fit.apply(DummyFuture(df)).equals(df)
+    assert pip.apply(LocalFuture(df)).equals(df)
+    assert fit.apply(LocalFuture(df)).equals(df)
 
     # data_apply is future None, backend is None: future empty_constructor() ->
     # future empty_df. This is actually an ill-formed call according to
     # typechecker but we test it anyway
-    assert pip.apply(DummyFuture(None)).equals(empty_df)  # type: ignore [arg-type]
-    assert fit.apply(DummyFuture(None)).equals(empty_df)  # type: ignore [arg-type]
+    assert pip.apply(LocalFuture(None)).equals(empty_df)  # type: ignore [arg-type]
+    assert fit.apply(LocalFuture(None)).equals(empty_df)  # type: ignore [arg-type]
 
     # data_apply is future not None, backend is not None: future identity
-    assert pip.apply(DummyFuture(df), backend=dummy).result().equals(df)
-    assert fit.apply(DummyFuture(df), backend=dummy).result().equals(df)
+    assert local.apply(pip, LocalFuture(df)).result().equals(df)
+    assert local.apply(fit, LocalFuture(df)).result().equals(df)
