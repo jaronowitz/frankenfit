@@ -561,8 +561,8 @@ class UniversalCallChain(Generic[P_co]):
     @callchain(StatefulLambda)
     def stateful_lambda(  # type: ignore [empty-body]
         self,
-        fit_fun: Callable | HP,
-        apply_fun: Callable | HP,
+        fit_fun: Callable,
+        apply_fun: Callable,
         *,
         tag: Optional[str] = None,
     ) -> P_co:
