@@ -41,7 +41,7 @@ from typing import (
     cast,
 )
 
-from attrs import define
+from attrs import define, field
 
 from .params import (
     HP,
@@ -250,49 +250,179 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
         return self.combine_fun(results)
 
 
-@params
+PROHIBITED_USER_LAMBDA_PARAMETER_KINDS = (
+    inspect.Parameter.POSITIONAL_ONLY,
+    inspect.Parameter.VAR_POSITIONAL,
+    inspect.Parameter.VAR_KEYWORD,
+)
+
+
+@define
+class UserLambdaHyperparams:
+    required: set[str]
+    optional: set[str]
+
+    _Self = TypeVar("_Self", bound="UserLambdaHyperparams")
+
+    @classmethod
+    def from_function_sig(cls: type[_Self], fun: Callable, n_data_args: int) -> _Self:
+        required: set[str] = set()
+        optional: set[str] = set()
+        fun_params = inspect.signature(fun).parameters
+        if len(fun_params) <= n_data_args:
+            return cls(required=required, optional=optional)
+
+        for name, info in list(fun_params.items())[n_data_args:]:
+            if info.kind in PROHIBITED_USER_LAMBDA_PARAMETER_KINDS:
+                raise TypeError(
+                    f"Filter: user lambda function's signature must allow requested "
+                    f"hyperparameters to be supplied by name at call-time "
+                    f"but parameter {name!r} has kind {info.kind}. Full signature: "
+                    f"{inspect.signature(fun)}"
+                )
+            if info.default is inspect._empty:
+                required.add(name)
+            else:
+                optional.add(name)
+
+        return cls(required=required, optional=optional)
+
+    def required_or_optional(self):
+        return self.required.union(self.optional)
+
+    def collect_bindings(self, bindings: Bindings) -> Bindings:
+        result: Bindings = {}
+        missing: set[str] = set()
+        for hp in self.required:
+            try:
+                result[hp] = bindings[hp]
+            except KeyError:
+                missing.add(hp)
+                continue
+        if missing:
+            raise UnresolvedHyperparameterError(
+                f"Requested the values of hyperparameters {self.required}, but the "
+                f"following hyperparameters were not resolved at fit-time: {missing}. "
+                f"Bindings were: {bindings}"
+            )
+        for hp in self.optional:
+            try:
+                result[hp] = bindings[hp]
+            except KeyError:
+                continue
+        return result
+
+
+@params(auto_attribs=False)
 class StatelessLambda(UniversalTransform, StatelessTransform):
-    apply_fun: Callable  # df[, bindings] -> df
+    apply_fun: Callable = field()  # df[, bindings] -> df
 
-    def _apply(
-        self, data_apply: Any, state: None, bindings: Optional[Bindings] = None
-    ) -> Any:
-        sig = inspect.signature(self.apply_fun).parameters
-        if len(sig) == 1:
-            return self.apply_fun(data_apply)
-        elif len(sig) == 2:
-            return self.apply_fun(data_apply, bindings or {})
-        else:
-            # TODO: raise this earlier in field validator
-            raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
+    apply_fun_bindings: Bindings
+    apply_fun_hyperparams: UserLambdaHyperparams
+
+    _Self = TypeVar("_Self", bound="StatelessLambda")
+
+    def __attrs_post_init__(self):
+        if isinstance(self.apply_fun, HP):
+            raise TypeError(
+                f"StatelessLambda.apply_fun must not be a hyperparameter; got:"
+                f"{self.apply_fun!r}. Instead consider supplying a function that "
+                f"requests hyperparameter bindings in its parameter signature."
+            )
+        self.apply_fun_bindings = {}
+        self.apply_fun_hyperparams = UserLambdaHyperparams.from_function_sig(
+            self.apply_fun, 1
+        )
+
+    def hyperparams(self) -> set[str]:
+        return (
+            super()
+            .hyperparams()
+            .union(self.apply_fun_hyperparams.required_or_optional())
+        )
+
+    def _resolve_hyperparams(self: _Self, bindings: Optional[Bindings] = None) -> _Self:
+        # override _resolve_hyperparams() to collect hyperparam bindings at fit-time
+        # so we don't need bindings arg to _apply.
+        resolved_self = super()._resolve_hyperparams(bindings)
+        resolved_self.apply_fun_bindings = self.apply_fun_hyperparams.collect_bindings(
+            bindings or {}
+        )
+        return resolved_self
+
+    def _apply(self, data_apply: Any, state: None) -> Any:
+        fun_params = inspect.signature(self.apply_fun).parameters
+        positional_args = (data_apply,) if len(fun_params) > 0 else tuple()
+        return self.apply_fun(*positional_args, **self.apply_fun_bindings)
 
 
-@params
+@params(auto_attribs=False)
 class StatefulLambda(UniversalTransform):
-    fit_fun: Callable  # df[, bindings] -> state
-    apply_fun: Callable  # df, state[, bindings] -> df
+    fit_fun: Callable = field()  # df[, bindings] -> state
+    apply_fun: Callable = field()  # df, state[, bindings] -> df
 
-    def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
-        sig = inspect.signature(self.fit_fun).parameters
-        if len(sig) == 1:
-            return self.fit_fun(data_fit)
-        elif len(sig) == 2:
-            return self.fit_fun(data_fit, bindings or {})
-        else:
-            # TODO: raise this earlier in field validator
-            raise TypeError(f"Expected lambda with 1 or 2 parameters, found {len(sig)}")
+    fit_fun_bindings: Bindings
+    fit_fun_hyperparams: UserLambdaHyperparams
+    apply_fun_bindings: Bindings
+    apply_fun_hyperparams: UserLambdaHyperparams
 
-    def _apply(
-        self, data_apply: Any, state: Any, bindings: Optional[Bindings] = None
-    ) -> Any:
-        sig = inspect.signature(self.apply_fun).parameters
-        if len(sig) == 2:
-            return self.apply_fun(data_apply, state)
-        elif len(sig) == 3:
-            return self.apply_fun(data_apply, state, bindings or {})
-        else:
-            # TODO: raise this earlier in field validator
-            raise TypeError(f"Expected lambda with 2 or 3 parameters, found {len(sig)}")
+    _Self = TypeVar("_Self", bound="StatefulLambda")
+
+    def __attrs_post_init__(self):
+        if isinstance(self.fit_fun, HP):
+            raise TypeError(
+                f"StatefulLambda.fit_fun must not be a hyperparameter; got:"
+                f"{self.fit_fun!r}. Instead consider supplying a function that "
+                f"requests hyperparameter bindings in its parameter signature."
+            )
+        if isinstance(self.apply_fun, HP):
+            raise TypeError(
+                f"StatefulLambda.apply_fun must not be a hyperparameter; got:"
+                f"{self.apply_fun!r}. Instead consider supplying a function that "
+                f"requests hyperparameter bindings in its parameter signature."
+            )
+        self.fit_fun_bindings = {}
+        self.fit_fun_hyperparams = UserLambdaHyperparams.from_function_sig(
+            self.fit_fun, 1
+        )
+        self.apply_fun_bindings = {}
+        self.apply_fun_hyperparams = UserLambdaHyperparams.from_function_sig(
+            self.apply_fun, 2
+        )
+
+    def hyperparams(self) -> set[str]:
+        return (
+            super()
+            .hyperparams()
+            .union(self.fit_fun_hyperparams.required_or_optional())
+            .union(self.apply_fun_hyperparams.required_or_optional())
+        )
+
+    def _resolve_hyperparams(self: _Self, bindings: Optional[Bindings] = None) -> _Self:
+        # override _resolve_hyperparams() to collect hyperparam bindings at fit-time
+        # so we don't need bindings arg to _apply.
+        resolved_self = super()._resolve_hyperparams(bindings)
+        resolved_self.fit_fun_bindings = self.fit_fun_hyperparams.collect_bindings(
+            bindings or {}
+        )
+        resolved_self.apply_fun_bindings = self.apply_fun_hyperparams.collect_bindings(
+            bindings or {}
+        )
+        return resolved_self
+
+    def _fit(self, data_fit: Any) -> Any:
+        fun_params = inspect.signature(self.fit_fun).parameters
+        positional_args = (data_fit,) if len(fun_params) > 0 else tuple()
+        return self.fit_fun(*positional_args, **self.fit_fun_bindings)
+
+    def _apply(self, data_apply: Any, state: Any) -> Any:
+        fun_params = inspect.signature(self.apply_fun).parameters
+        positional_args: tuple = tuple()
+        if len(fun_params) > 0:
+            positional_args += (data_apply,)
+        if len(fun_params) > 1:
+            positional_args += (state,)
+        return self.apply_fun(*positional_args, **self.apply_fun_bindings)
 
 
 @params
@@ -422,7 +552,7 @@ class UniversalCallChain(Generic[P_co]):
 
     @callchain(StatelessLambda)
     def stateless_lambda(  # type: ignore [empty-body]
-        self, apply_fun: Callable | HP, *, tag: Optional[str] = None
+        self, apply_fun: Callable, *, tag: Optional[str] = None
     ) -> P_co:
         """
         Append a :class:`StatelessLambda` transform to this pipeline.

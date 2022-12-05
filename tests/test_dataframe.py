@@ -213,9 +213,20 @@ def test_Filter(diamonds_df: pd.DataFrame):
         pip.apply(diamonds_df, bindings={"irrelevant": 100})
 
     with pytest.raises(TypeError):
-        ff.DataFramePipeline().filter(lambda df, *args: df["cut"] == "Ideal").apply(
-            diamonds_df
-        )
+        ff.DataFramePipeline().filter(lambda df, *args: df["cut"] == "Ideal")
+
+    # hyperparam with default value
+    pip = ff.DataFramePipeline().filter(
+        lambda df, which_cut="Ideal": df["cut"] == which_cut
+    )
+    assert pip.hyperparams() == {"which_cut"}
+    result_df = pip.apply(diamonds_df)
+    assert (result_df["cut"] == "Ideal").all()
+    result_df = pip.apply(diamonds_df, bindings={"which_cut": "Good"})
+    assert (result_df["cut"] == "Good").all()
+
+    with pytest.raises(TypeError):
+        ff.DataFramePipeline().filter(ff.HP("foo"))  # type: ignore [arg-type]
 
 
 def test_RenameColumns(diamonds_df: pd.DataFrame):

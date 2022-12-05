@@ -242,19 +242,26 @@ def test_StatelessLambda(diamonds_df: pd.DataFrame):
     )
     assert result.equals(df.rename(columns={"price": "price_orig"}))
 
-    result = (
-        ff.UniversalPipeline()
-        .stateless_lambda(
-            lambda df, bindings: df.rename(columns={bindings["response"]: "foo"})
-        )
-        .apply(df, bindings={"response": "price"})
+    pip = ff.UniversalPipeline().stateless_lambda(
+        lambda df, response: df.rename(columns={response: "foo"})
     )
+    result = pip.apply(df, bindings={"response": "price"})
     assert result.equals(df.rename(columns={"price": "foo"}))
 
+    with pytest.raises(ff.UnresolvedHyperparameterError):
+        pip.apply(df)
+
+    # hyperparam with default value
+    pip = ff.UniversalPipeline().stateless_lambda(
+        lambda df, response="price": df.rename(columns={response: f"{response}_2"})
+    )
+    result = pip.apply(df)
+    assert result.equals(df.rename(columns={"price": "price_2"}))
+    result = pip.apply(df, bindings={"response": "depth"})
+    assert result.equals(df.rename(columns={"depth": "depth_2"}))
+
     with pytest.raises(TypeError):
-        ff.UniversalPipeline().stateless_lambda(
-            lambda df, bindings, _: df.rename(columns={bindings["response"]: "foo"})
-        ).apply(df, bindings={"response": "price"})
+        ff.UniversalPipeline().stateless_lambda(ff.HP("foo"))  # type: ignore [arg-type]
 
 
 def test_StatefulLambda(diamonds_df: pd.DataFrame):
@@ -266,31 +273,27 @@ def test_StatefulLambda(diamonds_df: pd.DataFrame):
     result = lambda_demean.fit(df).apply(df)
     assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
 
-    # with bindings
+    # with hyperparams
     lambda_demean = ff.UniversalPipeline().stateful_lambda(
-        fit_fun=lambda df, bindings: df[bindings["col"]].mean(),
-        apply_fun=lambda df, mean, bindings: df.assign(
-            **{bindings["col"]: df[bindings["col"]] - mean}
-        ),
+        fit_fun=lambda df, col: df[col].mean(),
+        apply_fun=lambda df, mean, col: df.assign(**{col: df[col] - mean}),
     )
     result = lambda_demean.fit(df, bindings={"col": "price"}).apply(df)
     assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
+    with pytest.raises(ff.UnresolvedHyperparameterError):
+        lambda_demean.fit(df)
 
     # lambdas with too many args
     with pytest.raises(TypeError):
         ff.UniversalPipeline().stateful_lambda(
-            fit_fun=lambda df, bindings, _: df[bindings["col"]].mean(),
-            apply_fun=lambda df, mean, bindings: df.assign(
-                **{bindings["col"]: df[bindings["col"]] - mean}
-            ),
-        ).fit(df, bindings={"col": "price"})
+            fit_fun=ff.HP("foo"),  # type: ignore [arg-type]
+            apply_fun=lambda df, mean: df.assign(price=df["price"] - mean),
+        )
     with pytest.raises(TypeError):
         ff.UniversalPipeline().stateful_lambda(
-            fit_fun=lambda df, bindings: df[bindings["col"]].mean(),
-            apply_fun=lambda df, mean, bindings, _: df.assign(
-                **{bindings["col"]: df[bindings["col"]] - mean}
-            ),
-        ).fit(df, bindings={"col": "price"}).apply(df)
+            fit_fun=lambda df, col: df[col].mean(),
+            apply_fun=ff.HP("foo"),  # type: ignore [arg-type]
+        )
 
 
 def test_ForBindings(diamonds_df: pd.DataFrame):
@@ -322,7 +325,7 @@ def test_ForBindings(diamonds_df: pd.DataFrame):
             ],
             combine_fun=list,
         )
-        .stateless_lambda(lambda df, bindings: df[[bindings["target_col"]]])
+        .stateless_lambda(lambda df, target_col: df[[target_col]])
     ).apply(df)
 
     for x in result:

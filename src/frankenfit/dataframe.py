@@ -37,7 +37,6 @@ from functools import partial, reduce
 from typing import (
     Any,
     Callable,
-    ClassVar,
     Generic,
     Iterable,
     List,
@@ -57,7 +56,6 @@ from pyarrow import dataset  # type: ignore
 
 from .params import (
     HP,
-    UnresolvedHyperparameterError,
     dict_field,
     fmt_str_field,
     columns_field,
@@ -79,6 +77,7 @@ from .universal import (
     UniversalGrouper,
     UniversalPipeline,
     UniversalPipelineInterface,
+    UserLambdaHyperparams,
 )
 
 _LOG = logging.getLogger(__name__)
@@ -388,75 +387,43 @@ F = TypeVar("F", bound="Filter")
 class Filter(StatelessDataFrameTransform):
     filter_fun: Callable = field()
 
-    bindings: Optional[Bindings] = None
+    filter_fun_bindings: Bindings
+    filter_fun_hyperparams: UserLambdaHyperparams
 
-    prohibited_filter_fun_parameter_kinds: ClassVar[tuple] = (
-        inspect.Parameter.POSITIONAL_ONLY,
-        inspect.Parameter.VAR_POSITIONAL,
-        inspect.Parameter.VAR_KEYWORD,
-    )
+    def __attrs_post_init__(self):
+        if isinstance(self.filter_fun, HP):
+            raise TypeError(
+                f"StatelessLambda.filter_fun must not be a hyperparameter; got:"
+                f"{self.filter_fun!r}. Instead consider supplying a function that "
+                f"requests hyperparameter bindings in its parameter signature."
+            )
+        self.filter_fun_bindings = {}
+        self.filter_fun_hyperparams = UserLambdaHyperparams.from_function_sig(
+            self.filter_fun, 1
+        )
 
     def hyperparams(self) -> set[str]:
-        return super().hyperparams().union(self._filter_fun_hyperparams())
-
-    def _filter_fun_hyperparams(self) -> set[str]:
-        # first argument in the filter_fun's signature (if any) is data_apply; we treat
-        # anything after that as the name of a hyperparameter whose binding we should
-        # pass to the function.
-        hps: set[str] = set()
-        fun_params = inspect.signature(self.filter_fun).parameters
-        if len(fun_params) < 2:
-            return hps
-
-        for name, info in list(fun_params.items())[1:]:
-            if info.kind in self.prohibited_filter_fun_parameter_kinds:
-                raise TypeError(
-                    f"Filter: user filter_fun's signature must allow requested "
-                    f"hyperparameters to be supplied by name at call-time "
-                    f"but parameter {name!r} has kind {info.kind}. Full signature: "
-                    f"{inspect.signature(self.filter_fun)}"
-                )
-            hps.add(name)
-
-        return hps
+        return (
+            super()
+            .hyperparams()
+            .union(self.filter_fun_hyperparams.required_or_optional())
+        )
 
     def _resolve_hyperparams(self: F, bindings: Optional[Bindings] = None) -> F:
         # override _resolve_hyperparams() to collect hyperparam bindings at fit-time
         # so we don't need bindings arg to _apply.
-        bindings = bindings or {}
         resolved_self = super()._resolve_hyperparams(bindings)
-        resolved_self.bindings = {}
-        hps = self._filter_fun_hyperparams()
-        missing: set[str] = set()
-        for hp in hps:
-            try:
-                resolved_self.bindings[hp] = bindings[hp]
-            except KeyError:
-                missing.add(hp)
-                continue
-        if missing:
-            raise UnresolvedHyperparameterError(
-                f"Filter: user filter_fun requests the values of hyperparameters "
-                f"{hps}, but the following hyperparameters were not resolved at "
-                f"fit-time: {missing}. Bindings were: {bindings}"
-            )
+        resolved_self.filter_fun_bindings = (
+            self.filter_fun_hyperparams.collect_bindings(bindings or {})
+        )
         return resolved_self
 
-    def _apply(
-        self, data_apply: pd.DataFrame, state: None, bindings: Optional[Bindings] = None
-    ) -> pd.DataFrame:
-        assert self.bindings is not None
+    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
         fun_params = inspect.signature(self.filter_fun).parameters
         positional_args = (data_apply,) if len(fun_params) > 0 else tuple()
-        try:
-            kwargs = {
-                name: self.bindings[name] for name in self._filter_fun_hyperparams()
-            }
-        except KeyError as e:
-            # Theoretically this shouldn't happen because we got all the bindings at
-            # fit-time
-            raise UnresolvedHyperparameterError(e)
-        return data_apply.loc[self.filter_fun(*positional_args, **kwargs)]
+        return data_apply.loc[
+            self.filter_fun(*positional_args, **self.filter_fun_bindings)
+        ]
 
 
 @params
@@ -936,11 +903,7 @@ class DataFrameCallChain(Generic[P_co]):
     @callchain(Filter)
     def filter(  # type: ignore [empty-body]
         self,
-        filter_fun: (
-            Callable[[pd.DataFrame], pd.Series[bool]]
-            | Callable[[pd.DataFrame, Bindings], pd.Series[bool]]
-            | HP
-        ),
+        filter_fun: Callable,
         *,
         tag: Optional[str] = None,
     ) -> P_co:
