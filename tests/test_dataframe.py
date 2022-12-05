@@ -200,25 +200,22 @@ def test_Filter(diamonds_df: pd.DataFrame):
     )
     assert (ideal_df["cut"] == "Ideal").all()
 
-    pip = (
-        ff.DataFramePipeline()
-        # with second arg for bindings
-        .filter(lambda df, bindings: df["cut"] == bindings["which_cut"])
-    )
+    # taking a hyperparam
+    pip = ff.DataFramePipeline().filter(lambda df, which_cut: df["cut"] == which_cut)
+    assert pip.hyperparams() == {"which_cut"}
     for which_cut in ("Premium", "Good"):
         result_df = pip.apply(diamonds_df, bindings={"which_cut": which_cut})
         assert (result_df["cut"] == which_cut).all()
 
-    # TypeError if filter_fun takes wrong number of args
-    with pytest.raises(TypeError):
-        ff.DataFramePipeline().filter(lambda: True).apply(  # type: ignore [arg-type]
-            diamonds_df
-        )
+    with pytest.raises(ff.UnresolvedHyperparameterError):
+        pip.apply(diamonds_df)
+    with pytest.raises(ff.UnresolvedHyperparameterError):
+        pip.apply(diamonds_df, bindings={"irrelevant": 100})
 
     with pytest.raises(TypeError):
-        ff.DataFramePipeline().filter(
-            lambda a, b, c: True  # type: ignore [arg-type]
-        ).apply(diamonds_df)
+        ff.DataFramePipeline().filter(lambda df, *args: df["cut"] == "Ideal").apply(
+            diamonds_df
+        )
 
 
 def test_RenameColumns(diamonds_df: pd.DataFrame):
