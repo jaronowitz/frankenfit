@@ -409,10 +409,10 @@ class Filter(StatelessDataFrameTransform):
             .union(self.filter_fun_hyperparams.required_or_optional())
         )
 
-    def _resolve_hyperparams(self: F, bindings: Optional[Bindings] = None) -> F:
+    def resolve(self: F, bindings: Optional[Bindings] = None) -> F:
         # override _resolve_hyperparams() to collect hyperparam bindings at fit-time
         # so we don't need bindings arg to _apply.
-        resolved_self = super()._resolve_hyperparams(bindings)
+        resolved_self = super().resolve(bindings)
         resolved_self.filter_fun_bindings = (
             self.filter_fun_hyperparams.collect_bindings(bindings or {})
         )
@@ -839,9 +839,9 @@ class Assign(StatelessDataFrameTransform):
             )
         )
 
-    def _resolve_hyperparams(self: A, bindings: Optional[Bindings] = None) -> A:
+    def resolve(self: A, bindings: Optional[Bindings] = None) -> A:
         bindings = bindings or {}
-        resolved_self = super()._resolve_hyperparams(bindings)
+        resolved_self = super().resolve(bindings)
         resolved_self.assignment_fun_bindings = [
             ah.collect_bindings(bindings)
             for ah in resolved_self.assignment_fun_hyperparams

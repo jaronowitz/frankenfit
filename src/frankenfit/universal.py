@@ -341,10 +341,10 @@ class StatelessLambda(UniversalTransform, StatelessTransform):
             .union(self.apply_fun_hyperparams.required_or_optional())
         )
 
-    def _resolve_hyperparams(self: _Self, bindings: Optional[Bindings] = None) -> _Self:
+    def resolve(self: _Self, bindings: Optional[Bindings] = None) -> _Self:
         # override _resolve_hyperparams() to collect hyperparam bindings at fit-time
         # so we don't need bindings arg to _apply.
-        resolved_self = super()._resolve_hyperparams(bindings)
+        resolved_self = super().resolve(bindings)
         resolved_self.apply_fun_bindings = self.apply_fun_hyperparams.collect_bindings(
             bindings or {}
         )
@@ -398,10 +398,10 @@ class StatefulLambda(UniversalTransform):
             .union(self.apply_fun_hyperparams.required_or_optional())
         )
 
-    def _resolve_hyperparams(self: _Self, bindings: Optional[Bindings] = None) -> _Self:
+    def resolve(self: _Self, bindings: Optional[Bindings] = None) -> _Self:
         # override _resolve_hyperparams() to collect hyperparam bindings at fit-time
         # so we don't need bindings arg to _apply.
-        resolved_self = super()._resolve_hyperparams(bindings)
+        resolved_self = super().resolve(bindings)
         resolved_self.fit_fun_bindings = self.fit_fun_hyperparams.collect_bindings(
             bindings or {}
         )

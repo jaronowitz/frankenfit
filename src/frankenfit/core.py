@@ -573,7 +573,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
         # resolve hyperparams and prepare args to user _fit function
         args: tuple[Any, ...] = (data_fit,)
-        resolved_transform = self._resolve_hyperparams(bindings)
+        resolved_transform = self.resolve(bindings)
         sig = inspect.signature(resolved_transform._fit).parameters
         if len(sig) < 1:
             raise TypeError(
@@ -668,7 +668,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
         return (sd.keys_checked or set()) | sub_transform_results
 
-    def _resolve_hyperparams(self: R, bindings: Optional[Bindings] = None) -> R:
+    def resolve(self: R, bindings: Optional[Bindings] = None) -> R:
         """
         Returns a shallow copy of self with all HP-valued params resolved (but
         not recursively), or raises UnresolvedHyperparameter if unable to do so
@@ -1332,7 +1332,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
 
         return submit_backend.submit(
             f"{self.tag}_fit_apply",
-            self._resolve_hyperparams(bindings)._fit,
+            self.resolve(bindings)._fit,
             data_apply,
             bindings,
             child_backend,
