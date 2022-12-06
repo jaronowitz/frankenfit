@@ -684,14 +684,13 @@ def test_read_write_dataset(diamonds_df: pd.DataFrame, tmp_path):
 
 def test_Assign(diamonds_df: pd.DataFrame):
     # kwargs style
-    result = (
-        ff.DataFramePipeline().assign(
-            intercept=1,
-            grp=lambda df: df.index % 5,
-            grp_self=lambda self, df: df.index % len(self.assignments),
-            grp_2=lambda self, bindings, df: df.index % bindings["k"],
-        )
-    ).apply(diamonds_df, bindings={"k": 3})
+    pip = ff.DataFramePipeline().assign(
+        intercept=1,
+        grp=lambda df: df.index % 5,
+        grp_2=lambda df, k: df.index % k,
+    )
+    assert pip.hyperparams() == {"k"}
+    result = pip.apply(diamonds_df, bindings={"k": 3})
     assert cast(pd.DataFrame, result["intercept"] == 1).all()
     assert cast(
         pd.DataFrame,
@@ -704,16 +703,16 @@ def test_Assign(diamonds_df: pd.DataFrame):
     ).all()
 
     # assignment_dict style
-    result = (
-        ff.DataFramePipeline().assign(
-            {
-                "intercept": 1,
-                ff.HPFmtStr("grp_{k}"): lambda self, bindings, df: df.index
-                % bindings["k"],
-            },
-            tag="foo",
-        )
-    ).apply(diamonds_df, bindings={"k": 3})
+    pip = ff.DataFramePipeline().assign(
+        {
+            "intercept": 1,
+            ff.HPFmtStr("grp_{k}"): lambda df, k: df.index % k,
+            ff.HPFmtStr("foo_{x}"): 42,
+        },
+        tag="foo",
+    )
+    assert pip.hyperparams() == {"k", "x"}
+    result = pip.apply(diamonds_df, bindings={"k": 3, "x": "bar"})
     assert cast(pd.DataFrame, result["intercept"] == 1).all()
     assert cast(
         pd.DataFrame,
@@ -725,10 +724,6 @@ def test_Assign(diamonds_df: pd.DataFrame):
 
     with pytest.raises(ValueError):
         ff.DataFramePipeline().assign({"foo": 1}, {"bar": 1})
-
-    with pytest.raises(TypeError):
-        # lambda takes too many args
-        ff.DataFramePipeline().assign(foo=lambda self, bindings, df, extra: 1).apply()
 
 
 def test_GroupByBindings(diamonds_df: pd.DataFrame):

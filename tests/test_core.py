@@ -170,10 +170,10 @@ def test_Transform_fit_apply_valence() -> None:
         def _fit(self, data_fit: Any) -> Any:
             return "woof"
 
-        def _apply(self, data_apply: Any, state: Any, bindings=None) -> Any:
+        def _apply(self, data_apply: Any, state: Any, backend=None) -> Any:
             assert data_apply == foo_str
             assert state == "woof"
-            assert bindings == meow_bindings
+            assert isinstance(backend, ff.Backend)
 
     Apply3().fit(bindings=meow_bindings).apply(foo_str)
 

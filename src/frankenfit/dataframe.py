@@ -791,10 +791,16 @@ class Correlation(StatelessDataFrameTransform):
         return cm.loc[self.left_cols, self.right_cols]
 
 
-@params
+A = TypeVar("A", bound="Assign")
+
+
+@params(auto_attribs=False)
 class Assign(StatelessDataFrameTransform):
     # TODO: keys as fmt str hyperparams
-    assignments: dict[str, Callable] = dict_field()
+    assignments: dict[str, Callable | float | int | str] = dict_field()
+
+    assignment_fun_hyperparams: list[UserLambdaHyperparams]
+    assignment_fun_bindings: list[Bindings]
 
     # Assign([assignment_dict][, tag=][, kwarg1=][, kwarg2][...])
     # ... with only one of assigment_dict or kwargs
@@ -814,24 +820,43 @@ class Assign(StatelessDataFrameTransform):
             assignments = kwargs
         self.__attrs_init__(tag=tag, assignments=assignments)
 
-    def _apply(
-        self, data_apply: pd.DataFrame, state: None, bindings: Optional[Bindings] = None
-    ) -> pd.DataFrame:
-        kwargs = {}
+    def __attrs_post_init__(self):
+        self.assignment_fun_bindings = []
+        self.assignment_fun_hyperparams = []
+        for fun in self.assignments.values():
+            if not callable(fun):
+                continue
+            self.assignment_fun_hyperparams.append(
+                UserLambdaHyperparams.from_function_sig(fun, 1)
+            )
+
+    def hyperparams(self) -> set[str]:
+        return (
+            super()
+            .hyperparams()
+            .union(
+                *(ah.required_or_optional() for ah in self.assignment_fun_hyperparams)
+            )
+        )
+
+    def _resolve_hyperparams(self: A, bindings: Optional[Bindings] = None) -> A:
+        bindings = bindings or {}
+        resolved_self = super()._resolve_hyperparams(bindings)
+        resolved_self.assignment_fun_bindings = [
+            ah.collect_bindings(bindings)
+            for ah in resolved_self.assignment_fun_hyperparams
+        ]
+        return resolved_self
+
+    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
+        kwargs: dict[str, Callable | float | int | str] = {}
+        bindings_idx = 0
         for k, v in self.assignments.items():
-            kwargs[k] = v
             if callable(v):
-                sig = inspect.signature(v).parameters
-                if len(sig) == 2:
-                    # expose self to bivalent lambdas as first arg
-                    kwargs[k] = partial(v, self)
-                elif len(sig) == 3:
-                    # expose self and bindings to trivalent bindings
-                    kwargs[k] = partial(v, self, bindings)
-                elif len(sig) > 3:
-                    raise TypeError(
-                        f"Expected lambda with 1 or 2 parameters, found {len(sig)}"
-                    )
+                kwargs[k] = partial(v, **self.assignment_fun_bindings[bindings_idx])
+                bindings_idx += 1
+            else:
+                kwargs[k] = v
 
         return data_apply.assign(**kwargs)
 

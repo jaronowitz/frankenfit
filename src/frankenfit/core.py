@@ -206,7 +206,8 @@ class Backend(ABC):
         if bindings is not None:
             raise TypeError(
                 "Backend.apply: bindings argument must not be supplied when applying "
-                "a FitTransform (it is already resolved!)"
+                "a FitTransform (its hyperparameters have already been resolved by "
+                "fit-time bindings)."
             )
 
         data_apply = cast(Union[DataIn, Future[DataIn], None], data_apply)
@@ -327,10 +328,8 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
                 f"I don't know how to invoke user _apply() method with "
                 f"{len(sig)} arguments: {tf._apply} with signature {str(sig)}"
             )
-        # include bindings if _apply has the signature for it
+        # include backend if _apply has the signature for it
         if len(sig) > 2:
-            args += (self.bindings(),)
-        if len(sig) > 3:
             args += (child_backend,)
 
         return submit_backend.submit(f"{self.tag}._apply", tf._apply, *args)
@@ -1294,7 +1293,6 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         self,
         data_apply: Any,
         state: list[FitTransform],
-        bindings: Optional[Bindings] = None,
         backend: Optional[Backend] = None,
     ) -> DataInOut:
         assert backend is not None

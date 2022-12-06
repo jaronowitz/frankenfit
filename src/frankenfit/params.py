@@ -27,7 +27,18 @@ library of classes and field functions for different types of hyperparameterss.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Mapping, Tuple, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    ItemsView,
+    KeysView,
+    Mapping,
+    Tuple,
+    TypeVar,
+    Union,
+    ValuesView,
+)
 
 import attrs
 from attrs import define, field
@@ -168,9 +179,9 @@ class HPDict(HP):
 
     def resolve(self, bindings: Mapping[str, Any]) -> dict:
         return {
-            (k.resolve(bindings) if isinstance(k, HP) else k): v.resolve(bindings)
-            if isinstance(v, HP)
-            else v
+            (k.resolve(bindings) if isinstance(k, HP) else k): (
+                v.resolve(bindings) if isinstance(v, HP) else v
+            )
             for k, v in self.mapping.items()
         }
 
@@ -191,6 +202,15 @@ class HPDict(HP):
         ):
             return x
         return cls(x)
+
+    def values(self) -> ValuesView:
+        return self.mapping.values()
+
+    def keys(self) -> KeysView:
+        return self.mapping.keys()
+
+    def items(self) -> ItemsView:
+        return self.mapping.items()
 
 
 def dict_field(**kwargs):
