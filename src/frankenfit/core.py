@@ -262,7 +262,7 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         self.__state = state
         self.__bindings = bindings or {}
         self.tag: str = resolved_transform.tag
-        self.backend: Backend | None = resolved_transform.backend
+        self.backend: Backend | None = None
 
     def __repr__(self):
         return (
@@ -333,7 +333,7 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         # Convenience method that applies this transform on a local backend and
         # materializes the result
         return (
-            (self.__resolved_transform.backend or LocalBackend())
+            (self.backend or self.__resolved_transform.backend or LocalBackend())
             .apply(self, data_apply)
             .result()
         )
@@ -1272,7 +1272,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
             if t.backend is None:
                 t = t.on_backend(self.backend)
             ft = local.fit(t, data_fit, bindings=bindings)
-            data_fit = local.apply(ft, data_fit).result()
+            data_fit = local.apply(ft.on_backend(t.backend), data_fit).result()
             fit_transforms.append(ft)
 
         if return_what == "state":
@@ -1300,9 +1300,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         local = LocalBackend()
         data = data_apply
         for fit_transform in fit_transforms:
-            if fit_transform.backend is None:
-                fit_transform = fit_transform.on_backend(self.backend)
-            data = local.apply(fit_transform, data)
+            data = local.apply(fit_transform.on_backend(self.backend), data)
         return data.result()
 
     def _submit_apply(
@@ -1315,16 +1313,19 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
             data_len = len(data_apply)
         else:
             data_len = None
+        tf = self.resolve(bindings)
+        if tf.backend is None:
+            tf = tf.on_backend(submit_backend)
+
         _LOG.debug(
             f"Fit-applying {self.tag} on {type(data_apply)}"
             f"{f' (len={data_len})' if data_len is not None else ''} "
             f"with bindings={bindings!r}, submitting to {submit_backend!r}, "
-            f"with self.backend={self.backend!r}"
+            f"with tf.backend={tf.backend!r}"
         )
-
         return submit_backend.submit(
-            f"{self.tag}_fit_apply",
-            self.resolve(bindings)._fit,
+            f"{self.tag}._fit_apply",
+            tf._fit,
             data_apply,
             bindings,
             return_what="result",

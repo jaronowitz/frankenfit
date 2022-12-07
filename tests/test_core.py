@@ -23,9 +23,10 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, ClassVar, Optional, Type, TypeVar, cast
+from typing import Any, Callable, ClassVar, Optional, Type, TypeVar, cast
 from sys import version_info
 
+from attrs import define, field
 import numpy as np
 import pandas as pd
 import pytest
@@ -547,3 +548,55 @@ def test_pipeline_then() -> None:
 
     with pytest.raises(TypeError):
         pip + "meow"  # type: ignore [operator]
+
+
+def test_pipeline_backends(diamonds_df: pd.DataFrame) -> None:
+    @define
+    class TracingBackend(ff.LocalBackend):
+        key_counts: dict = field(factory=dict, init=False, repr=False)
+
+        def submit(
+            self, key_prefix: str, function: Callable, *function_args, **function_kwargs
+        ) -> core.LocalFuture[Any]:
+            self.key_counts[key_prefix] = self.key_counts.get(key_prefix, 0) + 1
+            return super().submit(
+                key_prefix, function, *function_args, **function_kwargs
+            )
+
+    pip = (
+        ff.DataFramePipeline(tag="OuterPipeline")
+        .for_bindings([{"foo": x} for x in range(3)], lambda _: pd.DataFrame())
+        .then(
+            ff.DataFramePipeline(tag="InnerPipeline").stateless_lambda(
+                lambda df, foo: df.assign(foo=foo)
+            )
+        )
+    )
+
+    tb1 = TracingBackend()
+    fit = tb1.fit(pip, diamonds_df)
+
+    # Was for_bindings able to parallelize correctly?
+    assert tb1.key_counts == {
+        "OuterPipeline._fit": 1,
+        "InnerPipeline._fit": 3,
+        "InnerPipeline._apply": 3,
+    }
+
+    tb2 = TracingBackend()
+    tb2.apply(fit, diamonds_df)
+    assert tb2.key_counts == {"OuterPipeline._apply": 1, "InnerPipeline._apply": 3}
+    # tb1 wasn't touched:
+    assert tb1.key_counts == {
+        "OuterPipeline._fit": 1,
+        "InnerPipeline._fit": 3,
+        "InnerPipeline._apply": 3,
+    }
+
+    tb3 = TracingBackend()
+    tb3.apply(pip, diamonds_df)
+    assert tb3.key_counts == {
+        "OuterPipeline._fit_apply": 1,
+        "InnerPipeline._fit": 3,
+        "InnerPipeline._apply": 3,
+    }

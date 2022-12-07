@@ -524,6 +524,9 @@ class Rename(StatelessDataFrameTransform):
         renamed do, or a dict from old column names to corresponding new names.
     """
 
+    # TODO: support hp format-strs in keys and values
+    # TODO: support UserLambdaHyperparams for callable how
+
     how: Callable | dict[str, str]
 
     def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
@@ -532,6 +535,7 @@ class Rename(StatelessDataFrameTransform):
 
 @params
 class Pipe(ColumnsTransform, StatelessDataFrameTransform):
+    # TODO: support UserLambdaHyperparams for apply_fun
     apply_fun: Callable[[pd.DataFrame], pd.DataFrame]
 
     def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:

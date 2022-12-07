@@ -279,29 +279,44 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
     def _fit(
         self, data_fit: Any, base_bindings: Optional[Bindings] = None
     ) -> list[ForBindings.FitResult]:
-        # TODO: parallelize
+        assert self.backend is not None
         base_bindings = base_bindings or {}
-        fits = []
+        fits: list[ForBindings.FitResult] = []
         for bindings in self.bindings_sequence:
             fits.append(
                 ForBindings.FitResult(
                     bindings,
-                    self.transform.fit(
-                        data_fit, bindings={**base_bindings, **bindings}
+                    # submit in parallel on backend
+                    self.backend.fit(
+                        self.transform.on_backend(self.backend),
+                        data_fit,
+                        bindings={**base_bindings, **bindings},
                     ),
                 )
             )
+        # materialize all states. this is where we wait for all the parallel _fit tasks
+        # to complete
+        for fit_result in fits:
+            fit_result.fit = fit_result.fit.materialize_state()
         return fits
 
     def _apply(self, data_apply: Any, state: list[ForBindings.FitResult]) -> DataResult:
-        # TODO: parallelize
-        results = []
+        assert self.backend is not None
+        results: list[ForBindings.ApplyResult] = []
         for fit_result in state:
             results.append(
                 ForBindings.ApplyResult(
-                    fit_result.bindings, fit_result.fit.apply(data_apply)
+                    fit_result.bindings,
+                    # submit in parallel on backend
+                    self.backend.apply(
+                        fit_result.fit.on_backend(self.backend), data_apply
+                    ),
                 )
             )
+        # materialize all results before sending to combine_fun. This is where we wait
+        # for all the parallel _apply tasks to finish.
+        for apply_result in results:
+            apply_result.result = cast(Future[DataResult], apply_result.result).result()
         return self.combine_fun(results)
 
 
@@ -331,9 +346,9 @@ class UserLambdaHyperparams:
             if info.kind in PROHIBITED_USER_LAMBDA_PARAMETER_KINDS:
                 raise TypeError(
                     f"Filter: user lambda function's signature must allow requested "
-                    f"hyperparameters to be supplied by name at call-time "
-                    f"but parameter {name!r} has kind {info.kind}. Full signature: "
-                    f"{inspect.signature(fun)}"
+                    f"hyperparameters to be supplied non-variadically by name at "
+                    f"call-time but parameter {name!r} has kind {info.kind}. Full "
+                    f"signature: {inspect.signature(fun)}"
                 )
             if info.default is inspect._empty:
                 required.add(name)
