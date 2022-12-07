@@ -57,6 +57,7 @@ from .core import (
     FitTransform,
     Future,
     Grouper,
+    LocalBackend,
     P_co,
     SentinelDict,
     StatelessTransform,
@@ -115,22 +116,30 @@ class IfHyperparamIsTrue(UniversalTransform):
     otherwise: Optional[Transform] = None
     allow_unresolved: bool = False
 
-    def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
+    def _fit(
+        self, data_fit: Any, bindings: Optional[Bindings] = None
+    ) -> FitTransform | None:
         bindings = bindings or {}
         if (not self.allow_unresolved) and self.name not in bindings:
             raise UnresolvedHyperparameterError(
                 f"IfHyperparamIsTrue: no binding for {self.name!r} but "
                 "allow_unresolved is False"
             )
+        local = LocalBackend()
         if bindings.get(self.name):
-            return self.then_transform.fit(data_fit, bindings=bindings)
+            return local.fit(
+                self.then_transform.on_backend(self.backend), data_fit, bindings
+            ).materialize_state()
         elif self.otherwise is not None:
-            return self.otherwise.fit(data_fit, bindings=bindings)
+            return local.fit(
+                self.otherwise.on_backend(self.backend), data_fit, bindings
+            ).materialize_state()
         return None  # act like Identity
 
-    def _apply(self, data_apply: Any, state: Any) -> Any:
+    def _apply(self, data_apply: Any, state: FitTransform | None) -> Any:
         if state is not None:
-            return state.apply(data_apply)
+            local = LocalBackend()
+            return local.apply(state.on_backend(self.backend), data_apply).result()
         return data_apply  # act like Identity
 
     def hyperparams(self) -> set[str]:
@@ -151,20 +160,30 @@ class IfHyperparamLambda(UniversalTransform):
     then_transform: Transform
     otherwise: Optional[Transform] = None
 
-    def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
+    def _fit(
+        self, data_fit: Any, bindings: Optional[Bindings] = None
+    ) -> FitTransform | None:
         bindings = bindings or {}
+        local = LocalBackend()
         if self.fun(bindings):
-            return self.then_transform.fit(data_fit, bindings=bindings)
+            return local.fit(
+                self.then_transform.on_backend(self.backend), data_fit, bindings
+            ).materialize_state()
         elif self.otherwise is not None:
-            return self.otherwise.fit(data_fit, bindings=bindings)
+            return local.fit(
+                self.otherwise.on_backend(self.backend), data_fit, bindings
+            ).materialize_state()
         return None  # act like Identity
 
-    def _apply(self, data_apply: Any, state: Any) -> Any:
+    def _apply(self, data_apply: Any, state: FitTransform | None) -> Any:
         if state is not None:
-            return state.apply(data_apply)
+            local = LocalBackend()
+            return local.apply(state.on_backend(self.backend), data_apply).result()
         return data_apply  # act like Identity
 
     def hyperparams(self) -> set[str]:
+        # Note we don't use UserLambdaHyperparams because the lambda receives the WHOLE
+        # bindings dict
         result = super().hyperparams()
         # find out what bindings our lambda function queries
         sd = SentinelDict()
@@ -179,23 +198,59 @@ class IfHyperparamLambda(UniversalTransform):
         return entries, exits
 
 
-@params
+@params(auto_attribs=False)
 class IfFittingDataHasProperty(UniversalTransform):
-    fun: Callable  # df -> bool
-    then_transform: Transform
-    otherwise: Optional[Transform] = None
+    fun: Callable = field()  # df -> bool
+    then_transform: Transform = field()
+    # TODO: we should really use UserLambdaHyperparams
 
-    def _fit(self, data_fit: Any, bindings: Optional[Bindings] = None) -> Any:
+    fun_bindings: Bindings
+    fun_hyperparams: UserLambdaHyperparams
+
+    otherwise: Optional[Transform] = field(default=None)
+
+    _Self = TypeVar("_Self", bound="IfFittingDataHasProperty")
+
+    def __attrs_post_init__(self):
+        if isinstance(self.fun, HP):
+            raise TypeError(
+                f"IfFittingDataHasProperty.fun must not be a hyperparameter; got:"
+                f"{self.fun!r}. Instead consider supplying a function that "
+                f"requests hyperparameter bindings in its parameter signature."
+            )
+        self.fun_bindings = {}
+        self.fun_hyperparams = UserLambdaHyperparams.from_function_sig(self.fun, 1)
+
+    def hyperparams(self) -> set[str]:
+        return super().hyperparams().union(self.fun_hyperparams.required_or_optional())
+
+    def resolve(self: _Self, bindings: Optional[Bindings] = None) -> _Self:
+        # override _resolve_hyperparams() to collect hyperparam bindings at fit-time
+        resolved_self = super().resolve(bindings)
+        resolved_self.fun_bindings = self.fun_hyperparams.collect_bindings(
+            bindings or {}
+        )
+        return resolved_self
+
+    def _fit(
+        self, data_fit: Any, bindings: Optional[Bindings] = None
+    ) -> FitTransform | None:
         bindings = bindings or {}
-        if self.fun(data_fit):
-            return self.then_transform.fit(data_fit, bindings=bindings)
+        local = LocalBackend()
+        if self.fun(data_fit, **self.fun_bindings):
+            return local.fit(
+                self.then_transform.on_backend(self.backend), data_fit, bindings
+            ).materialize_state()
         elif self.otherwise is not None:
-            return self.otherwise.fit(data_fit, bindings=bindings)
+            return local.fit(
+                self.otherwise.on_backend(self.backend), data_fit, bindings
+            ).materialize_state()
         return None  # act like Identity
 
-    def _apply(self, data_apply: Any, state: Any) -> Any:
+    def _apply(self, data_apply: Any, state: FitTransform | None) -> Any:
         if state is not None:
-            return state.apply(data_apply)
+            local = LocalBackend()
+            return local.apply(state.on_backend(self.backend), data_apply).result()
         return data_apply  # act like Identity
 
     def _visualize(self, digraph, bg_fg: tuple[str, str]):

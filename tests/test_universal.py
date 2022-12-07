@@ -232,6 +232,16 @@ def test_IfFittingDataHasProperty(diamonds_df: pd.DataFrame):
         )
     ).visualize()
 
+    property_with_hp = lambda df, min_cols=1: len(df.columns) >= min_cols  # noqa: E731
+    pip = ff.UniversalPipeline().if_fitting_data_has_property(
+        property_with_hp, lambda_add_ones, otherwise=lambda_demean
+    )
+    assert pip.hyperparams() == {"min_cols"}
+    assert pip.fit(df[["price"]]).apply(df).equals(target_add_ones)
+    assert (
+        pip.fit(df[["price"]], bindings={"min_cols": 2}).apply(df).equals(target_demean)
+    )
+
 
 def test_StatelessLambda(diamonds_df: pd.DataFrame):
     df = diamonds_df
