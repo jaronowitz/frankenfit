@@ -51,7 +51,6 @@ from typing import (
     Sized,
     Type,
     TypeVar,
-    Union,
     cast,
 )
 
@@ -130,6 +129,10 @@ class Future(Generic[T_co], ABC):
 
 class Backend(ABC):
     @abstractmethod
+    def put(self, data: T) -> Future[T]:
+        raise NotImplementedError  # pragma: no cover
+
+    @abstractmethod
     def submit(
         self,
         key_prefix: str,
@@ -145,6 +148,8 @@ class Backend(ABC):
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
     ) -> FitTransform[Transform[DataIn, DataResult], DataIn, DataResult]:
+        if data_fit is not None and not isinstance(data_fit, Future):
+            data_fit = self.put(data_fit)
         return transform._submit_fit(self, data_fit, bindings)
 
     @overload
@@ -185,13 +190,17 @@ class Backend(ABC):
         ] = None,
         bindings: Optional[Bindings] = None,
     ) -> Future[DataResult] | Future[DataInOut]:
+        data: Any
+        if data_apply is not None and not isinstance(data_apply, Future):
+            data = self.put(data_apply)
+        else:
+            data = data_apply
+
         if isinstance(what, StatelessTransform):
-            data_apply = cast(Union[DataIn, Future[DataIn], None], data_apply)
-            return what._submit_apply(self, data_apply, bindings)
+            return what._submit_apply(self, data, bindings)
 
         if isinstance(what, BasePipeline):
-            data_apply = cast(Union[DataInOut, Future[DataInOut], None], data_apply)
-            return what._submit_apply(self, data_apply, bindings)
+            return what._submit_apply(self, data, bindings)
 
         assert isinstance(what, FitTransform)
         if bindings is not None:
@@ -201,8 +210,7 @@ class Backend(ABC):
                 "fit-time bindings)."
             )
 
-        data_apply = cast(Union[DataIn, Future[DataIn], None], data_apply)
-        return what._submit_apply(self, data_apply)
+        return what._submit_apply(self, data)
 
 
 @define
@@ -215,6 +223,9 @@ class LocalFuture(Generic[T_co], Future[T_co]):
 
 @define
 class LocalBackend(Backend):
+    def put(self, data: T) -> LocalFuture[T]:
+        return LocalFuture(data)
+
     def submit(
         self,
         key_prefix: str,

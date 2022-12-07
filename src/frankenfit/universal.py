@@ -262,7 +262,7 @@ class IfFittingDataHasProperty(UniversalTransform):
 
 @params
 class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataResult]):
-    bindings_sequence: Iterable[Bindings]
+    bindings_sequence: Sequence[Bindings]
     transform: Transform
     combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataResult]
 
@@ -282,6 +282,8 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
         assert self.backend is not None
         base_bindings = base_bindings or {}
         fits: list[ForBindings.FitResult] = []
+        if data_fit is not None and len(self.bindings_sequence) > 0:
+            data_fit = self.backend.put(data_fit)
         for bindings in self.bindings_sequence:
             fits.append(
                 ForBindings.FitResult(
@@ -302,6 +304,8 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
 
     def _apply(self, data_apply: Any, state: list[ForBindings.FitResult]) -> DataResult:
         assert self.backend is not None
+        if data_apply is not None and len(self.bindings_sequence) > 0:
+            data_apply = self.backend.put(data_apply)
         results: list[ForBindings.ApplyResult] = []
         for fit_result in state:
             results.append(

@@ -346,7 +346,7 @@ class GroupByCols(DataFrameTransform):
 
 @params
 class GroupByBindings(DataFrameTransform):
-    bindings_sequence: Iterable[Bindings]
+    bindings_sequence: Sequence[Bindings]
     transform: Transform[pd.DataFrame, pd.DataFrame]
     as_index: bool = True
 

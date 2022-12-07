@@ -44,6 +44,7 @@ from .core import Future, Backend
 
 _LOG = logging.getLogger(__name__)
 
+T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 
 
@@ -88,6 +89,16 @@ class DaskFuture(Generic[T_co], Future[T_co]):
 @define
 class DaskBackend(Backend):
     address: Optional[str] = field(converter=_convert_to_address, default=None)
+
+    # TODO: a contextmanager or something that tasks can use to submit subtasks and
+    # properly secede/rejoin.
+
+    def put(self, data: T) -> DaskFuture[T]:
+        from dask import distributed
+
+        client: distributed.Client = distributed.get_client(self.address)
+        _LOG.debug("%r: scattering data of type %s", self, type(data))
+        return DaskFuture(client.scatter(data))
 
     def submit(
         self,
