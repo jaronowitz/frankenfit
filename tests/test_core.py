@@ -166,17 +166,6 @@ def test_Transform_fit_apply_valence() -> None:
 
     Apply2().fit().apply(foo_str)
 
-    class Apply3(ff.Transform):
-        def _fit(self, data_fit: Any) -> Any:
-            return "woof"
-
-        def _apply(self, data_apply: Any, state: Any, backend=None) -> Any:
-            assert data_apply == foo_str
-            assert state == "woof"
-            assert isinstance(backend, ff.Backend)
-
-    Apply3().fit(bindings=meow_bindings).apply(foo_str)
-
     class Apply1(ff.Transform):
         def _fit(self, data_fit: Any) -> Any:
             return "woof"
