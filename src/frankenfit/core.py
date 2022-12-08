@@ -148,7 +148,7 @@ class Backend(ABC):
         return self.put(data)
 
     @contextmanager
-    def submitting_from_transform(self: B) -> Iterator[B]:
+    def submitting_from_transform(self: B, key_prefix: str = "") -> Iterator[B]:
         yield self
 
     @abstractmethod
@@ -739,6 +739,17 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         self_copy = copy.copy(self)
         self_copy.backend = backend
         return self_copy
+
+    @contextmanager
+    def parallel_backend(self) -> Iterator[Backend]:
+        if self.backend is None:
+            yield LocalBackend()
+            return
+
+        with self.backend.submitting_from_transform(
+            key_prefix=f"{self.name}:"
+        ) as backend:
+            yield backend
 
     def then(
         self: Transform, other: Optional[Transform | list[Transform]] = None

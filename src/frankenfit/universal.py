@@ -279,10 +279,9 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
     def _fit(
         self, data_fit: Any, base_bindings: Optional[Bindings] = None
     ) -> list[ForBindings.FitResult]:
-        assert self.backend is not None
         base_bindings = base_bindings or {}
         fits: list[ForBindings.FitResult] = []
-        with self.backend.submitting_from_transform() as backend:
+        with self.parallel_backend() as backend:
             if len(self.bindings_sequence) > 0:
                 data_fit = backend.maybe_put(data_fit)
             for bindings in self.bindings_sequence:
@@ -304,8 +303,7 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
         return fits
 
     def _apply(self, data_apply: Any, state: list[ForBindings.FitResult]) -> DataResult:
-        assert self.backend is not None
-        with self.backend.submitting_from_transform() as backend:
+        with self.parallel_backend() as backend:
             if len(self.bindings_sequence) > 0:
                 data_apply = backend.maybe_put(data_apply)
             results: list[ForBindings.ApplyResult] = []

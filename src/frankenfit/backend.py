@@ -93,6 +93,7 @@ class DaskBackend(Backend):
     FutureType: ClassVar[type[Future]] = DaskFuture
 
     address: Optional[str] = field(converter=_convert_to_address, default=None)
+    key_prefix: str = ""
 
     # TODO: a contextmanager or something that tasks can use to submit subtasks and
     # properly secede/rejoin.
@@ -117,7 +118,12 @@ class DaskBackend(Backend):
 
         client: distributed.Client = distributed.get_client(self.address)
         # TODO: should we do anything about impure functions? i.e., data readers
-        key = key_prefix + "-" + tokenize(function, function_kwargs, *function_args)
+        key = (
+            self.key_prefix
+            + key_prefix
+            + "-"
+            + tokenize(function, function_kwargs, *function_args)
+        )
         _LOG.debug("%r: submitting task %r to %r", self, key, client)
         # hmm, there could be a problem here with collision between function
         # kwargs and submit kwargs, but this is inherent to distributed's API
@@ -129,7 +135,7 @@ class DaskBackend(Backend):
         return DaskFuture(fut)
 
     @contextmanager
-    def submitting_from_transform(self: D) -> Iterator[D]:
+    def submitting_from_transform(self: D, key_prefix: str = "") -> Iterator[D]:
         client: distributed.Client = distributed.get_client(self.address)
         try:
             worker = distributed.get_worker()
@@ -164,6 +170,10 @@ class DaskBackend(Backend):
                 stimulus_id=f"worker-client-secede-{time()}",
             ),
         )
-        yield self
-        _LOG.debug("%r.submitting_from_transform(): worker rejoining", self)
-        rejoin()
+        try:
+            yield type(self)(
+                address=self.address, key_prefix=key_prefix + self.key_prefix
+            )
+        finally:
+            _LOG.debug("%r.submitting_from_transform(): worker rejoining", self)
+            rejoin()
