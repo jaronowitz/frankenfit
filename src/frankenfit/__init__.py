@@ -84,19 +84,19 @@ from frankenfit.core import (
     NonInitialConstantTransformWarning,
 )
 
+from frankenfit.backend import (
+    DaskBackend,
+)
+
 from frankenfit.universal import (
     UniversalTransform,
     UniversalPipeline,
-    UniversalPipelineInterface,
-    UniversalGrouper,
     Identity,
 )
 
 from frankenfit.dataframe import (
     DataFrameTransform,
     DataFramePipeline,
-    DataFramePipelineInterface,
-    DataFrameGrouper,
     ReadDataFrame,
     ReadPandasCSV,
     ReadDataset,
@@ -104,8 +104,4 @@ from frankenfit.dataframe import (
     fit_group_on_all_other_groups,
     # Exceptions that users can catch
     UnfitGroupError,
-)
-
-from frankenfit.backend import (
-    DaskBackend,
 )
