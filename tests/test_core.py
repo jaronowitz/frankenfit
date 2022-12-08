@@ -429,23 +429,27 @@ def test_tags(diamonds_df: pd.DataFrame) -> None:
     pip = core.BasePipeline[Any](
         transforms=[ff.Identity(), tagged_ident, ff.Identity()]
     )
-    assert pip.find_by_tag("mytag") is tagged_ident
+    assert pip.find_by_name("Identity#mytag") is tagged_ident
     with pytest.raises(KeyError):
-        pip.find_by_tag("mingus dew")
+        pip.find_by_name("mingus dew")
 
     fit = pip.fit(diamonds_df)
-    assert isinstance(fit.find_by_tag("mytag").resolved_transform(), ff.Identity)
+    assert isinstance(
+        fit.find_by_name("Identity#mytag").resolved_transform(), ff.Identity
+    )
     with pytest.raises(KeyError):
-        fit.find_by_tag("mingus dew")
+        fit.find_by_name("mingus dew")
 
     ihp = universal.IfHyperparamIsTrue("my-hp", ff.Identity(), otherwise=tagged_ident)
-    assert ihp.find_by_tag("mytag") is tagged_ident
+    assert ihp.find_by_name("Identity#mytag") is tagged_ident
     ihp_fit = ihp.fit(bindings={"my-hp": False})
-    assert isinstance(ihp_fit.find_by_tag("mytag").resolved_transform(), ff.Identity)
+    assert isinstance(
+        ihp_fit.find_by_name("Identity#mytag").resolved_transform(), ff.Identity
+    )
 
     ihp_fit = ihp.fit(bindings={"my-hp": True})
     with pytest.raises(KeyError):
-        ihp_fit.find_by_tag("mytag")
+        ihp_fit.find_by_name("mytag")
 
 
 def test_FitTransform_materialize_state() -> None:
@@ -453,14 +457,16 @@ def test_FitTransform_materialize_state() -> None:
     pip = core.BasePipeline[Any](
         transforms=[ff.Identity(), tagged_ident, ff.Identity()]
     )
-    fit = ff.LocalBackend().fit(pip)  # .fit(backend=ff.LocalBackend())
+    fit = ff.LocalBackend().fit(pip)
     assert isinstance(fit.state(), Future)
     with pytest.raises(ValueError):
-        fit.find_by_tag("mytag")
+        fit.find_by_name("Identity#mytag")
 
     fit_mat = fit.materialize_state()
     assert not isinstance(fit_mat.state(), Future)
-    assert isinstance(fit_mat.find_by_tag("mytag").resolved_transform(), ff.Identity)
+    assert isinstance(
+        fit_mat.find_by_name("Identity#mytag").resolved_transform(), ff.Identity
+    )
 
     # there should be nothing to materialize
     fit = pip.fit()
@@ -564,10 +570,10 @@ def test_pipeline_backends(diamonds_df: pd.DataFrame) -> None:
             )
 
     pip = (
-        ff.DataFramePipeline(tag="OuterPipeline")
+        ff.DataFramePipeline(tag="Outer")
         .for_bindings([{"foo": x} for x in range(3)], lambda _: pd.DataFrame())
         .then(
-            ff.DataFramePipeline(tag="InnerPipeline").stateless_lambda(
+            ff.DataFramePipeline(tag="Inner").stateless_lambda(
                 lambda df, foo: df.assign(foo=foo)
             )
         )
@@ -578,25 +584,28 @@ def test_pipeline_backends(diamonds_df: pd.DataFrame) -> None:
 
     # Was for_bindings able to parallelize correctly?
     assert tb1.key_counts == {
-        "OuterPipeline._fit": 1,
-        "InnerPipeline._fit": 3,
-        "InnerPipeline._apply": 3,
+        "DataFramePipeline#Outer._fit": 1,
+        "DataFramePipeline#Inner._fit": 3,
+        "DataFramePipeline#Inner._apply": 3,
     }
 
     tb2 = TracingBackend()
     tb2.apply(fit, diamonds_df)
-    assert tb2.key_counts == {"OuterPipeline._apply": 1, "InnerPipeline._apply": 3}
+    assert tb2.key_counts == {
+        "DataFramePipeline#Outer._apply": 1,
+        "DataFramePipeline#Inner._apply": 3,
+    }
     # tb1 wasn't touched:
     assert tb1.key_counts == {
-        "OuterPipeline._fit": 1,
-        "InnerPipeline._fit": 3,
-        "InnerPipeline._apply": 3,
+        "DataFramePipeline#Outer._fit": 1,
+        "DataFramePipeline#Inner._fit": 3,
+        "DataFramePipeline#Inner._apply": 3,
     }
 
     tb3 = TracingBackend()
     tb3.apply(pip, diamonds_df)
     assert tb3.key_counts == {
-        "OuterPipeline._fit_apply": 1,
-        "InnerPipeline._fit": 3,
-        "InnerPipeline._apply": 3,
+        "DataFramePipeline#Outer._fit_apply": 1,
+        "DataFramePipeline#Inner._fit": 3,
+        "DataFramePipeline#Inner._apply": 3,
     }

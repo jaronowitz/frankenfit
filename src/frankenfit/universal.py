@@ -111,7 +111,7 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
 
 @params
 class IfHyperparamIsTrue(UniversalTransform):
-    name: str
+    hp_name: str
     then_transform: Transform
     otherwise: Optional[Transform] = None
     allow_unresolved: bool = False
@@ -120,13 +120,13 @@ class IfHyperparamIsTrue(UniversalTransform):
         self, data_fit: Any, bindings: Optional[Bindings] = None
     ) -> FitTransform | None:
         bindings = bindings or {}
-        if (not self.allow_unresolved) and self.name not in bindings:
+        if (not self.allow_unresolved) and self.hp_name not in bindings:
             raise UnresolvedHyperparameterError(
-                f"IfHyperparamIsTrue: no binding for {self.name!r} but "
+                f"IfHyperparamIsTrue: no binding for {self.hp_name!r} but "
                 "allow_unresolved is False"
             )
         local = LocalBackend()
-        if bindings.get(self.name):
+        if bindings.get(self.hp_name):
             return local.fit(
                 self.then_transform.on_backend(self.backend), data_fit, bindings
             ).materialize_state()
@@ -144,13 +144,13 @@ class IfHyperparamIsTrue(UniversalTransform):
 
     def hyperparams(self) -> set[str]:
         result = super().hyperparams()
-        result.add(self.name)
+        result.add(self.hp_name)
         return result
 
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
         entries, exits = super()._visualize(digraph, bg_fg)
         if self.otherwise is None:
-            exits = exits + [(self.tag, "otherwise")]
+            exits = exits + [(self.name, "otherwise")]
         return entries, exits
 
 
@@ -194,7 +194,7 @@ class IfHyperparamLambda(UniversalTransform):
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
         entries, exits = super()._visualize(digraph, bg_fg)
         if self.otherwise is None:
-            exits = exits + [(self.tag, "otherwise")]
+            exits = exits + [(self.name, "otherwise")]
         return entries, exits
 
 
@@ -256,7 +256,7 @@ class IfFittingDataHasProperty(UniversalTransform):
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
         entries, exits = super()._visualize(digraph, bg_fg)
         if self.otherwise is None:
-            exits = exits + [(self.tag, "otherwise")]
+            exits = exits + [(self.name, "otherwise")]
         return entries, exits
 
 

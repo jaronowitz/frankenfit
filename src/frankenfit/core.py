@@ -110,8 +110,7 @@ def _next_auto_tag(partial_self: Transform) -> str:
     appended, where N is incremented (per class name) on each call.
     """
     class_name = partial_self.__class__.__qualname__
-    nonce = str(_next_id_num(class_name))
-    return f"{class_name}#{nonce}"
+    return str(_next_id_num(class_name))
 
 
 DEFAULT_VISUALIZE_DIGRAPH_KWARGS = {
@@ -288,8 +287,14 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         self.__resolved_transform = resolved_transform
         self.__state = state
         self.__bindings = bindings or {}
-        self.tag: str = resolved_transform.tag
         self.backend: Backend | None = None
+
+    @property
+    def name(self) -> str:
+        return self.__resolved_transform.name
+
+    def __str__(self) -> str:
+        return f"FitTransform[{self.name}]"
 
     def __repr__(self):
         return (
@@ -342,13 +347,13 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
             )
 
         _LOG.debug(
-            f"Applying fit {self.tag} on {type(data_apply)}"
+            f"Applying fit {self.name} on {type(data_apply)}"
             f"{f' (len={data_len})' if data_len is not None else ''}, "
             f"submitting to {submit_backend!r}, "
             f"with tf.backend={tf.backend!r}"
         )
 
-        return submit_backend.submit(f"{self.tag}._apply", tf._apply, *args)
+        return submit_backend.submit(f"{self.name}._apply", tf._apply, *args)
 
     def apply(
         self,
@@ -402,8 +407,8 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         else:
             return self
 
-    def find_by_tag(self, tag: str):
-        if self.tag == tag:
+    def find_by_name(self, name: str):
+        if self.name == name:
             return self
 
         val = self.state()
@@ -414,18 +419,18 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
             )
         if isinstance(val, FitTransform):
             try:
-                return val.find_by_tag(tag)
+                return val.find_by_name(name)
             except KeyError:
                 pass
         elif is_iterable(val):
             for x in cast(Iterable[Any], val):
                 if isinstance(x, FitTransform):
                     try:
-                        return x.find_by_tag(tag)
+                        return x.find_by_name(name)
                     except KeyError:
                         pass
 
-        raise KeyError(f"No child Transform found with tag: {tag}")
+        raise KeyError(f"No child FitTransform found with name: {name}")
 
 
 # TODO: remove need for Transform subclasses to write @transform?
@@ -519,6 +524,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         eq=False,
         kw_only=True,
         default=Factory(_next_auto_tag, takes_self=True),
+        repr=True,
     )
     """
     The ``tag`` attribute is the one parameter common to all ``Transforms``. used for
@@ -539,6 +545,14 @@ class Transform(ABC, Generic[DataIn, DataResult]):
             raise TypeError(
                 f"tag must be a str-like; but got a {type(value)}: {value!r}"
             )
+
+    @property
+    def name(self) -> str:
+        class_name = self.__class__.__qualname__
+        return f"{class_name}#{self.tag}"
+
+    def __str__(self) -> str:
+        return self.name
 
     @abstractmethod
     def _fit(self, data_fit: DataIn) -> Any:
@@ -604,13 +618,13 @@ class Transform(ABC, Generic[DataIn, DataResult]):
             args += (bindings or {},)
 
         _LOG.debug(
-            f"Fitting {self.tag} on {type(data_fit)}"
+            f"Fitting {self.name} on {type(data_fit)}"
             f"{f' (len={data_len})' if data_len is not None else ''} "
             f"with bindings={bindings!r}, submitting to {submit_backend!r}, "
             f"with tf.backend={tf.backend!r}"
         )
 
-        state = submit_backend.submit(f"{self.tag}._fit", tf._fit, *args)
+        state = submit_backend.submit(f"{self.name}._fit", tf._fit, *args)
 
         return type(self).FitTransformClass(tf, state, bindings)
 
@@ -775,16 +789,16 @@ class Transform(ABC, Generic[DataIn, DataResult]):
                     if isinstance(x, Transform):
                         yield from x._children()
 
-    def find_by_tag(self, tag: str) -> Transform:
+    def find_by_name(self, name: str) -> Transform:
         """
         Recurse through child transforms (i.e., transforms that are, or are
         contained in, this transform's params) and return the first one with the
         given tag. If not found, raise KeyError.
         """
         for child in self._children():
-            if child.tag == tag:
+            if child.name == name:
                 return child
-        raise KeyError(f"No child Transform found with tag: {tag}")
+        raise KeyError(f"No child Transform found with name: {name}")
 
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
         # out of the box, handle three common cases:
@@ -823,25 +837,25 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         param_reprs_fmt = ",\n".join(
             [" = ".join([k, v]) for k, v in param_reprs.items()]
         )
-        self_label = f"{self.tag}\n{param_reprs_fmt}"
+        self_label = f"{self.name}\n{param_reprs_fmt}"
 
         if not (children_as_params or children_as_elements_of_params):
-            digraph.node(self.tag, label=self_label)
-            return ([self.tag], [(self.tag, "")])
+            digraph.node(self.name, label=self_label)
+            return ([self.name], [(self.name, "")])
 
         # we gon' need a cartouche
         my_exits = []
-        with digraph.subgraph(name=f"cluster_{self.tag}") as sg:
+        with digraph.subgraph(name=f"cluster_{self.name}") as sg:
             bg, fg = bg_fg
             bg_fg = fg, bg
             sg.attr(style="filled", color=bg)
             sg.node_attr.update(style="filled", color=fg)
-            sg.node(self.tag, label=self_label)
+            sg.node(self.name, label=self_label)
 
             for t_name, t in children_as_params.items():
                 t_entries, t_exits = t._visualize(sg, bg_fg)
                 for t_entry in t_entries:
-                    sg.edge(self.tag, t_entry, label=t_name)
+                    sg.edge(self.name, t_entry, label=t_name)
                 my_exits.extend(t_exits)
 
             for tlist_name, tlist in children_as_elements_of_params.items():
@@ -851,7 +865,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
                     if prev_exits is None:
                         # edges from self to first transform's entries
                         for t_entry in t_entries:
-                            sg.edge(self.tag, t_entry, label=tlist_name)
+                            sg.edge(self.name, t_entry, label=tlist_name)
                     else:
                         # edge from prvious transform's exits node to this
                         # transform's entries node
@@ -860,9 +874,9 @@ class Transform(ABC, Generic[DataIn, DataResult]):
                                 sg.edge(prev_exit, t_entry, label=prev_exit_label)
                     prev_exits = t_exits
                 # last transform in tlist becomes one of our exits
-                my_exits.append((t.tag, ""))
+                my_exits.append((t.name, ""))
 
-        return [self.tag], my_exits
+        return [self.name], my_exits
 
     def visualize(self, **digraph_kwargs):
         """
@@ -1345,13 +1359,13 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
             tf = tf.on_backend(submit_backend)
 
         _LOG.debug(
-            f"Fit-applying {self.tag} on {type(data_apply)}"
+            f"Fit-applying {self.name} on {type(data_apply)}"
             f"{f' (len={data_len})' if data_len is not None else ''} "
             f"with bindings={bindings!r}, submitting to {submit_backend!r}, "
             f"with tf.backend={tf.backend!r}"
         )
         return submit_backend.submit(
-            f"{self.tag}._fit_apply",
+            f"{self.name}._fit_apply",
             tf._fit,
             data_apply,
             bindings,
