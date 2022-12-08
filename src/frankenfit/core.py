@@ -128,9 +128,22 @@ class Future(Generic[T_co], ABC):
 
 
 class Backend(ABC):
+    FutureType: ClassVar[type[Future]]
+
     @abstractmethod
     def put(self, data: T) -> Future[T]:
         raise NotImplementedError  # pragma: no cover
+
+    def maybe_put(self, data: T | Future[T] | None) -> T | Future[T] | None:
+        if data is None:
+            return data
+        if isinstance(data, self.FutureType):
+            return data
+        # we need to put it...
+        if isinstance(data, Future):
+            # but it's a future from some other backend, so first we materialize it
+            data = cast(Future[T], data).result()
+        return self.put(data)
 
     @abstractmethod
     def submit(
@@ -148,9 +161,7 @@ class Backend(ABC):
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
     ) -> FitTransform[Transform[DataIn, DataResult], DataIn, DataResult]:
-        if data_fit is not None and not isinstance(data_fit, Future):
-            data_fit = self.put(data_fit)
-        return transform._submit_fit(self, data_fit, bindings)
+        return transform._submit_fit(self, self.maybe_put(data_fit), bindings)
 
     @overload
     def apply(
@@ -190,11 +201,7 @@ class Backend(ABC):
         ] = None,
         bindings: Optional[Bindings] = None,
     ) -> Future[DataResult] | Future[DataInOut]:
-        data: Any
-        if data_apply is not None and not isinstance(data_apply, Future):
-            data = self.put(data_apply)
-        else:
-            data = data_apply
+        data: Any = self.maybe_put(data_apply)
 
         if isinstance(what, StatelessTransform):
             return what._submit_apply(self, data, bindings)
@@ -223,6 +230,8 @@ class LocalFuture(Generic[T_co], Future[T_co]):
 
 @define
 class LocalBackend(Backend):
+    FutureType: ClassVar[type[Future]] = LocalFuture
+
     def put(self, data: T) -> LocalFuture[T]:
         return LocalFuture(data)
 

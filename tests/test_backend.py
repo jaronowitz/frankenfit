@@ -82,6 +82,10 @@ def test_DaskBackend(dask_client):
     with pytest.raises(TypeError):
         ff.DaskBackend(42.0)
 
+    dask_fut = backend.put(42)
+    fut = backend.submit("key-foo", foo, dask_fut)
+    assert fut.result() == "foo(42)"
+
     # Dummy future should be materialized seamlessly
     dummy_fut = ff.LocalBackend().submit("forty_two", forty_two)
     fut = backend.submit("key-foo", foo, dummy_fut)

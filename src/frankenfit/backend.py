@@ -29,7 +29,7 @@ ray.
 from __future__ import annotations
 
 import logging
-from typing import Any, cast, Callable, Optional, TypeVar, Generic
+from typing import Any, ClassVar, cast, Callable, Optional, TypeVar, Generic
 import warnings
 
 from attrs import define, field
@@ -88,6 +88,8 @@ class DaskFuture(Generic[T_co], Future[T_co]):
 
 @define
 class DaskBackend(Backend):
+    FutureType: ClassVar[type[Future]] = DaskFuture
+
     address: Optional[str] = field(converter=_convert_to_address, default=None)
 
     # TODO: a contextmanager or something that tasks can use to submit subtasks and
