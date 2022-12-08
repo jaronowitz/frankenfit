@@ -282,45 +282,47 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
         assert self.backend is not None
         base_bindings = base_bindings or {}
         fits: list[ForBindings.FitResult] = []
-        if len(self.bindings_sequence) > 0:
-            data_fit = self.backend.maybe_put(data_fit)
-        for bindings in self.bindings_sequence:
-            fits.append(
-                ForBindings.FitResult(
-                    bindings,
-                    # submit in parallel on backend
-                    self.backend.fit(
-                        self.transform.on_backend(self.backend),
-                        data_fit,
-                        bindings={**base_bindings, **bindings},
-                    ),
+        with self.backend.submitting_from_transform() as backend:
+            if len(self.bindings_sequence) > 0:
+                data_fit = backend.maybe_put(data_fit)
+            for bindings in self.bindings_sequence:
+                fits.append(
+                    ForBindings.FitResult(
+                        bindings,
+                        # submit in parallel on backend
+                        backend.fit(
+                            self.transform.on_backend(backend),
+                            data_fit,
+                            bindings={**base_bindings, **bindings},
+                        ),
+                    )
                 )
-            )
-        # materialize all states. this is where we wait for all the parallel _fit tasks
-        # to complete
-        for fit_result in fits:
-            fit_result.fit = fit_result.fit.materialize_state()
+            # materialize all states. this is where we wait for all the parallel _fit
+            # tasks to complete
+            for fit_result in fits:
+                fit_result.fit = fit_result.fit.materialize_state()
         return fits
 
     def _apply(self, data_apply: Any, state: list[ForBindings.FitResult]) -> DataResult:
         assert self.backend is not None
-        if len(self.bindings_sequence) > 0:
-            data_apply = self.backend.maybe_put(data_apply)
-        results: list[ForBindings.ApplyResult] = []
-        for fit_result in state:
-            results.append(
-                ForBindings.ApplyResult(
-                    fit_result.bindings,
-                    # submit in parallel on backend
-                    self.backend.apply(
-                        fit_result.fit.on_backend(self.backend), data_apply
-                    ),
+        with self.backend.submitting_from_transform() as backend:
+            if len(self.bindings_sequence) > 0:
+                data_apply = backend.maybe_put(data_apply)
+            results: list[ForBindings.ApplyResult] = []
+            for fit_result in state:
+                results.append(
+                    ForBindings.ApplyResult(
+                        fit_result.bindings,
+                        # submit in parallel on backend
+                        backend.apply(fit_result.fit.on_backend(backend), data_apply),
+                    )
                 )
-            )
-        # materialize all results before sending to combine_fun. This is where we wait
-        # for all the parallel _apply tasks to finish.
-        for apply_result in results:
-            apply_result.result = cast(Future[DataResult], apply_result.result).result()
+            # materialize all results before sending to combine_fun. This is where we
+            # wait for all the parallel _apply tasks to finish.
+            for apply_result in results:
+                apply_result.result = cast(
+                    Future[DataResult], apply_result.result
+                ).result()
         return self.combine_fun(results)
 
 

@@ -27,9 +27,10 @@ ray.
 """
 
 from __future__ import annotations
+from contextlib import contextmanager
 
 import logging
-from typing import Any, ClassVar, cast, Callable, Optional, TypeVar, Generic
+from typing import Any, ClassVar, Iterator, cast, Callable, Optional, TypeVar, Generic
 import warnings
 
 from attrs import define, field
@@ -46,6 +47,7 @@ _LOG = logging.getLogger(__name__)
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
+D = TypeVar("D", bound="DaskBackend")
 
 
 def _convert_to_address(obj: str | None | distributed.Client):
@@ -125,3 +127,43 @@ class DaskBackend(Backend):
         kwargs = {k: DaskFuture.unwrap_or_result(v) for k, v in function_kwargs.items()}
         fut = client.submit(function, *args, key=key, **kwargs)
         return DaskFuture(fut)
+
+    @contextmanager
+    def submitting_from_transform(self: D) -> Iterator[D]:
+        client: distributed.Client = distributed.get_client(self.address)
+        try:
+            worker = distributed.get_worker()
+        except AttributeError:
+            # we're not actually running on a dask.ditributed worker
+            worker = None
+
+        if (
+            worker is None
+            or client.scheduler.address != worker.client.scheduler.address
+        ):
+            # Either we're not running on a worker, OR (weirdly) we're running on a
+            # worker in a different cluster than this backend object's.
+            yield self
+            return
+
+        # See:
+        # https://distributed.dask.org/en/stable/_modules/distributed/worker_client.html
+        from distributed.metrics import time
+        from distributed.worker import thread_state
+        from distributed.threadpoolexecutor import rejoin, secede
+        from distributed.worker_state_machine import SecedeEvent
+
+        _LOG.debug("%r.submitting_from_transform(): worker seceding", self)
+        duration = time() - thread_state.start_time
+        secede()  # have this thread secede from the thread pool
+        worker.loop.add_callback(
+            worker.handle_stimulus,
+            SecedeEvent(
+                key=thread_state.key,
+                compute_duration=duration,
+                stimulus_id=f"worker-client-secede-{time()}",
+            ),
+        )
+        yield self
+        _LOG.debug("%r.submitting_from_transform(): worker rejoining", self)
+        rejoin()

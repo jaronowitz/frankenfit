@@ -30,6 +30,7 @@ the classes and functions defined here through the public API exposed as
 """
 
 from __future__ import annotations
+from contextlib import contextmanager
 
 import copy
 import inspect
@@ -45,6 +46,7 @@ from typing import (
     Dict,
     Generic,
     Iterable,
+    Iterator,
     Literal,
     Optional,
     overload,
@@ -65,6 +67,7 @@ T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
 P = TypeVar("P", bound="BasePipeline")
 R = TypeVar("R", bound="Transform")
+B = TypeVar("B", bound="Backend")
 R_co = TypeVar("R_co", covariant=True, bound="Transform")
 State = TypeVar("State")
 State_co = TypeVar("State_co", covariant=True)
@@ -144,6 +147,10 @@ class Backend(ABC):
             # but it's a future from some other backend, so first we materialize it
             data = cast(Future[T], data).result()
         return self.put(data)
+
+    @contextmanager
+    def submitting_from_transform(self: B) -> Iterator[B]:
+        yield self
 
     @abstractmethod
     def submit(
