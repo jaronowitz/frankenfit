@@ -69,7 +69,6 @@ _LOG = logging.getLogger(__name__)
 
 U = TypeVar("U", bound="UniversalTransform")
 T = TypeVar("T")
-Obj = TypeVar("Obj")
 
 
 @params

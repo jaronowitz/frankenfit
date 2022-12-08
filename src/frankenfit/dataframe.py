@@ -187,32 +187,44 @@ class Join(DataFrameTransform):
     suffixes: tuple[str, str] = ("_x", "_y")
 
     # TODO: more merge params like left_index etc.
-    # TODO: (when on distributed compute) context extension
 
     def _fit(
         self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
-    ) -> tuple[FitTransform, FitTransform]:
+    ) -> tuple[
+        FitTransform[Transform, pd.DataFrame, pd.DataFrame],
+        FitTransform[Transform, pd.DataFrame, pd.DataFrame],
+    ]:
         bindings = bindings or {}
-        return (
-            self.left.fit(data_fit, bindings=bindings),
-            self.right.fit(data_fit, bindings=bindings),
-        )
+        with self.parallel_backend() as backend:
+            fit_left, fit_right = (
+                backend.fit(self.left, data_fit, bindings=bindings),
+                backend.fit(self.right, data_fit, bindings=bindings),
+            )
+            return (fit_left.materialize_state(), fit_right.materialize_state())
 
     def _apply(
-        self, data_apply: pd.DataFrame, state: tuple[FitTransform, FitTransform]
+        self,
+        data_apply: pd.DataFrame,
+        state: tuple[
+            FitTransform[Transform, pd.DataFrame, pd.DataFrame],
+            FitTransform[Transform, pd.DataFrame, pd.DataFrame],
+        ],
     ) -> pd.DataFrame:
         fit_left, fit_right = state
-        # TODO: parallelize
-        df_left, df_right = fit_left.apply(data_apply), fit_right.apply(data_apply)
-        return pd.merge(
-            left=df_left,
-            right=df_right,
-            how=self.how,
-            on=self.on,
-            left_on=self.left_on,
-            right_on=self.right_on,
-            suffixes=self.suffixes,
-        )
+        with self.parallel_backend() as backend:
+            fut_left, fut_right = (
+                backend.apply(fit_left, data_apply),
+                backend.apply(fit_right, data_apply),
+            )
+            return pd.merge(
+                left=fut_left.result(),
+                right=fut_right.result(),
+                how=self.how,
+                on=self.on,
+                left_on=self.left_on,
+                right_on=self.right_on,
+                suffixes=self.suffixes,
+            )
 
 
 @params
