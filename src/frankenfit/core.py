@@ -692,7 +692,10 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         for name in self.params():
             unbound_val = getattr(self, name)
             if isinstance(unbound_val, HP):
-                HP.resolve_maybe(unbound_val, sd)
+                try:
+                    HP.resolve_maybe(unbound_val, sd)
+                except:  # noqa
+                    pass
             elif isinstance(unbound_val, Transform):
                 sub_transform_results |= unbound_val.hyperparams()
             elif isinstance(unbound_val, list) and len(unbound_val) > 0:

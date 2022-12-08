@@ -164,6 +164,7 @@ def fmt_str_field(**kwargs):
 
 @define
 class HPLambda(HP):
+    # TODO: UserLambdaHyperparams!
 
     resolve_fun: Callable
     name: str = "<lambda>"
