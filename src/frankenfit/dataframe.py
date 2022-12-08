@@ -357,20 +357,15 @@ class GroupByCols(DataFrameTransform):
 
 
 @params
-class GroupByBindings(DataFrameTransform):
+class GroupByBindings(ForBindings[pd.DataFrame, pd.DataFrame], DataFrameTransform):
     bindings_sequence: Sequence[Bindings]
     transform: Transform[pd.DataFrame, pd.DataFrame]
     as_index: bool = True
+    # TODO: the proper way to do this would be with an AbstractForBindings that both
+    # ForBindings and GroupByBindings derive from
+    combine_fun: None = None  # type: ignore[assignment]
 
-    # TODO: move this into fit() so that we can distribute on backend
-    def _fit(
-        self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
-    ) -> FitTransform[ForBindings, pd.DataFrame, pd.DataFrame]:
-        return ForBindings[pd.DataFrame, pd.DataFrame](
-            self.bindings_sequence, self.transform, self._combine_results_as_dataframe
-        ).fit(data_fit, bindings=bindings or {})
-
-    def _combine_results_as_dataframe(
+    def _combine_results(
         self, results: Sequence[ForBindings.ApplyResult]
     ) -> pd.DataFrame:
         binding_cols: set[str] = set()
@@ -383,13 +378,7 @@ class GroupByBindings(DataFrameTransform):
             df = df.set_index(list(binding_cols))
         return df
 
-    # TODO: move this into apply() so that we can distribute on backend
-    def _apply(
-        self,
-        data_apply: pd.DataFrame,
-        state: FitTransform[ForBindings, pd.DataFrame, pd.DataFrame],
-    ) -> pd.DataFrame:
-        return state.apply(data_apply)
+    then = DataFrameTransform.then
 
 
 F = TypeVar("F", bound="Filter")

@@ -301,6 +301,9 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
                 fit_result.fit = fit_result.fit.materialize_state()
         return fits
 
+    def _combine_results(self, results: list[ForBindings.ApplyResult]) -> DataResult:
+        return self.combine_fun(results)
+
     def _apply(self, data_apply: Any, state: list[ForBindings.FitResult]) -> DataResult:
         with self.parallel_backend() as backend:
             if len(self.bindings_sequence) > 0:
@@ -320,7 +323,7 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
                 apply_result.result = cast(
                     Future[DataResult], apply_result.result
                 ).result()
-        return self.combine_fun(results)
+        return self._combine_results(results)
 
 
 PROHIBITED_USER_LAMBDA_PARAMETER_KINDS = (
