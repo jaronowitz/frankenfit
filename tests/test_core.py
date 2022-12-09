@@ -23,13 +23,13 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, ClassVar, Optional, Type, TypeVar, cast
 from sys import version_info
+from typing import Any, Callable, ClassVar, Optional, Type, TypeVar, cast
 
-from attrs import define, field
 import numpy as np
 import pandas as pd
 import pytest
+from attrs import define, field
 from pydataset import data  # type: ignore
 
 import frankenfit as ff

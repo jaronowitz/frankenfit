@@ -22,13 +22,12 @@
 
 from __future__ import annotations
 
-from dask import distributed
 import numpy as np
 import pandas as pd
 import pytest
+from dask import distributed
 from pydataset import data  # type: ignore
 from sklearn.linear_model import LinearRegression  # type: ignore
-
 
 import frankenfit as ff
 

@@ -54,14 +54,6 @@ import pandas as pd
 from attrs import NOTHING, field
 from pyarrow import dataset  # type: ignore
 
-from .params import (
-    HP,
-    dict_field,
-    fmt_str_field,
-    columns_field,
-    optional_columns_field,
-    params,
-)
 from .core import (
     Bindings,
     ConstantTransform,
@@ -71,6 +63,14 @@ from .core import (
     StatelessTransform,
     Transform,
     callchain,
+)
+from .params import (
+    HP,
+    columns_field,
+    dict_field,
+    fmt_str_field,
+    optional_columns_field,
+    params,
 )
 from .universal import (
     ForBindings,

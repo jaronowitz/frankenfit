@@ -27,12 +27,12 @@ ray.
 """
 
 from __future__ import annotations
-from contextlib import contextmanager
 
 import logging
-from typing import Any, ClassVar, Iterator, cast, Callable, Optional, TypeVar, Generic
 import uuid
 import warnings
+from contextlib import contextmanager
+from typing import Any, Callable, ClassVar, Generic, Iterator, Optional, TypeVar, cast
 
 from attrs import define, field
 
@@ -42,7 +42,7 @@ try:
 except ImportError:  # pragma: no cover
     distributed = None  # type: ignore [assignment]
 
-from .core import Future, Backend
+from .core import Backend, Future
 
 _LOG = logging.getLogger(__name__)
 
@@ -156,8 +156,8 @@ class DaskBackend(Backend):
         # See:
         # https://distributed.dask.org/en/stable/_modules/distributed/worker_client.html
         from distributed.metrics import time
-        from distributed.worker import thread_state
         from distributed.threadpoolexecutor import rejoin, secede
+        from distributed.worker import thread_state
         from distributed.worker_state_machine import SecedeEvent
 
         _LOG.debug("%r.submitting_from_transform(): worker seceding", self)

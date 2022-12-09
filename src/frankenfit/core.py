@@ -30,13 +30,13 @@ the classes and functions defined here through the public API exposed as
 """
 
 from __future__ import annotations
-from contextlib import contextmanager
 
 import copy
 import inspect
 import logging
 import warnings
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from functools import wraps
 from textwrap import dedent
 from typing import (
@@ -49,17 +49,17 @@ from typing import (
     Iterator,
     Literal,
     Optional,
-    overload,
     Sized,
     Type,
     TypeVar,
     cast,
+    overload,
 )
 
 import graphviz  # type: ignore
-from attrs import define, NOTHING, Factory, field, fields_dict
+from attrs import NOTHING, Factory, define, field, fields_dict
 
-from .params import params, HP, UnresolvedHyperparameterError
+from .params import HP, UnresolvedHyperparameterError, params
 
 _LOG = logging.getLogger(__name__)
 

@@ -43,17 +43,12 @@ from typing import (
 
 from attrs import define, field
 
-from .params import (
-    HP,
-    params,
-    UnresolvedHyperparameterError,
-)
 from .core import (
     BasePipeline,
     Bindings,
     DataIn,
-    DataResult,
     DataInOut,
+    DataResult,
     FitTransform,
     Future,
     Grouper,
@@ -64,6 +59,7 @@ from .core import (
     Transform,
     callchain,
 )
+from .params import HP, UnresolvedHyperparameterError, params
 
 _LOG = logging.getLogger(__name__)
 

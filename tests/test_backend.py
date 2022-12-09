@@ -22,10 +22,10 @@
 
 from __future__ import annotations
 
-from dask import distributed
 import numpy as np
 import pandas as pd
 import pytest
+from dask import distributed
 
 import frankenfit as ff
 from frankenfit.core import LocalFuture
