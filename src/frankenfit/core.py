@@ -148,7 +148,7 @@ class Backend(ABC):
         return self.put(data)
 
     @contextmanager
-    def submitting_from_transform(self: B, key_prefix: str = "") -> Iterator[B]:
+    def submitting_from_transform(self: B, name: str = "") -> Iterator[B]:
         yield self
 
     @abstractmethod
@@ -741,6 +741,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
     def on_backend(self: R, backend: Backend | None) -> R:
         self_copy = copy.copy(self)
         self_copy.backend = backend
+        # TODO: add ourselves to backend name trace?
         return self_copy
 
     @contextmanager
@@ -749,9 +750,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
             yield LocalBackend()
             return
 
-        with self.backend.submitting_from_transform(
-            key_prefix=f"{self.name}:"
-        ) as backend:
+        with self.backend.submitting_from_transform(self.name) as backend:
             yield backend
 
     def then(

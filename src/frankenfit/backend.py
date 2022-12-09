@@ -93,10 +93,7 @@ class DaskBackend(Backend):
     FutureType: ClassVar[type[Future]] = DaskFuture
 
     address: Optional[str] = field(converter=_convert_to_address, default=None)
-    key_prefix: str = ""
-
-    # TODO: a contextmanager or something that tasks can use to submit subtasks and
-    # properly secede/rejoin.
+    transform_names: tuple[str, ...] = tuple()
 
     def put(self, data: T) -> DaskFuture[T]:
         from dask import distributed
@@ -119,8 +116,7 @@ class DaskBackend(Backend):
         client: distributed.Client = distributed.get_client(self.address)
         # TODO: should we do anything about impure functions? i.e., data readers
         key = (
-            self.key_prefix
-            + key_prefix
+            " / ".join(self.transform_names + (key_prefix,))
             + "-"
             + tokenize(function, function_kwargs, *function_args)
         )
@@ -135,7 +131,7 @@ class DaskBackend(Backend):
         return DaskFuture(fut)
 
     @contextmanager
-    def submitting_from_transform(self: D, key_prefix: str = "") -> Iterator[D]:
+    def submitting_from_transform(self: D, name: str = "") -> Iterator[D]:
         client: distributed.Client = distributed.get_client(self.address)
         try:
             worker = distributed.get_worker()
@@ -172,7 +168,7 @@ class DaskBackend(Backend):
         )
         try:
             yield type(self)(
-                address=self.address, key_prefix=key_prefix + self.key_prefix
+                address=self.address, transform_names=self.transform_names + (name,)
             )
         finally:
             _LOG.debug("%r.submitting_from_transform(): worker rejoining", self)
