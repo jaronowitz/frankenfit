@@ -155,24 +155,28 @@ class DaskBackend(Backend):
 
         # See:
         # https://distributed.dask.org/en/stable/_modules/distributed/worker_client.html
-        from distributed.metrics import time
-        from distributed.threadpoolexecutor import rejoin, secede
-        from distributed.worker import thread_state
-        from distributed.worker_state_machine import SecedeEvent
+        if True:  # pragma: no cover
+            # note that we actually DO test this section (test_pipelines_on_dask), it's
+            # just that this code inherently runs on a dask worker, which is in another
+            # process, where its execution cannot be detected by coverage.
+            from distributed.metrics import time
+            from distributed.threadpoolexecutor import rejoin, secede
+            from distributed.worker import thread_state
+            from distributed.worker_state_machine import SecedeEvent
 
-        _LOG.debug("%r.submitting_from_transform(): worker seceding", self)
-        duration = time() - thread_state.start_time
-        secede()  # have this thread secede from the thread pool
-        worker.loop.add_callback(
-            worker.handle_stimulus,
-            SecedeEvent(
-                key=thread_state.key,
-                compute_duration=duration,
-                stimulus_id=f"worker-client-secede-{time()}",
-            ),
-        )
-        try:
-            yield self_copy
-        finally:
-            _LOG.debug("%r.submitting_from_transform(): worker rejoining", self)
-            rejoin()
+            _LOG.debug("%r.submitting_from_transform(): worker seceding", self)
+            duration = time() - thread_state.start_time
+            secede()  # have this thread secede from the thread pool
+            worker.loop.add_callback(
+                worker.handle_stimulus,
+                SecedeEvent(
+                    key=thread_state.key,
+                    compute_duration=duration,
+                    stimulus_id=f"worker-client-secede-{time()}",
+                ),
+            )
+            try:
+                yield self_copy
+            finally:
+                _LOG.debug("%r.submitting_from_transform(): worker rejoining", self)
+                rejoin()
