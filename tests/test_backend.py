@@ -52,6 +52,7 @@ def test_DummyBackend():
     assert dummy_fut.result() == "foo(24)"
 
 
+@pytest.mark.dask
 def test_DaskBackend(dask_client):
     def foo(x):
         return f"foo({x})"

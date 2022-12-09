@@ -59,6 +59,7 @@ def dask(dask_client):
     return ff.DaskBackend(dask_client)
 
 
+@pytest.mark.dask
 def test_pipeline_straight(
     diamonds_df: pd.DataFrame, dask: ff.DaskBackend, tmp_path
 ) -> None:
@@ -79,7 +80,7 @@ def test_pipeline_straight(
         .copy("{response_col}", "{response_col}_train")
         .winsorize("{response_col}_train", limit=0.05)
         .pipe(["carat", "{response_col}_train"], np.log1p)
-        .then(bake_features(FEATURES))
+        .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
         .sk_learn(
             LinearRegression,
             # x_cols=["carat", "depth", "table"],

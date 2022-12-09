@@ -101,6 +101,9 @@ filterwarnings = [
     'ignore::pytest.PytestUnraisableExceptionWarning',
 ]
 addopts = "-n auto"
+markers = [
+    "dask"
+]
 
 [tool.coverage]
 [tool.coverage.run]
