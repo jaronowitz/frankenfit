@@ -145,6 +145,7 @@ class Backend(ABC):
         if isinstance(data, Future):
             # but it's a future from some other backend, so first we materialize it
             data = cast(Future[T], data).result()
+            return self.maybe_put(data)
         return self.put(data)
 
     @contextmanager
@@ -157,6 +158,7 @@ class Backend(ABC):
         key_prefix: str,
         function: Callable,
         *function_args,
+        pure: bool = True,
         **function_kwargs,
     ) -> Future[Any]:
         raise NotImplementedError  # pragma: no cover
@@ -167,7 +169,7 @@ class Backend(ABC):
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
     ) -> FitTransform[Transform[DataIn, DataResult], DataIn, DataResult]:
-        return transform._submit_fit(self, self.maybe_put(data_fit), bindings)
+        return transform._submit_fit(self, data_fit, bindings)
 
     @overload
     def apply(
@@ -207,7 +209,7 @@ class Backend(ABC):
         ] = None,
         bindings: Optional[Bindings] = None,
     ) -> Future[DataResult] | Future[DataInOut]:
-        data: Any = self.maybe_put(data_apply)
+        data: Any = data_apply
 
         if isinstance(what, StatelessTransform):
             return what._submit_apply(self, data, bindings)
@@ -246,6 +248,7 @@ class LocalBackend(Backend):
         key_prefix: str,
         function: Callable,
         *function_args,
+        pure: bool = True,
         **function_kwargs,
     ) -> LocalFuture[Any]:
         # materialize any Future args (possibly from other backends)
@@ -338,7 +341,10 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         )
 
         # prepare args for user _apply method
-        args: tuple[Any, ...] = (data_apply, self.state())
+        args: tuple[Any, ...] = (
+            submit_backend.maybe_put(data_apply),
+            submit_backend.maybe_put(self.state()),
+        )
         sig = inspect.signature(tf._apply).parameters
         if len(sig) < 2:
             raise TypeError(
@@ -353,7 +359,9 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
             f"with tf.backend={tf.backend!r}"
         )
 
-        return submit_backend.submit(f"{self.name}._apply", tf._apply, *args)
+        return submit_backend.submit(
+            f"{self.name}._apply", tf._apply, *args, pure=tf.pure
+        )
 
     def apply(
         self,
@@ -516,6 +524,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     FitTransformClass: ClassVar[Type[FitTransform]] = FitTransform
     backend = None  # type: Optional[Backend]
+    pure = True
 
     # TODO: do we really want tag to be hyperparameterizable? shouldn't it be
     # invariant wrt fit-time data and bindings?
@@ -602,7 +611,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
             data_len = None
 
         # resolve hyperparams and prepare args to user _fit function
-        args: tuple[Any, ...] = (data_fit,)
+        args: tuple[Any, ...] = (submit_backend.maybe_put(data_fit),)
         tf = self.resolve(bindings)
         if tf.backend is None:
             tf = tf.on_backend(submit_backend)
@@ -624,7 +633,9 @@ class Transform(ABC, Generic[DataIn, DataResult]):
             f"with tf.backend={tf.backend!r}"
         )
 
-        state = submit_backend.submit(f"{self.name}._fit", tf._fit, *args)
+        state = submit_backend.submit(
+            f"{self.name}._fit", tf._fit, *args, pure=self.pure
+        )
 
         return type(self).FitTransformClass(tf, state, bindings)
 
@@ -1380,7 +1391,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         return submit_backend.submit(
             f"{self.name}._fit_apply",
             tf._fit,
-            data_apply,
+            submit_backend.maybe_put(data_apply),
             bindings,
             return_what="result",
         )

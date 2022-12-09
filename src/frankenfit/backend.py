@@ -31,6 +31,7 @@ from contextlib import contextmanager
 
 import logging
 from typing import Any, ClassVar, Iterator, cast, Callable, Optional, TypeVar, Generic
+import uuid
 import warnings
 
 from attrs import define, field
@@ -107,26 +108,26 @@ class DaskBackend(Backend):
         key_prefix: str,
         function: Callable,
         *function_args,
+        pure: bool = True,
         **function_kwargs,
     ) -> DaskFuture[Any]:
         # attempt import so that we fail with a sensible exception if distributed is not
         # installed:
         from dask import distributed
 
-        client: distributed.Client = distributed.get_client(self.address)
-        # TODO: should we do anything about impure functions? i.e., data readers
-        key = (
-            " / ".join(self.transform_names + (key_prefix,))
-            + "-"
-            + tokenize(function, function_kwargs, *function_args)
-        )
-        _LOG.debug("%r: submitting task %r to %r", self, key, client)
+        args = tuple(DaskFuture.unwrap_or_result(a) for a in function_args)
+        kwargs = {k: DaskFuture.unwrap_or_result(v) for k, v in function_kwargs.items()}
+        if pure:
+            token = tokenize(function, function_kwargs, *function_args)
+        else:
+            token = str(uuid.uuid4())
+        key = " / ".join(self.transform_names + (key_prefix,)) + "-" + token
         # hmm, there could be a problem here with collision between function
         # kwargs and submit kwargs, but this is inherent to distributed's API
         # design :/. In general I suppose callers should prefer to provide
         # everything as positoinal arguments.
-        args = tuple(DaskFuture.unwrap_or_result(a) for a in function_args)
-        kwargs = {k: DaskFuture.unwrap_or_result(v) for k, v in function_kwargs.items()}
+        client: distributed.Client = distributed.get_client(self.address)
+        _LOG.debug("%r: submitting task %r to %r", self, key, client)
         fut = client.submit(function, *args, key=key, **kwargs)
         return DaskFuture(fut)
 

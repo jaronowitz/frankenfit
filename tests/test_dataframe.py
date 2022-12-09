@@ -619,6 +619,10 @@ def test_ReadPandasCSV(diamonds_df: pd.DataFrame, tmp_path: str):
     with pytest.warns(ffc.NonInitialConstantTransformWarning):
         fit.apply(df)
 
+    # by default ReadPandasCSV is pure, unless the no_cache param is given
+    assert ff.ReadPandasCSV(fp).pure
+    assert not ff.ReadPandasCSV(fp, no_cache=True).pure
+
 
 def test_read_write_csv(diamonds_df: pd.DataFrame, tmp_path):
     df = diamonds_df.reset_index().set_index("index")
@@ -680,6 +684,23 @@ def test_read_write_dataset(diamonds_df: pd.DataFrame, tmp_path):
         .apply()
     )
     assert result.equals(target)
+
+    # by default ReadPandasCSV is pure, unless the no_cache param is given
+    assert ff.ReadDataset(
+        [path],
+        ["foo"],
+        format="csv",
+        filter=ff.HP("filter"),
+        index_col="index",
+    ).pure
+    assert not ff.ReadDataset(
+        [path],
+        ["foo"],
+        format="csv",
+        filter=ff.HP("filter"),
+        index_col="index",
+        no_cache=True,
+    ).pure
 
 
 def test_Assign(diamonds_df: pd.DataFrame):

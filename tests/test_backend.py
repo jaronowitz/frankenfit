@@ -22,8 +22,10 @@
 
 from __future__ import annotations
 
-import pytest
 from dask import distributed
+import numpy as np
+import pandas as pd
+import pytest
 
 import frankenfit as ff
 from frankenfit.core import LocalFuture
@@ -95,3 +97,61 @@ def test_DaskBackend(dask_client):
     with backend.submitting_from_transform("foo") as b:
         assert "foo" in b.transform_names
         assert b.submit("key-foo", foo, 420).result() == "foo(420)"
+
+
+@pytest.mark.dask
+def test_dask_purity(dask_client):
+    def random_df():
+        return pd.DataFrame(
+            {
+                "x": np.random.normal(size=100),
+                "y": np.random.normal(size=100),
+            }
+        )
+
+    dask = ff.DaskBackend(dask_client)
+
+    # the function inherently is impure
+    assert not random_df().equals(random_df)
+
+    # but by default the backend will treat it as pure
+    fut1 = dask.submit("random_df", random_df)
+    fut2 = dask.submit("random_df", random_df)
+    assert fut1.result().equals(fut2.result())
+
+    # but we can use the pure=False kwarg to let it know what's up
+    fut1 = dask.submit("random_df", random_df, pure=False)
+    fut2 = dask.submit("random_df", random_df, pure=False)
+    assert not fut1.result().equals(fut2.result())
+
+    # so all Transforms have a `pure` attribute which says whether their _fit/_apply
+    # functions should be submitted to backends as pure or not. Default is True.
+    class RandomTransformPure(ff.ConstantTransform):
+        def _apply(self, df_apply, state=None):
+            return pd.DataFrame(
+                {
+                    "x": np.random.normal(size=100),
+                    "y": np.random.normal(size=100),
+                }
+            )
+
+    class RandomTransformImpure(ff.ConstantTransform):
+        pure = False
+
+        def _apply(self, df_apply, state=None):
+            return pd.DataFrame(
+                {
+                    "x": np.random.normal(size=100),
+                    "y": np.random.normal(size=100),
+                }
+            )
+
+    rtp = RandomTransformPure()
+    fut1 = dask.apply(rtp)
+    fut2 = dask.apply(rtp)
+    assert fut1.result().equals(fut2.result())
+
+    rti = RandomTransformImpure()
+    fut1 = dask.apply(rti)
+    fut2 = dask.apply(rti)
+    assert not fut1.result().equals(fut2.result())

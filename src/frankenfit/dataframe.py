@@ -130,6 +130,11 @@ class ReadDataFrame(ConstantDataFrameTransform):
 class ReadPandasCSV(ConstantDataFrameTransform):
     filepath: str = fmt_str_field()
     read_csv_args: Optional[dict] = None
+    no_cache: bool = False
+
+    def __attrs_post_init__(self):
+        if self.no_cache:
+            self.pure = False
 
     def _apply(self, data_apply, _: None) -> pd.DataFrame:
         return pd.read_csv(self.filepath, **(self.read_csv_args or {}))
@@ -140,6 +145,8 @@ class WritePandasCSV(StatelessDataFrameTransform, Identity[pd.DataFrame]):
     path: str = fmt_str_field()
     index_label: str = fmt_str_field()
     to_csv_kwargs: Optional[dict] = None
+
+    pure = False
 
     def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
         data_apply.to_csv(
@@ -161,6 +168,11 @@ class ReadDataset(ConstantDataFrameTransform):
     index_col: Optional[str | int] = None
     dataset_kwargs: Optional[dict] = None
     scanner_kwargs: Optional[dict] = None
+    no_cache: bool = False
+
+    def __attrs_post_init__(self):
+        if self.no_cache:
+            self.pure = False
 
     def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
         ds = dataset.dataset(
