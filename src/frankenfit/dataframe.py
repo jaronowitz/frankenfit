@@ -66,6 +66,7 @@ from .core import (
     Bindings,
     ConstantTransform,
     FitTransform,
+    Future,
     P_co,
     StatelessTransform,
     Transform,
@@ -854,16 +855,24 @@ class Assign(StatelessDataFrameTransform):
         return resolved_self
 
     def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
-        kwargs: dict[str, Callable | float | int | str] = {}
+        kwargs: dict[str, Callable | float | int | str | Future] = {}
         bindings_idx = 0
-        for k, v in self.assignments.items():
-            if callable(v):
-                kwargs[k] = partial(v, **self.assignment_fun_bindings[bindings_idx])
-                bindings_idx += 1
-            else:
-                kwargs[k] = v
+        with self.parallel_backend() as backend:
+            data_fut = backend.maybe_put(data_apply)
+            for k, v in self.assignments.items():
+                if callable(v):
+                    fun = partial(v, **self.assignment_fun_bindings[bindings_idx])
+                    bindings_idx += 1
+                    kwargs[k] = backend.submit(k, fun, data_fut)
+                else:
+                    kwargs[k] = v
 
-        return data_apply.assign(**kwargs)
+            return data_apply.assign(
+                **{
+                    k: v.result() if isinstance(v, Future) else v
+                    for k, v in kwargs.items()
+                }
+            )
 
 
 Cols = Union[str, HP, Sequence[Union[str, HP]]]
