@@ -135,9 +135,13 @@ class DaskBackend(Backend):
         client: distributed.Client = distributed.get_client(self.address)
         try:
             worker = distributed.get_worker()
-        except AttributeError:
+        except (AttributeError, ValueError):
             # we're not actually running on a dask.ditributed worker
             worker = None
+
+        self_copy = type(self)(
+            address=self.address, transform_names=self.transform_names + (name,)
+        )
 
         if (
             worker is None
@@ -145,7 +149,7 @@ class DaskBackend(Backend):
         ):
             # Either we're not running on a worker, OR (weirdly) we're running on a
             # worker in a different cluster than this backend object's.
-            yield self
+            yield self_copy
             return
 
         # See:
@@ -167,9 +171,7 @@ class DaskBackend(Backend):
             ),
         )
         try:
-            yield type(self)(
-                address=self.address, transform_names=self.transform_names + (name,)
-            )
+            yield self_copy
         finally:
             _LOG.debug("%r.submitting_from_transform(): worker rejoining", self)
             rejoin()

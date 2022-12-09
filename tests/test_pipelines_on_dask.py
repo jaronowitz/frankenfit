@@ -126,3 +126,92 @@ def test_pipeline_straight(
 
     result_dask = dask.apply(dask.fit(pipeline, bindings=bindings)).result()
     assert result_pandas.equals(result_dask)
+
+
+@pytest.mark.dask
+def test_parallelized_pipeline_1(
+    diamonds_df: pd.DataFrame, dask: ff.DaskBackend, tmp_path
+) -> None:
+    from sklearn.linear_model import LinearRegression
+
+    FEATURES = ["carat", "x", "y", "z", "depth", "table"]
+
+    def bake_features(cols) -> ff.DataFramePipeline:
+        return (
+            ff.DataFramePipeline(tag="bake_features")
+            .winsorize(cols, limit=0.05)
+            .z_score(cols)
+            .impute_constant(cols, 0.0)
+            .clip(cols, upper=2, lower=-2)
+        )
+
+    # per-cut feature means
+    per_cut_means = (
+        ff.DataFramePipeline(tag="per_cut_means")
+        .group_by_cols(["cut"])
+        .then(
+            ff.DataFramePipeline()[ff.HP("predictors")].stateful_lambda(
+                fit_fun=lambda df: df.mean(),
+                apply_fun=lambda df, mean: mean.rename(lambda c: f"cut_mean_{c}"),
+            )
+        )
+    )
+
+    complex_pipeline = (
+        ff.DataFramePipeline()
+        .select(FEATURES + ["{response_col}", "cut"])
+        .copy("{response_col}", "{response_col}_train")
+        .winsorize("{response_col}_train", limit=0.05)
+        .pipe(["carat", "{response_col}_train"], np.log1p)
+        .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
+        .join(per_cut_means, how="left", on="cut")
+        .sk_learn(
+            LinearRegression,
+            # x_cols=["carat", "depth", "table"],
+            x_cols=ff.HPLambda(
+                lambda bindings: bindings["predictors"]
+                + [f"cut_mean_{c}" for c in bindings["predictors"]]
+            ),
+            response_col="{response_col}_train",
+            hat_col="{response_col}_hat",
+            class_params={"fit_intercept": True},
+        )
+        # transform {response_col}_hat from log-dollars back to dollars
+        .copy("{response_col}_hat", "{response_col}_hat_dollars")
+        .pipe("{response_col}_hat_dollars", np.expm1)
+    )
+
+    assert complex_pipeline.hyperparams() == {
+        "response_col",
+        "bake_features",
+        "predictors",
+    }
+    bindings = {
+        "response_col": "price",
+        "bake_features": True,
+        "predictors": ["carat", "x", "y", "z", "depth", "table"],
+    }
+
+    local_result = complex_pipeline.apply(diamonds_df, bindings=bindings)
+    assert local_result.equals(
+        dask.apply(complex_pipeline, diamonds_df, bindings=bindings).result()
+    )
+
+    pip = (
+        ff.DataFramePipeline()
+        .group_by_bindings(
+            [
+                {"predictors": ["carat"]},
+                {"predictors": ["depth"]},
+                {"predictors": ["table"]},
+            ],
+        )
+        .then(
+            ff.ReadDataFrame(diamonds_df)
+            .then(complex_pipeline)
+            .correlation(["{response_col}_hat_dollars"], ["{response_col}"])
+        )
+    )
+    bindings = {"response_col": "price", "bake_features": True}
+    local_result = pip.apply(bindings=bindings)
+    assert local_result.equals(dask.apply(pip, bindings=bindings).result())

@@ -91,3 +91,7 @@ def test_DaskBackend(dask_client):
     dummy_fut = ff.LocalBackend().submit("forty_two", forty_two)
     fut = backend.submit("key-foo", foo, dummy_fut)
     assert fut.result() == "foo(42)"
+
+    with backend.submitting_from_transform("foo") as b:
+        assert "foo" in b.transform_names
+        assert b.submit("key-foo", foo, 420).result() == "foo(420)"
