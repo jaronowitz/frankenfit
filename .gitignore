@@ -18,5 +18,4 @@ docs/conf.py
 diamonds.csv
 .dmypy.json
 scratch_*
-.coverage
-.coverage.*
+.coverage/

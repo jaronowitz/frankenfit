@@ -110,3 +110,4 @@ markers = [
 omit = [
     "src/frankenfit/mypy.py"
 ]
+data_file = ".coverage/coverage"
