@@ -1,24 +1,48 @@
-# Unpublished Copyright (c) 2022 Max Bane, all rights reserved.
+# Copyright (c) 2022 Max Bane <max@thebanes.org>
 #
-# NOTICE: All information contained herein is, and remains the property of Max Bane.
-# The intellectual and technical concepts contained herein are proprietary to Max Bane
-# and may be covered by U.S. and Foreign Patents, patents in process, and are protected
-# by trade secret or copyright law. Dissemination of this information or reproduction
-# of this material is strictly forbidden unless prior written permission is obtained
-# from Max Bane. Access to the source code contained herein is hereby forbidden to
-# anyone except current employees, contractors, or customers of Max Bane who have
-# executed Confidentiality and Non-disclosure agreements explicitly covering such
-# access.
+# Redistribution and use in source and binary forms, with or without modification, are
+# permitted provided that the following conditions are met:
 #
-# The copyright notice above does not evidence any actual or intended publication or
-# disclosure of this source code, which includes information that is confidential
-# and/or proprietary, and is a trade secret, of Max Bane. ANY REPRODUCTION,
-# MODIFICATION, DISTRIBUTION, PUBLIC PERFORMANCE, OR PUBLIC DISPLAY OF OR THROUGH USE
-# OF THIS SOURCE CODE WITHOUT THE EXPRESS WRITTEN CONSENT OF MAX BANE IS STRICTLY
-# PROHIBITED, AND IN VIOLATION OF APPLICABLE LAWS AND INTERNATIONAL TREATIES. THE
-# RECEIPT OR POSSESSION OF THIS SOURCE CODE AND/OR RELATED INFORMATION DOES NOT CONVEY
-# OR IMPLY ANY RIGHTS TO REPRODUCE, DISCLOSE OR DISTRIBUTE ITS CONTENTS, NOR TO
-# MANUFACTURE, USE, OR SELL ANYTHING THAT IT MAY DESCRIBE, IN WHOLE OR IN PART.
+# 1. Redistributions of source code must retain the above copyright notice, this list of
+# conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice, this list
+# of conditions and the following disclaimer in the documentation and/or other materials
+# provided with the distribution.
+#
+# Subject to the terms and conditions of this license, each copyright holder and
+# contributor hereby grants to those receiving rights under this license a perpetual,
+# worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except for failure to
+# satisfy the conditions of this license) patent license to make, have made, use, offer
+# to sell, sell, import, and otherwise transfer this software, where such license
+# applies only to those patent claims, already acquired or hereafter acquired,
+# licensable by such copyright holder or contributor that are necessarily infringed by:
+#
+# (a) their Contribution(s) (the licensed copyrights of copyright holders and
+# non-copyrightable additions of contributors, in source or binary form) alone; or
+#
+# (b) combination of their Contribution(s) with the work of authorship to which such
+# Contribution(s) was added by such copyright holder or contributor, if, at the time the
+# Contribution is added, such addition causes such combination to be necessarily
+# infringed. The patent license shall not apply to any other combinations which include
+# the Contribution.
+#
+# Except as expressly stated above, no rights or licenses from any copyright holder or
+# contributor is granted under this license, whether expressly, by implication, estoppel
+# or otherwise.
+#
+# DISCLAIMER
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
+# SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+# TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+# DAMAGE.
 
 from __future__ import annotations
 
