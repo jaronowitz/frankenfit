@@ -103,6 +103,11 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
     assert m1.fit(diamonds_df) != r1.fit("x")
 
 
+def test_apply_none_result() -> None:
+    assert ff.Identity().fit(None).apply(None) is None
+    assert ff.LocalBackend().apply(ff.Identity().fit(None), None).result() is None
+
+
 def test_Transform_fit_apply_valence() -> None:
     foo_str = "foo"
     meow_bindings = {"meow": "cat"}
@@ -239,6 +244,11 @@ def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
     assert fit_t.state() == {"bar": 2}
     fit_t = t.fit(diamonds_df, {"foo": 1}, bar=2)
     assert fit_t.state() == {"foo": 1, "bar": 2}
+
+    with pytest.raises(TypeError):
+        ff.LocalBackend().apply(  # type: ignore [call-overload]
+            fit_t, diamonds_df, foo=1
+        )
 
 
 @pytest.mark.skipif(PYVERSION < (3, 9), reason="Python < 3.9")

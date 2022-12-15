@@ -269,7 +269,7 @@ class Backend(ABC):
             assert isinstance(result, Future)  # type narrowing
             return result
 
-        if not isinstance(what, FitTransform):
+        if not isinstance(what, FitTransform):  # pragma: no cover
             raise TypeError(
                 f"{self}: cannot apply object: {what!r}. Please provide a "
                 "FitTransform, BasePipeline, or StatelessTransform."
@@ -282,7 +282,7 @@ class Backend(ABC):
                 "fit-time bindings)."
             )
         data_result = what.on_backend(self)._submit_apply(data)
-        if data_result is None:
+        if data_result is None:  # pragma: no cover
             return self.put(None)  # type: ignore [return-value]
         return data_result
 
@@ -1201,22 +1201,6 @@ class Grouper(Generic[P_co]):
 
 
 DataInOut = TypeVar("DataInOut")
-
-
-@define
-class MaybeEmptyFuture(Generic[T_co], Future[T_co]):
-    fut: Future | None
-    empty: Callable
-
-    def result(self) -> T_co:
-        if self.fut is None or (val := self.fut.result()) is None:
-            return self.empty()
-            # self.empty_box |= {fn := self.empty_box.pop()}
-            # return fn()
-        return val
-
-    def belongs_to(self, backend: Backend) -> bool:
-        return self.fut is not None and self.fut.belongs_to(backend)
 
 
 @params(auto_attribs=False)

@@ -54,6 +54,17 @@ def test_DummyBackend():
     assert dummy_fut.result() == "foo(24)"
 
 
+def test_compare_futures():
+    local = ff.LocalBackend()
+    fut_other = local.put("other")
+    for obj in (42, "foo"):
+        fut = local.put(obj)
+        assert fut == fut
+        assert fut == local.put(obj)
+        assert fut != fut_other
+        assert fut.belongs_to(local)
+
+
 @pytest.mark.dask
 def test_DaskBackend(dask_client):
     def foo(x):
@@ -93,6 +104,11 @@ def test_DaskBackend(dask_client):
     dummy_fut = ff.LocalBackend().submit("forty_two", forty_two)
     fut = backend.submit("key-foo", foo, dummy_fut)
     assert fut.result() == "foo(42)"
+
+    assert fut != dummy_fut
+    assert fut == fut
+    assert fut.belongs_to(backend)
+    assert not fut.belongs_to(ff.LocalBackend())
 
     with backend.submitting_from_transform("foo") as b:
         assert "foo" in b.trace
