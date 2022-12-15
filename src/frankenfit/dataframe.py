@@ -220,8 +220,8 @@ class Join(DataFrameTransform):
         bindings = bindings or {}
         with self.parallel_backend() as backend:
             fit_left, fit_right = (
-                backend.fit(self.left, data_fit, bindings=bindings),
-                backend.fit(self.right, data_fit, bindings=bindings),
+                backend.fit(self.left, data_fit, bindings),
+                backend.fit(self.right, data_fit, bindings),
             )
             return (fit_left, fit_right)
 
@@ -353,7 +353,7 @@ class GroupByCols(DataFrameTransform):
             # fit the transform on the fitting data for this group
             # TODO: new per-group tags for the FitTransforms? How should find_by_tag()
             # work on FitGroupBy? (By overriding _children())
-            return self.transform.fit(df_group_fit, bindings=bindings)
+            return self.transform.fit(df_group_fit, bindings)
 
         return (
             data_fit.groupby(self.cols, as_index=False, sort=False)

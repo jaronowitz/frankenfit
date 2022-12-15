@@ -61,11 +61,7 @@ def test_ColumnsTransform(diamonds_df: pd.DataFrame):
     t = ffdf.Select("z")  # type: ignore [arg-type]
     assert t.apply(df).equals(df[["z"]])
     t = ffdf.Select(ff.HP("which_cols"))
-    assert (
-        t.fit(df, bindings={"which_cols": ["x", "y", "z"]})
-        .apply(df)
-        .equals(df[["x", "y", "z"]])
-    )
+    assert t.fit(df, which_cols=["x", "y", "z"]).apply(df).equals(df[["x", "y", "z"]])
 
     bindings = {"some_col": "y"}
     assert ff.HPCols(cols=["x", "y", "z"]).resolve(bindings) == ["x", "y", "z"]
@@ -81,9 +77,9 @@ def test_ColumnsTransform(diamonds_df: pd.DataFrame):
     ]
 
     t = ffdf.Select(["x", ff.HP("some_col"), "z"])  # type: ignore [list-item]
-    assert t.fit(df, bindings=bindings).apply(df).equals(df[["x", "y", "z"]])
+    assert t.fit(df, bindings).apply(df).equals(df[["x", "y", "z"]])
     t = ffdf.Select(["x", "{some_col}", "z"])
-    assert t.fit(df, bindings=bindings).apply(df).equals(df[["x", "y", "z"]])
+    assert t.fit(df, bindings).apply(df).equals(df[["x", "y", "z"]])
 
 
 def test_DeMean(diamonds_df: pd.DataFrame):
@@ -151,21 +147,19 @@ def test_CopyColumns(diamonds_df: pd.DataFrame):
     result = (
         ff.DataFramePipeline()
         .copy(["{response}"], ["{response}_copy"])
-        .apply(df, bindings=bindings)
+        .apply(df, bindings)
     )
     assert result["price_copy"].equals(df["price"])
 
     result = (
-        ff.DataFramePipeline()
-        .copy("{response}", "{response}_copy")
-        .apply(df, bindings=bindings)
+        ff.DataFramePipeline().copy("{response}", "{response}_copy").apply(df, bindings)
     )
     assert result["price_copy"].equals(df["price"])
 
     result = (
         ff.DataFramePipeline()
         .copy([ff.HP("response")], "{response}_copy")
-        .fit(df, bindings=bindings)
+        .fit(df, bindings)
         .apply(df)
     )
     assert result["price_copy"].equals(df["price"])
@@ -175,14 +169,14 @@ def test_CopyColumns(diamonds_df: pd.DataFrame):
         _ = (
             ff.DataFramePipeline()
             .copy(ff.HP("response"), "{response}_copy")
-            .apply(df, bindings=bindings)
+            .apply(df, bindings)
         )
     with pytest.raises(TypeError):
         # HP("dest") resolves to a str, not a list of str
         _ = (
             ff.DataFramePipeline()
             .copy(["price"], ff.HP("dest"))
-            .apply(df, bindings={"dest": "price_copy"})
+            .apply(df, dest="price_copy")
         )
 
 
@@ -204,13 +198,13 @@ def test_Filter(diamonds_df: pd.DataFrame):
     pip = ff.DataFramePipeline().filter(lambda df, which_cut: df["cut"] == which_cut)
     assert pip.hyperparams() == {"which_cut"}
     for which_cut in ("Premium", "Good"):
-        result_df = pip.apply(diamonds_df, bindings={"which_cut": which_cut})
+        result_df = pip.apply(diamonds_df, which_cut=which_cut)
         assert (result_df["cut"] == which_cut).all()
 
     with pytest.raises(ff.UnresolvedHyperparameterError):
         pip.apply(diamonds_df)
     with pytest.raises(ff.UnresolvedHyperparameterError):
-        pip.apply(diamonds_df, bindings={"irrelevant": 100})
+        pip.apply(diamonds_df, irrelevant=100)
 
     with pytest.raises(TypeError):
         ff.DataFramePipeline().filter(lambda df, *args: df["cut"] == "Ideal")
@@ -222,7 +216,7 @@ def test_Filter(diamonds_df: pd.DataFrame):
     assert pip.hyperparams() == {"which_cut"}
     result_df = pip.apply(diamonds_df)
     assert (result_df["cut"] == "Ideal").all()
-    result_df = pip.apply(diamonds_df, bindings={"which_cut": "Good"})
+    result_df = pip.apply(diamonds_df, which_cut="Good")
     assert (result_df["cut"] == "Good").all()
 
     with pytest.raises(TypeError):
@@ -242,7 +236,7 @@ def test_RenameColumns(diamonds_df: pd.DataFrame):
     result = (
         ff.DataFramePipeline()
         .rename(ff.HPLambda(lambda b: {b["response"]: b["response"] + "_orig"}))
-        .apply(diamonds_df, bindings={"response": "price"})
+        .apply(diamonds_df, response="price")
     )
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
 
@@ -253,11 +247,11 @@ def test_Clip(diamonds_df: pd.DataFrame):
     assert (result["price"] <= 150).all() & (result["price"] >= 100).all()
     clip_price = ff.DataFramePipeline().clip(["price"], upper=ff.HP("upper"))
     for upper in (100, 200, 300):
-        result = clip_price.apply(df, bindings={"upper": upper})
+        result = clip_price.apply(df, upper=upper)
         assert (result["price"] <= upper).all()
     clip_price = ff.DataFramePipeline().clip(["price"], lower=ff.HP("lower"))
     for lower in (100, 200, 300):
-        result = clip_price.apply(df, bindings={"lower": lower})
+        result = clip_price.apply(df, lower=lower)
         assert (result["price"] >= lower).all()
 
 
@@ -283,7 +277,7 @@ def test_Winsorize() -> None:
         ff.DataFramePipeline().winsorize(["col1"], 1.2).fit(df)
     with pytest.raises(TypeError):
         ff.DataFramePipeline().winsorize(["col1"], ff.HP("limit")).fit(
-            df, bindings={"limit": "a"}  # non-float
+            df, limit="a"  # non-float
         )
 
 
@@ -680,7 +674,7 @@ def test_read_write_dataset(diamonds_df: pd.DataFrame, tmp_path):
             filter=ff.HP("filter"),
             index_col="index",
         )
-        .fit(bindings=bindings)
+        .fit(**bindings)
         .apply()
     )
     assert result.equals(target)
@@ -711,7 +705,7 @@ def test_Assign(diamonds_df: pd.DataFrame):
         grp_2=lambda df, k: df.index % k,
     )
     assert pip.hyperparams() == {"k"}
-    result = pip.apply(diamonds_df, bindings={"k": 3})
+    result = pip.apply(diamonds_df, k=3)
     assert cast(pd.DataFrame, result["intercept"] == 1).all()
     assert cast(
         pd.DataFrame,
@@ -733,7 +727,7 @@ def test_Assign(diamonds_df: pd.DataFrame):
         tag="foo",
     )
     assert pip.hyperparams() == {"k", "x"}
-    result = pip.apply(diamonds_df, bindings={"k": 3, "x": "bar"})
+    result = pip.apply(diamonds_df, k=3, x="bar")
     assert cast(pd.DataFrame, result["intercept"] == 1).all()
     assert cast(
         pd.DataFrame,

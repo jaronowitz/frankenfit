@@ -112,19 +112,19 @@ def test_pipeline_straight(
         "predictors": FEATURES,
     }
 
-    result_pandas = pipeline.apply(bindings=bindings)
+    result_pandas = pipeline.apply(**bindings)
 
-    result_dask = dask.apply(pipeline, bindings=bindings).result()
+    result_dask = dask.apply(pipeline, **bindings).result()
     assert result_pandas.equals(result_dask)
 
-    result_dask = dask.fit(pipeline, bindings=bindings).apply()
+    result_dask = dask.fit(pipeline, **bindings).apply()
     assert result_pandas.equals(result_dask)
 
     # FIXME
-    result_dask = dask.apply(pipeline.fit(bindings=bindings)).result()
+    result_dask = dask.apply(pipeline.fit(**bindings)).result()
     assert result_pandas.equals(result_dask)
 
-    result_dask = dask.apply(dask.fit(pipeline, bindings=bindings)).result()
+    result_dask = dask.apply(dask.fit(pipeline, **bindings)).result()
     assert result_pandas.equals(result_dask)
 
 
@@ -192,9 +192,9 @@ def test_parallelized_pipeline_1(
         "predictors": ["carat", "x", "y", "z", "depth", "table"],
     }
 
-    local_result = complex_pipeline.apply(diamonds_df, bindings=bindings)
+    local_result = complex_pipeline.apply(diamonds_df, bindings)
     assert local_result.equals(
-        dask.apply(complex_pipeline, diamonds_df, bindings=bindings).result()
+        dask.apply(complex_pipeline, diamonds_df, bindings).result()
     )
 
     pip = (
@@ -213,5 +213,5 @@ def test_parallelized_pipeline_1(
         )
     )
     bindings = {"response_col": "price", "bake_features": True}
-    local_result = pip.apply(bindings=bindings)
-    assert local_result.equals(dask.apply(pip, bindings=bindings).result())
+    local_result = pip.apply(**bindings)
+    assert local_result.equals(dask.apply(pip, **bindings).result())

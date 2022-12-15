@@ -180,7 +180,10 @@ class Backend(ABC):
         transform: Transform[DataIn, DataResult],
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> FitTransform[Transform[DataIn, DataResult], DataIn, DataResult]:
+        bindings = {**(bindings or {}), **kwargs}
         if isinstance(data_fit, Sized):
             data_len = len(data_fit)
         else:
@@ -201,6 +204,7 @@ class Backend(ABC):
         self,
         what: FitTransform[R, DataIn, DataResult],
         data_apply: Optional[DataIn | Future[DataIn]] = None,
+        /,
     ) -> Future[DataResult]:
         ...  # pragma: no cover
 
@@ -210,6 +214,8 @@ class Backend(ABC):
         what: StatelessTransform[DataIn, DataResult],
         data_apply: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> Future[DataResult]:
         ...  # pragma: no cover
 
@@ -219,6 +225,8 @@ class Backend(ABC):
         what: BasePipeline[DataInOut],
         data_apply: Optional[DataInOut | Future[DataInOut]] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> Future[DataInOut]:
         ...  # pragma: no cover
 
@@ -233,7 +241,10 @@ class Backend(ABC):
             DataIn | Future[DataIn] | DataInOut | Future[DataInOut]
         ] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> Future[DataResult] | Future[DataInOut]:
+        bindings = {**(bindings or {}), **kwargs}
         data: Any = data_apply
         if isinstance(data, Sized):
             data_len = len(data)
@@ -264,9 +275,9 @@ class Backend(ABC):
                 "FitTransform, BasePipeline, or StatelessTransform."
             )
         assert isinstance(what, FitTransform)
-        if bindings is not None:
+        if len(bindings):
             raise TypeError(
-                "Backend.apply: bindings argument must not be supplied when applying "
+                "Backend.apply: bindings must not be supplied when applying "
                 "a FitTransform (its hyperparameters have already been resolved by "
                 "fit-time bindings)."
             )
@@ -656,6 +667,8 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         self: R,
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> FitTransform[R, DataIn, DataResult]:
         """
         Fit this Transform on some data and hyperparam bindings, and return a
@@ -668,7 +681,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         # materializes the state
         return cast(
             FitTransform[R, DataIn, DataResult],
-            self.backend.fit(self, data_fit, bindings),
+            self.backend.fit(self, data_fit, bindings, **kwargs),
         ).materialize_state()
 
     def _apply(self, data_apply: DataIn, state: Any) -> DataResult:
@@ -992,6 +1005,8 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
         self,
         data_apply: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> DataResult:
         """
         Convenience function allowing one to apply a StatelessTransform without an
@@ -999,7 +1014,7 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
         (with the optional hyperparameter bindings as provided) and then returning the
         result of applying the resulting FitTransform to that same data.
         """
-        return self.backend.apply(self, data_apply, bindings).result()
+        return self.backend.apply(self, data_apply, bindings, **kwargs).result()
 
 
 class NonInitialConstantTransformWarning(RuntimeWarning):
@@ -1304,7 +1319,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
             if n == 0 and return_what == "result" and data_fit is None:
                 return backend.put(self._empty_constructor())
             for (i, t) in enumerate(self.transforms):
-                ft = backend.fit(t, data_fit, bindings=bindings)
+                ft = backend.fit(t, data_fit, bindings)
                 fit_transforms.append(ft)
                 if i < n - 1 or return_what == "result":
                     data_fit = backend.apply(ft, data_fit)
@@ -1336,6 +1351,8 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         self,
         data_apply: Optional[DataInOut | Future[DataInOut]] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> DataInOut:
         """
         An efficient alternative to ``Pipeline.fit(...).apply(...)``.  When the
@@ -1351,7 +1368,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         :return: The result of fitting this :class:`Pipeline` and applying it to its own
             fitting data.
         """
-        return self.backend.apply(self, data_apply, bindings).result()
+        return self.backend.apply(self, data_apply, bindings, **kwargs).result()
 
     def _materialize_state(self, state: Any) -> Any:
         # because a pipeline's state is just a list of FitTransform objects, we

@@ -86,14 +86,14 @@ def test_IfHyperparamIsTrue(diamonds_df: pd.DataFrame):
     result = (
         ff.UniversalPipeline()
         .if_hyperparam_is_true("do_it", lambda_demean)
-        .fit(df, bindings={"do_it": False})
+        .fit(df, do_it=False)
         .apply(df)
     )
     assert result.equals(df)  # identity
     result = (
         ff.UniversalPipeline()
         .if_hyperparam_is_true("do_it", lambda_demean)
-        .fit(df, bindings={"do_it": True})
+        .fit(df, do_it=True)
         .apply(df)
     )
     assert result.equals(target_demean)
@@ -101,13 +101,13 @@ def test_IfHyperparamIsTrue(diamonds_df: pd.DataFrame):
         result = (
             ff.UniversalPipeline()
             .if_hyperparam_is_true("do_it", lambda_demean)
-            .fit(df, bindings={})
+            .fit(df, {})
             .apply(df)
         )
     result = (
         ff.UniversalPipeline()
         .if_hyperparam_is_true("do_it", lambda_demean, allow_unresolved=True)
-        .fit(df, bindings={})
+        .fit(df, {})
         .apply(df)
     )
     assert result.equals(df)  # identity
@@ -115,14 +115,14 @@ def test_IfHyperparamIsTrue(diamonds_df: pd.DataFrame):
     result = (
         ff.UniversalPipeline()
         .if_hyperparam_is_true("do_it", lambda_demean, otherwise=lambda_add_ones)
-        .fit(df, bindings={"do_it": False})
+        .fit(df, do_it=False)
         .apply(df)
     )
     assert result.equals(target_add_ones)
     result = (
         ff.UniversalPipeline()
         .if_hyperparam_is_true("do_it", lambda_add_ones, otherwise=lambda_demean)
-        .fit(df, bindings={"do_it": False})
+        .fit(df, do_it=False)
         .apply(df)
     )
     assert result.equals(target_demean)
@@ -146,22 +146,22 @@ def test_IfHyperparamLambda(diamonds_df: pd.DataFrame):
     pip = ff.UniversalPipeline().if_hyperparam_lambda(condition, lambda_demean)
     assert pip.hyperparams() == {"x", "y"}
 
-    result = pip.fit(df, bindings={"x": -1, "y": 1}).apply(df)
+    result = pip.fit(df, {"x": -1, "y": 1}).apply(df)
     assert result.equals(df)
-    result = pip.fit(df, bindings={"x": 1, "y": 1}).apply(df)
+    result = pip.fit(df, {"x": 1, "y": 1}).apply(df)
     assert result.equals(target_demean)
 
     result = (
         ff.UniversalPipeline()
         .if_hyperparam_lambda(condition, lambda_demean, otherwise=lambda_add_ones)
-        .fit(df, bindings={"x": -1, "y": 1})
+        .fit(df, {"x": -1, "y": 1})
         .apply(df)
     )
     assert result.equals(target_add_ones)
     result = (
         ff.UniversalPipeline()
         .if_hyperparam_lambda(condition, lambda_add_ones, otherwise=lambda_demean)
-        .fit(df, bindings={"x": -1, "y": 1})
+        .fit(df, {"x": -1, "y": 1})
         .apply(df)
     )
     assert result.equals(target_demean)
@@ -238,9 +238,7 @@ def test_IfFittingDataHasProperty(diamonds_df: pd.DataFrame):
     )
     assert pip.hyperparams() == {"min_cols"}
     assert pip.fit(df[["price"]]).apply(df).equals(target_add_ones)
-    assert (
-        pip.fit(df[["price"]], bindings={"min_cols": 2}).apply(df).equals(target_demean)
-    )
+    assert pip.fit(df[["price"]], {"min_cols": 2}).apply(df).equals(target_demean)
 
 
 def test_StatelessLambda(diamonds_df: pd.DataFrame):
@@ -255,7 +253,7 @@ def test_StatelessLambda(diamonds_df: pd.DataFrame):
     pip = ff.UniversalPipeline().stateless_lambda(
         lambda df, response: df.rename(columns={response: "foo"})
     )
-    result = pip.apply(df, bindings={"response": "price"})
+    result = pip.apply(df, {"response": "price"})
     assert result.equals(df.rename(columns={"price": "foo"}))
 
     with pytest.raises(ff.UnresolvedHyperparameterError):
@@ -267,7 +265,7 @@ def test_StatelessLambda(diamonds_df: pd.DataFrame):
     )
     result = pip.apply(df)
     assert result.equals(df.rename(columns={"price": "price_2"}))
-    result = pip.apply(df, bindings={"response": "depth"})
+    result = pip.apply(df, {"response": "depth"})
     assert result.equals(df.rename(columns={"depth": "depth_2"}))
 
     with pytest.raises(TypeError):
@@ -288,7 +286,7 @@ def test_StatefulLambda(diamonds_df: pd.DataFrame):
         fit_fun=lambda df, col: df[col].mean(),
         apply_fun=lambda df, mean, col: df.assign(**{col: df[col] - mean}),
     )
-    result = lambda_demean.fit(df, bindings={"col": "price"}).apply(df)
+    result = lambda_demean.fit(df, col="price").apply(df)
     assert result.equals(df.assign(price=df["price"] - df["price"].mean()))
     with pytest.raises(ff.UnresolvedHyperparameterError):
         lambda_demean.fit(df)

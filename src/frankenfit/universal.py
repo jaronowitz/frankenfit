@@ -92,6 +92,8 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
         self: _Self,
         data_fit: Optional[T | Future[T]] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> FitTransform[_Self, T, T]:
         return super().fit(data_fit, bindings)
 
@@ -99,6 +101,8 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
         self,
         data_apply: Optional[T | Future[T]] = None,
         bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
     ) -> T:
         return super().apply(data_apply, bindings)
 
@@ -213,7 +217,7 @@ class IfFittingDataHasProperty(BranchTransform):
         bindings = bindings or {}
         with self.parallel_backend() as backend:
             test_result: bool = self.test_transform.on_backend(backend).apply(
-                data_fit, bindings=bindings
+                data_fit, bindings
             )
             if test_result:
                 return backend.fit(self.then_transform, data_fit, bindings)
@@ -257,7 +261,7 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
                         backend.fit(
                             self.transform,
                             data_fit,
-                            bindings={**base_bindings, **bindings},
+                            {**base_bindings, **bindings},
                         ),
                     )
                 )

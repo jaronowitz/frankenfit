@@ -127,7 +127,7 @@ def test_Transform_fit_apply_valence() -> None:
         def _apply(self, data_apply: Any, state: Any) -> Any:
             return data_apply
 
-    Fit2().fit(foo_str, bindings=meow_bindings)
+    Fit2().fit(foo_str, meow_bindings)
 
     class Fit3(ff.Transform):
         def _fit(self, data_fit: Any, bindings=None, backend=None) -> Any:
@@ -141,7 +141,7 @@ def test_Transform_fit_apply_valence() -> None:
 
     # TODO:
     # ff.LocalBackend().fit(Fit3(), foo_str, meow_bindings, backend=local)
-    # Fit3().fit(foo_str, bindings=meow_bindings, )
+    # Fit3().fit(foo_str, meow_bindings, )
 
     class Fit0(ff.Transform):
         def _fit(self) -> Any:  # type: ignore [override]
@@ -171,7 +171,7 @@ def test_Transform_fit_apply_valence() -> None:
             assert data_apply == foo_str
 
     with pytest.raises(TypeError):
-        Apply1().fit(bindings=meow_bindings).apply(foo_str)
+        Apply1().fit(**meow_bindings).apply(foo_str)
 
 
 def test_fit_apply_futures() -> None:
@@ -233,8 +233,12 @@ def test_fit_with_bindings(diamonds_df: pd.DataFrame) -> None:
             return data_apply
 
     t = TestTransform()
-    fit_t = t.fit(diamonds_df, bindings={"foo": 1})
+    fit_t = t.fit(diamonds_df, {"foo": 1})
     assert fit_t.state() == {"foo": 1}
+    fit_t = t.fit(diamonds_df, bar=2)
+    assert fit_t.state() == {"bar": 2}
+    fit_t = t.fit(diamonds_df, {"foo": 1}, bar=2)
+    assert fit_t.state() == {"foo": 1, "bar": 2}
 
 
 @pytest.mark.skipif(PYVERSION < (3, 9), reason="Python < 3.9")
@@ -296,12 +300,13 @@ def test_override_fit_apply(
             self: Self,
             data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
             bindings: Optional[ff.Bindings] = None,
-            backend: Optional[ff.Backend] = None,
+            /,
+            **kwargs,
         ) -> FitDeMean:
             """My fit docstr"""
             print("my overridden fit")
             # return cast(FitDeMean, super().fit(data_fit, bindings, backend=backend))
-            return cast(FitDeMean, super().fit(data_fit, bindings))
+            return cast(FitDeMean, super().fit(data_fit, bindings, **kwargs))
 
     dmn = DeMean(["price"])
 
@@ -341,19 +346,19 @@ def test_hyperparams(diamonds_df: pd.DataFrame) -> None:
 
     t = TestTransform(some_param=ff.HP("response_col"))
     assert t.hyperparams() == {"response_col"}
-    tfit = t.fit(diamonds_df, bindings=bindings)
+    tfit = t.fit(diamonds_df, bindings)
     assert tfit.resolved_transform().some_param == "price"
 
     t = TestTransform(some_param=ff.HP("undefined_hyperparam"))
     with pytest.raises(core.UnresolvedHyperparameterError):
-        tfit = t.fit(diamonds_df, bindings=bindings)
+        tfit = t.fit(diamonds_df, bindings)
 
     t = TestTransform(
         some_param=ff.HPLambda(
             lambda b: {b["response_col"]: b["response_col"] + "_orig"}
         )
     )
-    tfit = t.fit(diamonds_df, bindings=bindings)
+    tfit = t.fit(diamonds_df, bindings)
     assert tfit.resolved_transform().some_param == {"price": "price_orig"}
 
     pipeline = ff.DataFramePipeline().select(["{response_col}"])
@@ -440,12 +445,12 @@ def test_tags(diamonds_df: pd.DataFrame) -> None:
 
     ihp = universal.IfHyperparamIsTrue("my-hp", ff.Identity(), otherwise=tagged_ident)
     assert ihp.find_by_name("Identity#mytag") is tagged_ident
-    ihp_fit = ihp.fit(bindings={"my-hp": False})
+    ihp_fit = ihp.fit(**{"my-hp": False})
     assert isinstance(
         ihp_fit.find_by_name("Identity#mytag").resolved_transform(), ff.Identity
     )
 
-    ihp_fit = ihp.fit(bindings={"my-hp": True})
+    ihp_fit = ihp.fit(**{"my-hp": True})
     with pytest.raises(KeyError):
         ihp_fit.find_by_name("mytag")
 
