@@ -94,6 +94,8 @@ dev = [
     'frankenfit[dask,docs,tests]',
     'flake8',
     'flake8-pyproject',
+    'black',
+    'isort',
     'pre-commit',
     'build',
 ]
@@ -158,3 +160,6 @@ omit = [
     "src/frankenfit/mypy.py"
 ]
 data_file = ".coverage/coverage"
+
+[tool.isort]
+profile = "black"

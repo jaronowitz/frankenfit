@@ -58,12 +58,13 @@ Example mypy config in `pyroject.toml`::
 
 """
 from __future__ import annotations
+
 from typing import Callable
 
-from mypy.plugin import ClassDefContext, Plugin, FunctionSigContext
+from mypy.plugin import ClassDefContext, FunctionSigContext, Plugin
 from mypy.plugins.attrs import attr_attrib_makers, attr_define_makers
-from mypy.types import Instance, FunctionLike
 from mypy.typeops import make_simplified_union
+from mypy.types import FunctionLike, Instance
 
 PARAMS_DECORATOR = "frankenfit.params.params"
 TRANSFORM_BASE_CLASS = "frankenfit.core.Transform"

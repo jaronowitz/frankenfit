@@ -41,7 +41,7 @@ from typing import (
     cast,
 )
 
-from attrs import define, field, NOTHING
+from attrs import NOTHING, define, field
 
 from .core import (
     BasePipeline,

@@ -44,74 +44,22 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""
-The public Frankenfit API consists of all non-underscore-prefixed names in the
-top-level ``frankenfit`` package. Therefore a single import statement pulls in the
-complete API::
 
-    import frankenfit
+class ReadTimeseriesDataset:
+    ...
 
-.. TIP::
 
-    As a stylistic convention, and for the sake of brevity, the author of Frankenfit
-    recommends importing ``frankenfit`` with the short name ``ff``::
+class WriteTimeseriesDataset:
+    ...
 
-        import frankenfit as ff
 
-    All of the examples in the reference documentation assume that ``frankenfit`` has
-    been imported with the short name ``ff`` as above.
+class CrossSectionally:
+    ...
 
-In case you use a star-import (:code:`from frankenfit import *`), care is taken to
-ensure that all and only the public API names are imported, so that your namespace is
-not polluted with unrelated names.
-"""
-from __future__ import annotations
 
-# import-as with leading _ so that we don't pollute the globals of anyone; daring;
-# enough to *-import us.
-from importlib.metadata import PackageNotFoundError as _PNFE
-from importlib.metadata import version as _version  # noqa: N814
+class TimeseriesPipeline:
+    ...
 
-try:
-    __version__ = _version("frankenfit")
-except _PNFE:  # pragma: no cover
-    # package is not installed
-    pass
 
-from frankenfit.backend import DaskBackend
-from frankenfit.core import (  # Exceptions that users can catch
-    Backend,
-    BasePipeline,
-    Bindings,
-    ConstantTransform,
-    FitTransform,
-    Future,
-    LocalBackend,
-    NonInitialConstantTransformWarning,
-    StatelessTransform,
-    Transform,
-    UnresolvedHyperparameterError,
-)
-from frankenfit.dataframe import (  # Exceptions that users can catch
-    DataFramePipeline,
-    DataFrameTransform,
-    ReadDataFrame,
-    ReadDataset,
-    ReadPandasCSV,
-    UnfitGroupError,
-    fit_group_on_all_other_groups,
-    fit_group_on_self,
-)
-from frankenfit.params import (
-    HP,
-    HPCols,
-    HPDict,
-    HPFmtStr,
-    HPLambda,
-    columns_field,
-    dict_field,
-    fmt_str_field,
-    optional_columns_field,
-    params,
-)
-from frankenfit.universal import Identity, UniversalPipeline, UniversalTransform
+class TimeseriesBackend:
+    ...
