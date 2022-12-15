@@ -59,7 +59,7 @@ def test_Print(diamonds_df: pd.DataFrame):
     buf = StringIO()
     t = ff.UniversalPipeline().print(fit_msg=fit_msg, apply_msg=apply_msg, dest=buf)
     df = t.fit(diamonds_df).apply(diamonds_df)
-    assert buf.getvalue() == fit_msg + "\n" + apply_msg + "\n" + apply_msg + "\n"
+    assert buf.getvalue() == fit_msg + "\n" + apply_msg + "\n"
     assert df.equals(diamonds_df)
     buf.close()
 

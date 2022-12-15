@@ -52,6 +52,7 @@ from typing import (
     Sized,
     Type,
     TypeVar,
+    Union,
     cast,
     overload,
 )
@@ -128,18 +129,27 @@ class Future(Generic[T_co], ABC):
     def result(self) -> T_co:
         raise NotImplementedError  # pragma: no cover
 
+    @abstractmethod
+    def belongs_to(self, backend: Backend) -> bool:
+        raise NotImplementedError  # pragma: no cover
 
+    @abstractmethod
+    def __eq__(self, o):
+        raise NotImplementedError  # pragma: no cover
+
+
+@define
 class Backend(ABC):
-    FutureType: ClassVar[type[Future]]
+    trace: tuple[str, ...] = tuple()
 
     @abstractmethod
     def put(self, data: T) -> Future[T]:
         raise NotImplementedError  # pragma: no cover
 
-    def maybe_put(self, data: T | Future[T] | None) -> T | Future[T] | None:
+    def maybe_put(self, data: T | Future[T] | None) -> Future[T] | None:
         if data is None:
             return data
-        if isinstance(data, self.FutureType):
+        if isinstance(data, Future) and data.belongs_to(self):
             return data
         # we need to put it...
         if isinstance(data, Future):
@@ -150,7 +160,9 @@ class Backend(ABC):
 
     @contextmanager
     def submitting_from_transform(self: B, name: str = "") -> Iterator[B]:
-        yield self
+        self_copy = copy.copy(self)
+        self_copy.trace += (name,)
+        yield self_copy
 
     @abstractmethod
     def submit(
@@ -169,7 +181,20 @@ class Backend(ABC):
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
     ) -> FitTransform[Transform[DataIn, DataResult], DataIn, DataResult]:
-        return transform._submit_fit(self, data_fit, bindings)
+        if isinstance(data_fit, Sized):
+            data_len = len(data_fit)
+        else:
+            data_len = None
+        _LOG.debug(
+            f"{self}: Fitting {transform} on {type(data_fit)}"
+            f"{f' (len={data_len})' if data_len is not None else ''} "
+            f"with bindings={bindings!r}."
+        )
+
+        data_fit = cast(Union[DataIn, Future[DataIn], None], data_fit)
+        transform = transform.resolve(bindings).on_backend(self)
+        state = transform._submit_fit(data_fit, bindings)
+        return type(transform).FitTransformClass(transform, state, bindings)
 
     @overload
     def apply(
@@ -210,13 +235,34 @@ class Backend(ABC):
         bindings: Optional[Bindings] = None,
     ) -> Future[DataResult] | Future[DataInOut]:
         data: Any = data_apply
+        if isinstance(data, Sized):
+            data_len = len(data)
+        else:
+            data_len = None
+
+        _LOG.debug(
+            f"{self}: Applying {what} on {type(data_apply)}"
+            f"{f' (len={data_len})' if data_len is not None else ''}"
+            f"{f', with bindings={bindings!r}' if bindings is not None else ''}."
+        )
 
         if isinstance(what, StatelessTransform):
-            return what._submit_apply(self, data, bindings)
+            data = self.maybe_put(data)  # so that it doesn't get put twice
+            fit_what = self.fit(what, data, bindings)
+            return self.apply(fit_what, data)
 
         if isinstance(what, BasePipeline):
-            return what._submit_apply(self, data, bindings)
+            result = what.on_backend(self)._submit_fit(
+                data, bindings, return_what="result"
+            )
+            assert isinstance(result, Future)  # type narrowing
+            return result
 
+        if not isinstance(what, FitTransform):
+            raise TypeError(
+                f"{self}: cannot apply object: {what!r}. Please provide a "
+                "FitTransform, BasePipeline, or StatelessTransform."
+            )
         assert isinstance(what, FitTransform)
         if bindings is not None:
             raise TypeError(
@@ -224,8 +270,10 @@ class Backend(ABC):
                 "a FitTransform (its hyperparameters have already been resolved by "
                 "fit-time bindings)."
             )
-
-        return what._submit_apply(self, data)
+        data_result = what.on_backend(self)._submit_apply(data)
+        if data_result is None:
+            return self.put(None)  # type: ignore [return-value]
+        return data_result
 
 
 @define
@@ -235,11 +283,28 @@ class LocalFuture(Generic[T_co], Future[T_co]):
     def result(self) -> T_co:
         return self.obj
 
+    def belongs_to(self, backend: Backend) -> bool:
+        return isinstance(backend, LocalBackend)
+
+    def __eq__(self, other):
+        if type(self) is not type(other):
+            return False
+        other = cast(LocalFuture, other)
+        my_obj = self.obj
+        other_obj = other.obj
+        try:
+            return my_obj.equals(other_obj)
+        except AttributeError:
+            pass
+        try:
+            return (my_obj == other_obj).all()
+        except AttributeError:
+            pass
+        return my_obj == other_obj
+
 
 @define
 class LocalBackend(Backend):
-    FutureType: ClassVar[type[Future]] = LocalFuture
-
     def put(self, data: T) -> LocalFuture[T]:
         return LocalFuture(data)
 
@@ -261,6 +326,9 @@ class LocalBackend(Backend):
         }
         result = function(*function_args, **function_kwargs)
         return LocalFuture(result)
+
+
+LOCAL_BACKEND = LocalBackend()
 
 
 class FitTransform(Generic[R_co, DataIn, DataResult]):
@@ -290,7 +358,7 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         self.__resolved_transform = resolved_transform
         self.__state = state
         self.__bindings = bindings or {}
-        self.backend: Backend | None = None
+        self.backend: Backend = resolved_transform.backend
 
     @property
     def name(self) -> str:
@@ -328,40 +396,10 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
 
     def _submit_apply(
         self,
-        submit_backend: Backend,
         data_apply: Optional[DataIn | Future[DataIn]] = None,
-    ) -> Future[DataResult]:
-        if isinstance(data_apply, Sized):
-            data_len = len(data_apply)
-        else:
-            data_len = None
-
-        tf = self.resolved_transform().on_backend(
-            self.backend if self.backend is not None else submit_backend
-        )
-
-        # prepare args for user _apply method
-        args: tuple[Any, ...] = (
-            submit_backend.maybe_put(data_apply),
-            submit_backend.maybe_put(self.state()),
-        )
-        sig = inspect.signature(tf._apply).parameters
-        if len(sig) < 2:
-            raise TypeError(
-                f"I don't know how to invoke user _apply() method with "
-                f"{len(sig)} arguments: {tf._apply} with signature {str(sig)}"
-            )
-
-        _LOG.debug(
-            f"Applying fit {self.name} on {type(data_apply)}"
-            f"{f' (len={data_len})' if data_len is not None else ''}, "
-            f"submitting to {submit_backend!r}, "
-            f"with tf.backend={tf.backend!r}"
-        )
-
-        return submit_backend.submit(
-            f"{self.name}._apply", tf._apply, *args, pure=tf.pure
-        )
+    ) -> Future[DataResult] | None:
+        tf = self.resolved_transform().on_backend(self.backend)
+        return tf._submit_apply(data_apply, self.state())
 
     def apply(
         self,
@@ -370,13 +408,9 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         """
         Return the result of applying this FitTransform to the given data.
         """
-        # Convenience method that applies this transform on a local backend and
+        # Convenience method that applies this transform on its backend and
         # materializes the result
-        return (
-            (self.backend or self.__resolved_transform.backend or LocalBackend())
-            .apply(self, data_apply)
-            .result()
-        )
+        return self.backend.apply(self, data_apply).result()
 
     # TODO: refit()? incremental_fit()?
 
@@ -387,7 +421,7 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         """
         return self.__resolved_transform
 
-    def on_backend(self: _Self, backend: Backend | None) -> _Self:
+    def on_backend(self: _Self, backend: Backend) -> _Self:
         self_copy = copy.copy(self)
         self_copy.backend = backend
         return self_copy
@@ -407,13 +441,9 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         return self.__state
 
     def materialize_state(self: _Self) -> _Self:
-        state = self.state()
-        if isinstance(state, Future):
-            return type(self)(
-                self.resolved_transform(), state.result(), self.bindings()
-            )
-        else:
-            return self
+        tf = self.resolved_transform()
+        state = tf._materialize_state(self.state())
+        return type(self)(self.resolved_transform(), state, self.bindings())
 
     def find_by_name(self, name: str):
         if self.name == name:
@@ -523,7 +553,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
     """
 
     FitTransformClass: ClassVar[Type[FitTransform]] = FitTransform
-    backend = None  # type: Optional[Backend]
+    backend = LOCAL_BACKEND  # type: Backend
     pure = True
 
     # TODO: do we really want tag to be hyperparameterizable? shouldn't it be
@@ -563,7 +593,6 @@ class Transform(ABC, Generic[DataIn, DataResult]):
     def __str__(self) -> str:
         return self.name
 
-    @abstractmethod
     def _fit(self, data_fit: DataIn) -> Any:
         """
         Implements subclass-specific fitting logic.
@@ -597,47 +626,31 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     def _submit_fit(
         self: R,
-        submit_backend: Backend,
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
-    ) -> FitTransform[R, DataIn, DataResult]:
-        # OK, so if we are to return a FitTransform with future state, then this must
-        # become the new _fit-submitter. Transform.fit() is then just a convenience
-        # shell around LocalBackend.fit. There's also no longer any need for
-        # Transform.fit() to accept backend=; that need only go to _fit.
-        if isinstance(data_fit, Sized):
-            data_len = len(data_fit)
-        else:
-            data_len = None
-
-        # resolve hyperparams and prepare args to user _fit function
-        args: tuple[Any, ...] = (submit_backend.maybe_put(data_fit),)
-        tf = self.resolve(bindings)
-        if tf.backend is None:
-            tf = tf.on_backend(submit_backend)
-        sig = inspect.signature(tf._fit).parameters
+    ) -> Any:
+        # default implementation of _submit_fit: submit _fit on data_fit (and possibly
+        # bindings) to backend.
+        sig = inspect.signature(self._fit).parameters
         if len(sig) < 1:
             raise TypeError(
                 f"I don't know how to invoke user _fit() method with "
-                f"{len(sig)} arguments: {tf._fit} with signature "
+                f"{len(sig)} arguments: {self._fit} with signature "
                 f"{str(sig)}"
             )
-        # pass bindings if _fit has a second argument
+        additional_args: tuple[Any, ...] = tuple()
         if len(sig) > 1:
-            args += (bindings or {},)
+            # pass bindings if _fit has a second argument
+            additional_args += (bindings or {},)
 
-        _LOG.debug(
-            f"Fitting {self.name} on {type(data_fit)}"
-            f"{f' (len={data_len})' if data_len is not None else ''} "
-            f"with bindings={bindings!r}, submitting to {submit_backend!r}, "
-            f"with tf.backend={tf.backend!r}"
-        )
-
-        state = submit_backend.submit(
-            f"{self.name}._fit", tf._fit, *args, pure=self.pure
-        )
-
-        return type(self).FitTransformClass(tf, state, bindings)
+        with self.parallel_backend() as backend:
+            return backend.submit(
+                "_fit",
+                self._fit,
+                backend.maybe_put(data_fit),
+                *additional_args,
+                pure=self.pure,
+            )
 
     def fit(
         self: R,
@@ -653,13 +666,11 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         """
         # Convenience method that fits this transform on a local backend and
         # materializes the state
-        ft = cast(
+        return cast(
             FitTransform[R, DataIn, DataResult],
-            (self.backend or LocalBackend()).fit(self, data_fit, bindings),
-        )
-        return ft.materialize_state()
+            self.backend.fit(self, data_fit, bindings),
+        ).materialize_state()
 
-    @abstractmethod
     def _apply(self, data_apply: DataIn, state: Any) -> DataResult:
         """
         Implements subclass-specific logic to apply the tansformation after being fit.
@@ -671,6 +682,32 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         TODO.
         """
         raise NotImplementedError  # pragma: no cover
+
+    def _submit_apply(
+        self,
+        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        state: Any = None,
+    ) -> Future[DataResult] | None:
+        sig = inspect.signature(self._apply).parameters
+        if len(sig) < 2:
+            raise TypeError(
+                f"I don't know how to invoke user _apply() method with "
+                f"{len(sig)} arguments: {self._apply} with signature {str(sig)}"
+            )
+
+        with self.parallel_backend() as backend:
+            return backend.submit(
+                "_apply",
+                self._apply,
+                backend.maybe_put(data_apply),
+                backend.maybe_put(state),
+                pure=self.pure,
+            )
+
+    def _materialize_state(self, state: Any) -> Any:
+        if isinstance(state, Future):
+            return state.result()
+        return state
 
     def params(self) -> list[str]:
         """
@@ -749,7 +786,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
         return resolved_transform
 
-    def on_backend(self: R, backend: Backend | None) -> R:
+    def on_backend(self: R, backend: Backend) -> R:
         self_copy = copy.copy(self)
         self_copy.backend = backend
         # TODO: add ourselves to backend name trace?
@@ -757,10 +794,6 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     @contextmanager
     def parallel_backend(self) -> Iterator[Backend]:
-        if self.backend is None:
-            yield LocalBackend()
-            return
-
         with self.backend.submitting_from_transform(self.name) as backend:
             yield backend
 
@@ -955,50 +988,18 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
     def _fit(self, data_fit: DataIn) -> None:
         return None
 
-    def _submit_fit(
-        self: _Self,
-        submit_backend: Backend,
-        data_fit: Optional[DataIn | Future[DataIn]] = None,
-        bindings: Optional[Bindings] = None,
-    ) -> FitTransform[_Self, DataIn, DataResult]:
-        # A small optimization to avoid scheduling stateless _fit on remote backends,
-        # because we know it's just going to return None. (But we still want to run it
-        # on SOME backend for any side effects/child transforms.)
-        if self.backend is None:
-            # funk alert: a new self for super() to bind to
-            self = self.on_backend(submit_backend)
-        return super()._submit_fit(LocalBackend(), data_fit, bindings)
-
-    def _submit_apply(
-        self,
-        submit_backend: Backend,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
-        bindings: Optional[Bindings] = None,
-    ) -> Future[DataResult]:
-        ft = submit_backend.fit(
-            self,
-            data_apply,
-            bindings=bindings,
-        )
-        return submit_backend.apply(ft, data_apply)
-
     def apply(
         self,
         data_apply: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
     ) -> DataResult:
         """
-        Convenience function allowing one to apply a StatelessTransform without
-        an explicit preceding call to fit. Implemented by calling fit() on no
-        data (but with optional hyperparameter bindings as provided) and then
-        returning the result of applying the resulting FitTransform to the given
-        object.
+        Convenience function allowing one to apply a StatelessTransform without an
+        explicit preceding call to fit. Equivalent to calling fit() on the given data
+        (with the optional hyperparameter bindings as provided) and then returning the
+        result of applying the resulting FitTransform to that same data.
         """
-        return (
-            (self.backend or LocalBackend())
-            .apply(self, data_apply, bindings=bindings)
-            .result()
-        )
+        return self.backend.apply(self, data_apply, bindings).result()
 
 
 class NonInitialConstantTransformWarning(RuntimeWarning):
@@ -1010,30 +1011,6 @@ class NonInitialConstantTransformWarning(RuntimeWarning):
     .. SEEALSO::
         :class:`ConstantTransform`
     """
-
-
-class FitConstantTransform(
-    Generic[R_co, DataIn, DataResult], FitTransform[R_co, DataIn, DataResult]
-):
-    def _submit_apply(
-        self,
-        submit_backend: Backend,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
-    ) -> Future[DataResult]:
-        if data_apply is not None:
-            warning_msg = (
-                "A ConstantTransform's apply method received non-null input data. "
-                "This is likely unintentional because that input data will be "
-                "ignored and discarded.\n"
-                f"transform={self!r}\n"
-                f"data_apply=\n{data_apply!r}"
-            )
-            _LOG.warning(warning_msg)
-            warnings.warn(
-                warning_msg,
-                NonInitialConstantTransformWarning,
-            )
-        return super()._submit_apply(submit_backend, data_apply)
 
 
 class ConstantTransform(
@@ -1053,16 +1030,13 @@ class ConstantTransform(
     non-initial in a Pipeline.
     """
 
-    FitTransformClass: ClassVar[Type[FitTransform]] = FitConstantTransform
-
     _Self = TypeVar("_Self", bound="ConstantTransform")
 
     def _submit_fit(
         self: _Self,
-        submit_backend: Backend,
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
-    ) -> FitTransform[_Self, DataIn, DataResult]:
+    ) -> Any:
         if data_fit is not None:
             warning_msg = (
                 "A ConstantTransform's fit method received non-null input data. "
@@ -1076,14 +1050,13 @@ class ConstantTransform(
                 warning_msg,
                 NonInitialConstantTransformWarning,
             )
-        return super()._submit_fit(submit_backend, data_fit, bindings)
+        return super()._submit_fit(data_fit, bindings)
 
     def _submit_apply(
         self,
-        submit_backend: Backend,
         data_apply: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
-    ) -> Future[DataResult]:
+    ) -> Future[DataResult] | None:
         if data_apply is not None:
             warning_msg = (
                 "A ConstantTransform's apply method received non-null input data. "
@@ -1097,7 +1070,7 @@ class ConstantTransform(
                 warning_msg,
                 NonInitialConstantTransformWarning,
             )
-        return super()._submit_apply(submit_backend, data_apply, bindings)
+        return super()._submit_apply(data_apply, bindings)
 
 
 C = TypeVar("C", bound="Callable[..., Any]")
@@ -1215,32 +1188,56 @@ class Grouper(Generic[P_co]):
 DataInOut = TypeVar("DataInOut")
 
 
-class FitBasePipeline(
-    Generic[P_co, DataInOut], FitTransform[P_co, DataInOut, DataInOut]
-):
-    _Self = TypeVar("_Self", bound="FitBasePipeline")
+@define
+class MaybeEmptyFuture(Generic[T_co], Future[T_co]):
+    fut: Future | None
+    empty: Callable
 
-    def materialize_state(self: _Self) -> _Self:
-        # because a pipeline's state is just a list of FitTransform objects, we
-        # may need to materialize its contents
-        ft = super().materialize_state()
-        state: list[FitTransform] = ft.state()
-        assert isinstance(state, list)
-        mat_state = [sub_ft.materialize_state() for sub_ft in state]
-        return type(self)(self.resolved_transform(), mat_state, self.bindings())
+    def result(self) -> T_co:
+        if self.fut is None or (val := self.fut.result()) is None:
+            return self.empty()
+            # self.empty_box |= {fn := self.empty_box.pop()}
+            # return fn()
+        return val
 
-
-def make_none():
-    return None
+    def belongs_to(self, backend: Backend) -> bool:
+        return self.fut is not None and self.fut.belongs_to(backend)
 
 
 @params(auto_attribs=False)
 class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
+    transforms: list[Transform[DataInOut, DataInOut]] = field(
+        factory=list, converter=_convert_pipeline_transforms
+    )
+
+    @transforms.validator
+    def _check_transforms(self, attribute, value):
+        t_is_first = True
+        for t in value:
+            if not isinstance(t, Transform):
+                raise TypeError(
+                    "Pipeline sequence must comprise Transform instances; found "
+                    f"non-Transform {t!r} (type {type(t)})"
+                )
+            # warning if a ConstantTransform is non-initial
+            if (not t_is_first) and isinstance(t, ConstantTransform):
+                warning_msg = (
+                    f"A ConstantTransform is non-initial in a Pipeline: {t!r}. "
+                    "This is likely unintentional because the output of all "
+                    "preceding Transforms, once computed, will be discarded by "
+                    "the ConstantTransform."
+                )
+                _LOG.warning(warning_msg)
+                warnings.warn(
+                    warning_msg,
+                    NonInitialConstantTransformWarning,
+                )
+            t_is_first = False
+
     _pipeline_methods: ClassVar[list[str]] = []
 
-    FitTransformClass: ClassVar[Type[FitTransform]] = FitBasePipeline
-
-    empty_constructor: Callable[[], DataInOut] = make_none
+    def _empty_constructor(self):
+        return None
 
     class _Grouper(Grouper):
         pass
@@ -1288,113 +1285,52 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
 
         return Subclass
 
-    transforms: list[Transform[DataInOut, DataInOut]] = field(
-        factory=list, converter=_convert_pipeline_transforms
-    )
-
-    @transforms.validator
-    def _check_transforms(self, attribute, value):
-        t_is_first = True
-        for t in value:
-            if not isinstance(t, Transform):
-                raise TypeError(
-                    "Pipeline sequence must comprise Transform instances; found "
-                    f"non-Transform {t!r} (type {type(t)})"
-                )
-            # warning if a ConstantTransform is non-initial
-            if (not t_is_first) and isinstance(t, ConstantTransform):
-                warning_msg = (
-                    f"A ConstantTransform is non-initial in a Pipeline: {t!r}. "
-                    "This is likely unintentional because the output of all "
-                    "preceding Transforms, once computed, will be discarded by "
-                    "the ConstantTransform."
-                )
-                _LOG.warning(warning_msg)
-                warnings.warn(
-                    warning_msg,
-                    NonInitialConstantTransformWarning,
-                )
-            t_is_first = False
-
     def __init__(self, tag=NOTHING, transforms=NOTHING):
         self.__attrs_init__(tag=tag, transforms=transforms)
 
     def __len__(self):
         return len(self.transforms)
 
-    def _fit(
+    def _submit_fit(
         self,
-        data_fit: DataInOut | None,
+        data_fit: DataInOut | Future[DataInOut] | None = None,
         bindings: Optional[Bindings] = None,
         return_what: Literal["state", "result"] = "state",
-    ) -> list[FitTransform] | DataInOut:
-        # run transforms locally (data is here) but pass along backend for children,
-        # unless they already have their own explicit one (non-None)
-        local = LocalBackend()
-        # assert backend is not None
-        fit_transforms = []
-        for t in self.transforms:
-            if t.backend is None:
-                t = t.on_backend(self.backend)
-            ft = local.fit(t, data_fit, bindings=bindings)
-            data_fit = local.apply(ft.on_backend(t.backend), data_fit).result()
-            fit_transforms.append(ft)
+    ) -> list[FitTransform] | Future[DataInOut]:
+        fit_transforms: list[FitTransform] = []
+        with self.parallel_backend() as backend:
+            data_fit = backend.maybe_put(data_fit)
+            n = len(self.transforms)
+            if n == 0 and return_what == "result" and data_fit is None:
+                return backend.put(self._empty_constructor())
+            for (i, t) in enumerate(self.transforms):
+                ft = backend.fit(t, data_fit, bindings=bindings)
+                fit_transforms.append(ft)
+                if i < n - 1 or return_what == "result":
+                    data_fit = backend.apply(ft, data_fit)
+                else:
+                    # last transform, and we don't need result: no need to apply
+                    break
 
-        if return_what == "state":
-            return fit_transforms
-        elif data_fit is None:
-            # input data was None and self.trasnforms is empty
-            return type(self).empty_constructor()
-        else:
-            return data_fit
-
-    def _apply(
-        self,
-        data_apply: Any,
-        state: list[FitTransform],
-    ) -> DataInOut:
-        fit_transforms = state
-        # Empty pipeline:
-        # Identity when applied to data; empty_constructor() when applied to None.
-        if len(fit_transforms) == 0:
-            if data_apply is None:
-                return type(self).empty_constructor()
+            if return_what == "state":
+                return fit_transforms
             else:
-                return data_apply
-
-        local = LocalBackend()
-        data = data_apply
-        for fit_transform in fit_transforms:
-            data = local.apply(fit_transform.on_backend(self.backend), data)
-        return data.result()
+                return cast(Future[DataInOut], data_fit)
 
     def _submit_apply(
         self,
-        submit_backend: Backend,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
-        bindings: Optional[Bindings] = None,
-    ) -> Future[DataResult]:
-        if isinstance(data_apply, Sized):
-            data_len = len(data_apply)
-        else:
-            data_len = None
-        tf = self.resolve(bindings)
-        if tf.backend is None:
-            tf = tf.on_backend(submit_backend)
-
-        _LOG.debug(
-            f"Fit-applying {self.name} on {type(data_apply)}"
-            f"{f' (len={data_len})' if data_len is not None else ''} "
-            f"with bindings={bindings!r}, submitting to {submit_backend!r}, "
-            f"with tf.backend={tf.backend!r}"
-        )
-        return submit_backend.submit(
-            f"{self.name}._fit_apply",
-            tf._fit,
-            submit_backend.maybe_put(data_apply),
-            bindings,
-            return_what="result",
-        )
+        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
+        state: list[FitTransform] | None = None,
+    ) -> Future[DataInOut] | None:
+        fit_transforms = state
+        assert fit_transforms is not None
+        with self.parallel_backend() as backend:
+            data_apply = backend.maybe_put(data_apply)
+            if len(fit_transforms) == 0 and data_apply is None:
+                return backend.put(self._empty_constructor())
+            for fit_transform in fit_transforms:
+                data_apply = backend.apply(fit_transform, data_apply)
+        return cast(Future[DataInOut], data_apply)
 
     def apply(
         self,
@@ -1415,11 +1351,15 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         :return: The result of fitting this :class:`Pipeline` and applying it to its own
             fitting data.
         """
-        return (
-            (self.backend or LocalBackend())
-            .apply(self, data_apply, bindings=bindings)
-            .result()
-        )
+        return self.backend.apply(self, data_apply, bindings).result()
+
+    def _materialize_state(self, state: Any) -> Any:
+        # because a pipeline's state is just a list of FitTransform objects, we
+        # may need to materialize its contents
+        fit_transforms: list[FitTransform] = super()._materialize_state(state)
+        assert isinstance(fit_transforms, list)
+        mat_state = [sub_ft.materialize_state() for sub_ft in fit_transforms]
+        return mat_state
 
     def __add__(
         self: P,

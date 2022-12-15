@@ -32,7 +32,6 @@ from __future__ import annotations
 import inspect
 import logging
 import operator
-from abc import abstractmethod
 from functools import partial, reduce
 from typing import (
     Any,
@@ -96,13 +95,25 @@ class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
     # Stubs below are purely for convenience of autocompletion when the user
     # implements subclasses
 
-    @abstractmethod
     def _fit(self, data_fit: pd.DataFrame) -> Any:
         raise NotImplementedError  # pragma: no cover
 
-    @abstractmethod
+    def _submit_fit(
+        self,
+        data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> Any:
+        return super()._submit_fit(data_fit, bindings)
+
     def _apply(self, data_apply: pd.DataFrame, state: Any) -> pd.DataFrame:
         raise NotImplementedError  # pragma: no cover
+
+    def _submit_apply(
+        self,
+        data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        state: Any = None,
+    ) -> Future[pd.DataFrame] | None:
+        return super()._submit_apply(data_apply, state)
 
 
 class StatelessDataFrameTransform(
@@ -201,43 +212,47 @@ class Join(DataFrameTransform):
 
     # TODO: more merge params like left_index etc.
 
-    def _fit(
-        self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
-    ) -> tuple[
-        FitTransform[Transform, pd.DataFrame, pd.DataFrame],
-        FitTransform[Transform, pd.DataFrame, pd.DataFrame],
-    ]:
+    def _submit_fit(
+        self,
+        data_fit: pd.DataFrame | Future[pd.DataFrame] | None = None,
+        bindings: Optional[Bindings] = None,
+    ) -> tuple[FitTransform, FitTransform]:
         bindings = bindings or {}
         with self.parallel_backend() as backend:
             fit_left, fit_right = (
                 backend.fit(self.left, data_fit, bindings=bindings),
                 backend.fit(self.right, data_fit, bindings=bindings),
             )
-            return (fit_left.materialize_state(), fit_right.materialize_state())
+            return (fit_left, fit_right)
 
-    def _apply(
+    def _materialize_state(self, state: Any) -> Any:
+        fit_left, fit_right = super()._materialize_state(state)
+        return (fit_left.materialize_state(), fit_right.materialize_state())
+
+    def _do_merge(self, df_left, df_right):
+        return pd.merge(
+            left=df_left,
+            right=df_right,
+            how=self.how,
+            on=self.on,
+            left_on=self.left_on,
+            right_on=self.right_on,
+            suffixes=self.suffixes,
+        )
+
+    def _submit_apply(
         self,
-        data_apply: pd.DataFrame,
-        state: tuple[
-            FitTransform[Transform, pd.DataFrame, pd.DataFrame],
-            FitTransform[Transform, pd.DataFrame, pd.DataFrame],
-        ],
-    ) -> pd.DataFrame:
+        data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        state: tuple[FitTransform, FitTransform] | None = None,
+    ) -> Future[pd.DataFrame]:
+        assert state is not None
         fit_left, fit_right = state
         with self.parallel_backend() as backend:
             fut_left, fut_right = (
                 backend.apply(fit_left, data_apply),
                 backend.apply(fit_right, data_apply),
             )
-            return pd.merge(
-                left=fut_left.result(),
-                right=fut_right.result(),
-                how=self.how,
-                on=self.on,
-                left_on=self.left_on,
-                right_on=self.right_on,
-                suffixes=self.suffixes,
-            )
+            return backend.submit("_do_merge", self._do_merge, fut_left, fut_right)
 
 
 @params
@@ -378,18 +393,24 @@ class GroupByBindings(ForBindings[pd.DataFrame, pd.DataFrame], DataFrameTransfor
     # ForBindings and GroupByBindings derive from
     combine_fun: None = None  # type: ignore[assignment]
 
-    def _combine_results(
-        self, results: Sequence[ForBindings.ApplyResult]
-    ) -> pd.DataFrame:
+    def _combine_results(self, bindings_seq, *results) -> pd.DataFrame:
         binding_cols: set[str] = set()
         dfs = []
-        for x in results:
-            dfs.append(x.result.assign(**x.bindings))
-            binding_cols |= x.bindings.keys()
+        for bindings, result in zip(bindings_seq, results):
+            dfs.append(result.assign(**self._dataframable_bindings(bindings)))
+            binding_cols |= bindings.keys()
         df = pd.concat(dfs, axis=0)
         if self.as_index:
             df = df.set_index(list(binding_cols))
         return df
+
+    def _dataframable_bindings(self, bindings):
+        result = {}
+        for name, val in bindings.items():
+            if type(val) not in (float, int, str):
+                val = str(val)
+            result[name] = val
+        return result
 
     then = DataFrameTransform.then
 
@@ -1225,14 +1246,11 @@ class DataFramePipelineInterface(
         return cast(G_co, grouper)
 
 
-def make_empty_dataframe():
-    return pd.DataFrame()
-
-
 class DataFramePipeline(
     DataFramePipelineInterface[
         DataFrameGrouper["DataFramePipeline"], "DataFramePipeline"
     ],
     UniversalPipeline,
 ):
-    empty_constructor: Callable[[], pd.DataFrame] = make_empty_dataframe
+    def _empty_constructor(self) -> pd.DataFrame:
+        return pd.DataFrame()

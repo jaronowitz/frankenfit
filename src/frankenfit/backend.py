@@ -32,7 +32,7 @@ import logging
 import uuid
 import warnings
 from contextlib import contextmanager
-from typing import Any, Callable, ClassVar, Generic, Iterator, Optional, TypeVar, cast
+from typing import Any, Callable, Generic, Iterator, Optional, TypeVar, cast
 
 from attrs import define, field
 
@@ -74,6 +74,11 @@ class DaskFuture(Generic[T_co], Future[T_co]):
     def result(self) -> T_co:
         return cast(T_co, self.dask_future.result())
 
+    def __eq__(self, other):
+        if type(self) is not type(other):  # pragma: no cover
+            return False
+        return self.dask_future.key == other.dask_future.key
+
     def unwrap(self) -> distributed.Future:
         return self.dask_future
 
@@ -88,20 +93,34 @@ class DaskFuture(Generic[T_co], Future[T_co]):
             return obj.result()
         return obj
 
+    def belongs_to(self, backend: Backend) -> bool:
+        if not isinstance(backend, DaskBackend):
+            return False
+        from dask import distributed
+
+        client: distributed.Client = distributed.get_client(backend.addr)
+        return self.unwrap().client.scheduler.address == client.scheduler.address
+
+    def __dask_tokenize__(self):
+        return tokenize(self.dask_future)
+
 
 @define
 class DaskBackend(Backend):
-    FutureType: ClassVar[type[Future]] = DaskFuture
-
-    address: Optional[str] = field(converter=_convert_to_address, default=None)
-    transform_names: tuple[str, ...] = tuple()
+    addr: Optional[str] = field(converter=_convert_to_address, default=None)
+    trace: tuple[str, ...] = tuple()
 
     def put(self, data: T) -> DaskFuture[T]:
         from dask import distributed
 
-        client: distributed.Client = distributed.get_client(self.address)
+        client: distributed.Client = distributed.get_client(self.addr)
         _LOG.debug("%r: scattering data of type %s", self, type(data))
-        return DaskFuture(client.scatter(data))
+        # regarding hash=False, see:
+        # https://github.com/dask/distributed/issues/4612
+        # https://github.com/dask/distributed/issues/3703
+        # regarding [data]: we wrap the data in a list to prevent scatter() from
+        # mangling list or dict input
+        return DaskFuture(client.scatter([data], hash=False)[0])
 
     def submit(
         self,
@@ -111,38 +130,42 @@ class DaskBackend(Backend):
         pure: bool = True,
         **function_kwargs,
     ) -> DaskFuture[Any]:
-        # attempt import so that we fail with a sensible exception if distributed is not
-        # installed:
-        from dask import distributed
-
         args = tuple(DaskFuture.unwrap_or_result(a) for a in function_args)
         kwargs = {k: DaskFuture.unwrap_or_result(v) for k, v in function_kwargs.items()}
         if pure:
             token = tokenize(function, function_kwargs, *function_args)
         else:
             token = str(uuid.uuid4())
-        key = " / ".join(self.transform_names + (key_prefix,)) + "-" + token
+        key = ".".join(self.trace + (key_prefix,)) + "-" + token
+        # attempt import so that we fail with a sensible exception if distributed is not
+        # installed:
+        from dask import distributed
+
         # hmm, there could be a problem here with collision between function
         # kwargs and submit kwargs, but this is inherent to distributed's API
         # design :/. In general I suppose callers should prefer to provide
         # everything as positoinal arguments.
-        client: distributed.Client = distributed.get_client(self.address)
-        _LOG.debug("%r: submitting task %r to %r", self, key, client)
+        client: distributed.Client = distributed.get_client(self.addr)
+        _LOG.debug(
+            "%r: submitting task %r to %r%s",
+            self,
+            key,
+            client,
+            " (pure)" if pure else "",
+        )
         fut = client.submit(function, *args, key=key, **kwargs)
         return DaskFuture(fut)
 
     @contextmanager
     def submitting_from_transform(self: D, name: str = "") -> Iterator[D]:
-        client: distributed.Client = distributed.get_client(self.address)
+        client: distributed.Client = distributed.get_client(self.addr)
         try:
             worker = distributed.get_worker()
         except (AttributeError, ValueError):
             # we're not actually running on a dask.ditributed worker
             worker = None
 
-        self_copy = type(self)(
-            address=self.address, transform_names=self.transform_names + (name,)
-        )
+        self_copy = type(self)(addr=self.addr, trace=self.trace + (name,))
 
         if (
             worker is None

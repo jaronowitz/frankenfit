@@ -46,10 +46,6 @@ def diamonds_df() -> pd.DataFrame:
 
 
 def test_Transform(diamonds_df: pd.DataFrame) -> None:
-    with pytest.raises(TypeError):
-        # should be abstract
-        ff.Transform()  # type: ignore
-
     @ff.params
     class DeMean(ff.Transform):
         cols: list[str]
@@ -72,7 +68,7 @@ def test_Transform(diamonds_df: pd.DataFrame) -> None:
         "bindings={})"
     )
     assert fit.bindings() == {}
-    assert fit.state().equals(diamonds_df[cols].mean())
+    assert fit.materialize_state().state().equals(diamonds_df[cols].mean())
     result = fit.apply(diamonds_df)
     assert result[cols].equals(diamonds_df[cols] - diamonds_df[cols].mean())
 
@@ -179,9 +175,15 @@ def test_Transform_fit_apply_valence() -> None:
 
 
 def test_fit_apply_futures() -> None:
-    t = ff.Identity[str]()
+    # t = ff.Identity[str]()
+    t = ff.universal.StatefulLambda(  # type: ignore [call-arg]
+        fit_fun=lambda df: None, apply_fun=lambda df, _: df
+    )
     p = t.then()
     local = ff.LocalBackend()
+
+    def has_materialized_state(fit_transform: ff.FitTransform):
+        return fit_transform.state() == fit_transform.materialize_state().state()
 
     # fit with no backend -> materialized state
     # fit with backend -> future state
@@ -190,9 +192,9 @@ def test_fit_apply_futures() -> None:
     p_fit_1 = p.fit()
     p_fit_2 = local.fit(p)
     assert t_fit_1.state() is None
-    assert isinstance(t_fit_2.state(), ff.Future)
-    assert isinstance(p_fit_1.state(), list)
-    assert isinstance(p_fit_2.state(), ff.Future)
+    assert not has_materialized_state(t_fit_2)
+    assert has_materialized_state(p_fit_1)
+    assert not has_materialized_state(p_fit_2)
 
     # apply with no backend -> materialized DataResult
     # apply with backend -> future DataResult
@@ -204,10 +206,6 @@ def test_fit_apply_futures() -> None:
     assert p_fit_2.apply("x") == "x"
     assert isinstance(local.apply(p_fit_1, "x"), ff.Future)
     assert isinstance(local.apply(p_fit_2, "x"), ff.Future)
-
-    # stateless apply
-    assert t.apply("x") == "x"
-    assert isinstance(local.apply(t, "x"), ff.Future)
 
 
 def test_then() -> None:
@@ -453,17 +451,20 @@ def test_tags(diamonds_df: pd.DataFrame) -> None:
 
 
 def test_FitTransform_materialize_state() -> None:
+    def has_materialized_state(fit_transform: ff.FitTransform):
+        return fit_transform.state() == fit_transform.materialize_state().state()
+
     tagged_ident = ff.Identity[Any](tag="mytag")
     pip = core.BasePipeline[Any](
         transforms=[ff.Identity(), tagged_ident, ff.Identity()]
     )
     fit = ff.LocalBackend().fit(pip)
-    assert isinstance(fit.state(), Future)
+    assert not has_materialized_state(fit)
     with pytest.raises(ValueError):
         fit.find_by_name("Identity#mytag")
 
     fit_mat = fit.materialize_state()
-    assert not isinstance(fit_mat.state(), Future)
+    assert has_materialized_state(fit_mat)
     assert isinstance(
         fit_mat.find_by_name("Identity#mytag").resolved_transform(), ff.Identity
     )
@@ -559,53 +560,72 @@ def test_pipeline_then() -> None:
 def test_pipeline_backends(diamonds_df: pd.DataFrame) -> None:
     @define
     class TracingBackend(ff.LocalBackend):
-        key_counts: dict = field(factory=dict, init=False, repr=False)
+        key_counts: dict = field(factory=dict)
 
         def submit(
             self, key_prefix: str, function: Callable, *function_args, **function_kwargs
         ) -> core.LocalFuture[Any]:
-            self.key_counts[key_prefix] = self.key_counts.get(key_prefix, 0) + 1
+            key = ".".join(self.trace + (key_prefix,))
+            self.key_counts[key] = self.key_counts.get(key, 0) + 1
             return super().submit(
                 key_prefix, function, *function_args, **function_kwargs
             )
 
     pip = (
         ff.DataFramePipeline(tag="Outer")
-        .for_bindings([{"foo": x} for x in range(3)], lambda _: pd.DataFrame())
+        .for_bindings(
+            [{"foo": x} for x in range(3)],
+            lambda _: pd.DataFrame(),
+            tag="1",
+        )
         .then(
             ff.DataFramePipeline(tag="Inner").stateless_lambda(
-                lambda df, foo: df.assign(foo=foo)
+                lambda df, foo: df.assign(foo=foo), tag="1"
             )
         )
     )
 
-    tb1 = TracingBackend()
+    tb1_counts: dict[str, int] = {}
+    tb1 = TracingBackend(key_counts=tb1_counts)
     fit = tb1.fit(pip, diamonds_df)
 
     # Was for_bindings able to parallelize correctly?
     assert tb1.key_counts == {
-        "DataFramePipeline#Outer._fit": 1,
-        "DataFramePipeline#Inner._fit": 3,
-        "DataFramePipeline#Inner._apply": 3,
+        (
+            "DataFramePipeline#Outer.ForBindings#1"
+            ".DataFramePipeline#Inner.StatelessLambda#1._fit"
+        ): 3
     }
 
-    tb2 = TracingBackend()
+    tb2_counts: dict[str, int] = {}
+    tb2 = TracingBackend(key_counts=tb2_counts)
     tb2.apply(fit, diamonds_df)
-    assert tb2.key_counts == {
-        "DataFramePipeline#Outer._apply": 1,
-        "DataFramePipeline#Inner._apply": 3,
+    assert tb2_counts == {
+        (
+            "DataFramePipeline#Outer.ForBindings#1"
+            ".DataFramePipeline#Inner.StatelessLambda#1._apply"
+        ): 3,
+        "DataFramePipeline#Outer.ForBindings#1._combine_results": 1,
     }
     # tb1 wasn't touched:
-    assert tb1.key_counts == {
-        "DataFramePipeline#Outer._fit": 1,
-        "DataFramePipeline#Inner._fit": 3,
-        "DataFramePipeline#Inner._apply": 3,
+    assert tb1_counts == {
+        (
+            "DataFramePipeline#Outer.ForBindings#1"
+            ".DataFramePipeline#Inner.StatelessLambda#1._fit"
+        ): 3
     }
 
-    tb3 = TracingBackend()
+    tb3_counts: dict[str, int] = {}
+    tb3 = TracingBackend(key_counts=tb3_counts)
     tb3.apply(pip, diamonds_df)
-    assert tb3.key_counts == {
-        "DataFramePipeline#Outer._fit_apply": 1,
-        "DataFramePipeline#Inner._fit": 3,
-        "DataFramePipeline#Inner._apply": 3,
+    assert tb3_counts == {
+        (
+            "DataFramePipeline#Outer.ForBindings#1"
+            ".DataFramePipeline#Inner.StatelessLambda#1._fit"
+        ): 3,
+        (
+            "DataFramePipeline#Outer.ForBindings#1"
+            ".DataFramePipeline#Inner.StatelessLambda#1._apply"
+        ): 3,
+        "DataFramePipeline#Outer.ForBindings#1._combine_results": 1,
     }

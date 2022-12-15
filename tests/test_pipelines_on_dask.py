@@ -77,8 +77,8 @@ def test_pipeline_straight(
     model = (
         ff.DataFramePipeline()[FEATURES + ["{response_col}"]]
         .copy("{response_col}", "{response_col}_train")
-        .winsorize("{response_col}_train", limit=0.05)
         .pipe(["carat", "{response_col}_train"], np.log1p)
+        .winsorize("{response_col}_train", limit=0.05)
         .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
         .sk_learn(
             LinearRegression,
@@ -120,6 +120,7 @@ def test_pipeline_straight(
     result_dask = dask.fit(pipeline, bindings=bindings).apply()
     assert result_pandas.equals(result_dask)
 
+    # FIXME
     result_dask = dask.apply(pipeline.fit(bindings=bindings)).result()
     assert result_pandas.equals(result_dask)
 

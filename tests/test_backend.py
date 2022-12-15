@@ -95,8 +95,13 @@ def test_DaskBackend(dask_client):
     assert fut.result() == "foo(42)"
 
     with backend.submitting_from_transform("foo") as b:
-        assert "foo" in b.transform_names
+        assert "foo" in b.trace
         assert b.submit("key-foo", foo, 420).result() == "foo(420)"
+
+    # make sure dask doesn't mangle list and dict args
+    assert backend.put(["foo", "bar"]).result() == ["foo", "bar"]
+    assert backend.put({"foo": "bar"}).result() == {"foo": "bar"}
+    assert backend.put({"foo": "bibble"}).result() == {"foo": "bibble"}
 
 
 @pytest.mark.dask

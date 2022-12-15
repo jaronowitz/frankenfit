@@ -41,7 +41,7 @@ from typing import (
     cast,
 )
 
-from attrs import define, field
+from attrs import define, field, NOTHING
 
 from .core import (
     BasePipeline,
@@ -52,7 +52,6 @@ from .core import (
     FitTransform,
     Future,
     Grouper,
-    LocalBackend,
     P_co,
     SentinelDict,
     StatelessTransform,
@@ -105,14 +104,41 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
 
 
 @params
-class IfHyperparamIsTrue(UniversalTransform):
+class BranchTransform(UniversalTransform):
+    def _submit_apply(
+        self,
+        data_apply: Optional[Any | Future[Any]] = None,
+        state: FitTransform | None = None,
+    ) -> Future[Any] | None:
+        with self.parallel_backend() as backend:
+            if state is None:
+                # behave like identity if the condition was false and there is no
+                # otherwise transform
+                return backend.maybe_put(data_apply)
+
+            return backend.apply(state, data_apply)
+
+    def _visualize(self, digraph, bg_fg: tuple[str, str]):
+        entries, exits = super()._visualize(digraph, bg_fg)
+        if getattr(self, "otherwise", None) is None:
+            exits = exits + [(self.name, "otherwise")]
+        return entries, exits
+
+    def _materialize_state(self, state: FitTransform | None):
+        return state.materialize_state() if state is not None else state
+
+
+@params
+class IfHyperparamIsTrue(BranchTransform):
     hp_name: str
     then_transform: Transform
     otherwise: Optional[Transform] = None
     allow_unresolved: bool = False
 
-    def _fit(
-        self, data_fit: Any, bindings: Optional[Bindings] = None
+    def _submit_fit(
+        self,
+        data_fit: Any | Future[Any] | None = None,
+        bindings: Optional[Bindings] = None,
     ) -> FitTransform | None:
         bindings = bindings or {}
         if (not self.allow_unresolved) and self.hp_name not in bindings:
@@ -120,61 +146,37 @@ class IfHyperparamIsTrue(UniversalTransform):
                 f"IfHyperparamIsTrue: no binding for {self.hp_name!r} but "
                 "allow_unresolved is False"
             )
-        local = LocalBackend()
-        if bindings.get(self.hp_name):
-            return local.fit(
-                self.then_transform.on_backend(self.backend), data_fit, bindings
-            ).materialize_state()
-        elif self.otherwise is not None:
-            return local.fit(
-                self.otherwise.on_backend(self.backend), data_fit, bindings
-            ).materialize_state()
-        return None  # act like Identity
-
-    def _apply(self, data_apply: Any, state: FitTransform | None) -> Any:
-        if state is not None:
-            local = LocalBackend()
-            return local.apply(state.on_backend(self.backend), data_apply).result()
-        return data_apply  # act like Identity
+        with self.parallel_backend() as backend:
+            if bindings.get(self.hp_name):
+                return backend.fit(self.then_transform, data_fit, bindings)
+            elif self.otherwise is not None:
+                return backend.fit(self.otherwise, data_fit, bindings)
+            return None
 
     def hyperparams(self) -> set[str]:
         result = super().hyperparams()
         result.add(self.hp_name)
         return result
 
-    def _visualize(self, digraph, bg_fg: tuple[str, str]):
-        entries, exits = super()._visualize(digraph, bg_fg)
-        if self.otherwise is None:
-            exits = exits + [(self.name, "otherwise")]
-        return entries, exits
-
 
 @params
-class IfHyperparamLambda(UniversalTransform):
+class IfHyperparamLambda(BranchTransform):
     fun: Callable  # dict[str, object] -> bool
     then_transform: Transform
     otherwise: Optional[Transform] = None
 
-    def _fit(
-        self, data_fit: Any, bindings: Optional[Bindings] = None
+    def _submit_fit(
+        self,
+        data_fit: Any | Future[Any] | None = None,
+        bindings: Optional[Bindings] = None,
     ) -> FitTransform | None:
         bindings = bindings or {}
-        local = LocalBackend()
-        if self.fun(bindings):
-            return local.fit(
-                self.then_transform.on_backend(self.backend), data_fit, bindings
-            ).materialize_state()
-        elif self.otherwise is not None:
-            return local.fit(
-                self.otherwise.on_backend(self.backend), data_fit, bindings
-            ).materialize_state()
-        return None  # act like Identity
-
-    def _apply(self, data_apply: Any, state: FitTransform | None) -> Any:
-        if state is not None:
-            local = LocalBackend()
-            return local.apply(state.on_backend(self.backend), data_apply).result()
-        return data_apply  # act like Identity
+        with self.parallel_backend() as backend:
+            if self.fun(bindings):
+                return backend.fit(self.then_transform, data_fit, bindings)
+            elif self.otherwise is not None:
+                return backend.fit(self.otherwise, data_fit, bindings)
+            return None
 
     def hyperparams(self) -> set[str]:
         # Note we don't use UserLambdaHyperparams because the lambda receives the WHOLE
@@ -186,73 +188,39 @@ class IfHyperparamLambda(UniversalTransform):
         result |= sd.keys_checked or set()
         return result
 
-    def _visualize(self, digraph, bg_fg: tuple[str, str]):
-        entries, exits = super()._visualize(digraph, bg_fg)
-        if self.otherwise is None:
-            exits = exits + [(self.name, "otherwise")]
-        return entries, exits
-
 
 @params(auto_attribs=False)
-class IfFittingDataHasProperty(UniversalTransform):
+class IfFittingDataHasProperty(BranchTransform):
+    test_transform: StatelessLambda
+
     fun: Callable = field()  # df -> bool
     then_transform: Transform = field()
-    # TODO: we should really use UserLambdaHyperparams
-
-    fun_bindings: Bindings
-    fun_hyperparams: UserLambdaHyperparams
-
     otherwise: Optional[Transform] = field(default=None)
 
     _Self = TypeVar("_Self", bound="IfFittingDataHasProperty")
 
     def __attrs_post_init__(self):
-        if isinstance(self.fun, HP):
-            raise TypeError(
-                f"IfFittingDataHasProperty.fun must not be a hyperparameter; got:"
-                f"{self.fun!r}. Instead consider supplying a function that "
-                f"requests hyperparameter bindings in its parameter signature."
-            )
-        self.fun_bindings = {}
-        self.fun_hyperparams = UserLambdaHyperparams.from_function_sig(self.fun, 1)
+        self.test_transform = StatelessLambda(self.fun)
 
     def hyperparams(self) -> set[str]:
-        return super().hyperparams().union(self.fun_hyperparams.required_or_optional())
+        return self.test_transform.hyperparams()
 
-    def resolve(self: _Self, bindings: Optional[Bindings] = None) -> _Self:
-        # override _resolve_hyperparams() to collect hyperparam bindings at fit-time
-        resolved_self = super().resolve(bindings)
-        resolved_self.fun_bindings = self.fun_hyperparams.collect_bindings(
-            bindings or {}
-        )
-        return resolved_self
-
-    def _fit(
-        self, data_fit: Any, bindings: Optional[Bindings] = None
+    def _submit_fit(
+        self,
+        data_fit: Any | Future[Any] | None = None,
+        bindings: Optional[Bindings] = None,
     ) -> FitTransform | None:
         bindings = bindings or {}
-        local = LocalBackend()
-        if self.fun(data_fit, **self.fun_bindings):
-            return local.fit(
-                self.then_transform.on_backend(self.backend), data_fit, bindings
-            ).materialize_state()
-        elif self.otherwise is not None:
-            return local.fit(
-                self.otherwise.on_backend(self.backend), data_fit, bindings
-            ).materialize_state()
-        return None  # act like Identity
-
-    def _apply(self, data_apply: Any, state: FitTransform | None) -> Any:
-        if state is not None:
-            local = LocalBackend()
-            return local.apply(state.on_backend(self.backend), data_apply).result()
-        return data_apply  # act like Identity
-
-    def _visualize(self, digraph, bg_fg: tuple[str, str]):
-        entries, exits = super()._visualize(digraph, bg_fg)
-        if self.otherwise is None:
-            exits = exits + [(self.name, "otherwise")]
-        return entries, exits
+        with self.parallel_backend() as backend:
+            test_result: bool = self.test_transform.on_backend(backend).apply(
+                data_fit, bindings=bindings
+            )
+            if test_result:
+                return backend.fit(self.then_transform, data_fit, bindings)
+            elif self.otherwise is not None:
+                return backend.fit(self.otherwise, data_fit, bindings)
+            else:
+                return None
 
 
 @params
@@ -271,10 +239,12 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
         bindings: Bindings
         result: Any  # TODO: make this generic in DataResult type?
 
-    def _fit(
-        self, data_fit: Any, base_bindings: Optional[Bindings] = None
+    def _submit_fit(
+        self,
+        data_fit: DataIn | Future[DataIn] | None = None,
+        bindings: Optional[Bindings] = None,
     ) -> list[ForBindings.FitResult]:
-        base_bindings = base_bindings or {}
+        base_bindings = bindings or {}
         fits: list[ForBindings.FitResult] = []
         with self.parallel_backend() as backend:
             if len(self.bindings_sequence) > 0:
@@ -285,7 +255,7 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
                         bindings,
                         # submit in parallel on backend
                         backend.fit(
-                            self.transform.on_backend(backend),
+                            self.transform,
                             data_fit,
                             bindings={**base_bindings, **bindings},
                         ),
@@ -293,33 +263,41 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
                 )
             # materialize all states. this is where we wait for all the parallel _fit
             # tasks to complete
-            for fit_result in fits:
-                fit_result.fit = fit_result.fit.materialize_state()
+            # for fit_result in fits:
+            #     fit_result.fit = fit_result.fit.materialize_state()
         return fits
 
-    def _combine_results(self, results: list[ForBindings.ApplyResult]) -> DataResult:
-        return self.combine_fun(results)
+    def _combine_results(self, bindings_seq, *results) -> DataResult:
+        assert len(bindings_seq) == len(results)
+        return self.combine_fun(
+            [
+                ForBindings.ApplyResult(bindings, result)
+                for bindings, result in zip(bindings_seq, results)
+            ]
+        )
 
-    def _apply(self, data_apply: Any, state: list[ForBindings.FitResult]) -> DataResult:
+    def _submit_apply(
+        self,
+        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        state: list[ForBindings.FitResult] | None = None,
+    ) -> Future[DataResult]:
+        assert state is not None
         with self.parallel_backend() as backend:
             if len(self.bindings_sequence) > 0:
                 data_apply = backend.maybe_put(data_apply)
-            results: list[ForBindings.ApplyResult] = []
+            bindings = []
+            results: list[Future[DataResult]] = []
             for fit_result in state:
+                bindings.append(fit_result.bindings)
                 results.append(
-                    ForBindings.ApplyResult(
-                        fit_result.bindings,
-                        # submit in parallel on backend
-                        backend.apply(fit_result.fit.on_backend(backend), data_apply),
-                    )
+                    backend.apply(fit_result.fit, data_apply),
                 )
-            # materialize all results before sending to combine_fun. This is where we
-            # wait for all the parallel _apply tasks to finish.
-            for apply_result in results:
-                apply_result.result = cast(
-                    Future[DataResult], apply_result.result
-                ).result()
-        return self._combine_results(results)
+            return backend.submit(
+                "_combine_results",
+                self._combine_results,
+                bindings,
+                *results,
+            )
 
 
 PROHIBITED_USER_LAMBDA_PARAMETER_KINDS = (
@@ -688,6 +666,8 @@ class UniversalPipelineInterface(
         self,
         bindings_sequence: Iterable[Bindings],
         combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataInOut],
+        *,
+        tag: str | None = None,
     ) -> G_co:
         """
         Consume the next transform ``T`` in the call-chain by appending
@@ -700,6 +680,7 @@ class UniversalPipelineInterface(
             "transform",
             bindings_sequence=bindings_sequence,
             combine_fun=combine_fun,
+            tag=tag if tag is not None else NOTHING,
         )
         return cast(G_co, grouper)
 
