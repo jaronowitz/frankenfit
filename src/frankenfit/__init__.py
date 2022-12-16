@@ -114,4 +114,9 @@ from frankenfit.params import (
     optional_columns_field,
     params,
 )
+from frankenfit.timeseries import (
+    TimeseriesBackend,
+    TimeseriesDataFrame,
+    TimeseriesPipeline,
+)
 from frankenfit.universal import Identity, UniversalPipeline, UniversalTransform
