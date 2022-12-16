@@ -287,7 +287,7 @@ class Backend(ABC):
             return self.apply(fit_what, data)
 
         if isinstance(what, BasePipeline):
-            result = what.on_backend(self)._submit_fit(
+            result = what.resolve(bindings).on_backend(self)._submit_fit(
                 data, bindings, return_what="result"
             )
             assert isinstance(result, Future)  # type narrowing
