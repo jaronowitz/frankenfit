@@ -170,6 +170,17 @@ class Backend(ABC):
     def put(self, data: T) -> Future[T]:
         raise NotImplementedError  # pragma: no cover
 
+    @abstractmethod
+    def submit(
+        self,
+        key_prefix: str,
+        function: Callable,
+        *function_args,
+        pure: bool = True,
+        **function_kwargs,
+    ) -> Future[Any]:
+        raise NotImplementedError  # pragma: no cover
+
     def maybe_put(self, data: T | Future[T] | None) -> Future[T] | None:
         if data is None:
             return data
@@ -187,17 +198,6 @@ class Backend(ABC):
         self_copy = copy.copy(self)
         self_copy.trace += (name,)
         yield self_copy
-
-    @abstractmethod
-    def submit(
-        self,
-        key_prefix: str,
-        function: Callable,
-        *function_args,
-        pure: bool = True,
-        **function_kwargs,
-    ) -> Future[Any]:
-        raise NotImplementedError  # pragma: no cover
 
     def fit(
         self,
