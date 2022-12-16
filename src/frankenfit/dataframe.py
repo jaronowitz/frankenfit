@@ -146,6 +146,15 @@ class StatelessDataFrameTransform(
     def _fit(self, data_fit: pd.DataFrame) -> None:
         return None
 
+    def _submit_fit(
+        self,
+        data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> Any:
+        # optimize away the fitting of StatelessDataFrameTransforms
+        # N.B. this means we cannot have any side effects.
+        return None
+
 
 class ConstantDataFrameTransform(
     ConstantTransform[pd.DataFrame, pd.DataFrame], DataFrameTransform
@@ -244,8 +253,8 @@ class Join(DataFrameTransform):
         bindings = bindings or {}
         with self.parallel_backend() as backend:
             fit_left, fit_right = (
-                backend.fit(self.left, data_fit, bindings),
-                backend.fit(self.right, data_fit, bindings),
+                backend.push_trace("left").fit(self.left, data_fit, bindings),
+                backend.push_trace("right").fit(self.right, data_fit, bindings),
             )
             return (fit_left, fit_right)
 
@@ -273,8 +282,8 @@ class Join(DataFrameTransform):
         fit_left, fit_right = state
         with self.parallel_backend() as backend:
             fut_left, fut_right = (
-                backend.apply(fit_left, data_apply),
-                backend.apply(fit_right, data_apply),
+                backend.push_trace("left").apply(fit_left, data_apply),
+                backend.push_trace("right").apply(fit_right, data_apply),
             )
             return backend.submit("_do_merge", self._do_merge, fut_left, fut_right)
 

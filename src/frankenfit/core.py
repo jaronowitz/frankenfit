@@ -193,11 +193,14 @@ class Backend(ABC):
             return self.maybe_put(data)
         return self.put(data)
 
-    @contextmanager
-    def submitting_from_transform(self: B, name: str = "") -> Iterator[B]:
+    def push_trace(self: B, name: str) -> B:
         self_copy = copy.copy(self)
         self_copy.trace += (name,)
-        yield self_copy
+        return self_copy
+
+    @contextmanager
+    def submitting_from_transform(self: B, name: str = "") -> Iterator[B]:
+        yield self.push_trace(name) if name else self
 
     def fit(
         self,
@@ -287,8 +290,10 @@ class Backend(ABC):
             return self.apply(fit_what, data)
 
         if isinstance(what, BasePipeline):
-            result = what.resolve(bindings).on_backend(self)._submit_fit(
-                data, bindings, return_what="result"
+            result = (
+                what.resolve(bindings)
+                .on_backend(self)
+                ._submit_fit(data, bindings, return_what="result")
             )
             assert isinstance(result, Future)  # type narrowing
             return result
@@ -660,7 +665,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         raise NotImplementedError  # pragma: no cover
 
     def _submit_fit(
-        self: R,
+        self,
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
     ) -> Any:
@@ -1327,10 +1332,11 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
             if n == 0 and return_what == "result" and data_fit is None:
                 return backend.put(self._empty_constructor())
             for (i, t) in enumerate(self.transforms):
-                ft = backend.fit(t, data_fit, bindings)
+                trace = f"[{i}]"
+                ft = backend.push_trace(trace).fit(t, data_fit, bindings)
                 fit_transforms.append(ft)
                 if i < n - 1 or return_what == "result":
-                    data_fit = backend.apply(ft, data_fit)
+                    data_fit = backend.push_trace(trace).apply(ft, data_fit)
                 else:
                     # last transform, and we don't need result: no need to apply
                     break
@@ -1351,8 +1357,10 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
             data_apply = backend.maybe_put(data_apply)
             if len(fit_transforms) == 0 and data_apply is None:
                 return backend.put(self._empty_constructor())
-            for fit_transform in fit_transforms:
-                data_apply = backend.apply(fit_transform, data_apply)
+            for (i, fit_transform) in enumerate(fit_transforms):
+                data_apply = backend.push_trace(f"[{i}]").apply(
+                    fit_transform, data_apply
+                )
         return cast(Future[DataInOut], data_apply)
 
     def apply(

@@ -176,9 +176,13 @@ class IfHyperparamIsTrue(BranchTransform):
             )
         with self.parallel_backend() as backend:
             if bindings.get(self.hp_name):
-                return backend.fit(self.then_transform, data_fit, bindings)
+                return backend.push_trace("then").fit(
+                    self.then_transform, data_fit, bindings
+                )
             elif self.otherwise is not None:
-                return backend.fit(self.otherwise, data_fit, bindings)
+                return backend.push_trace("otherwise").fit(
+                    self.otherwise, data_fit, bindings
+                )
             return None
 
     def hyperparams(self) -> set[str]:
@@ -201,9 +205,13 @@ class IfHyperparamLambda(BranchTransform):
         bindings = bindings or {}
         with self.parallel_backend() as backend:
             if self.fun(bindings):
-                return backend.fit(self.then_transform, data_fit, bindings)
+                return backend.push_trace("then").fit(
+                    self.then_transform, data_fit, bindings
+                )
             elif self.otherwise is not None:
-                return backend.fit(self.otherwise, data_fit, bindings)
+                return backend.push_trace("otherwise").fit(
+                    self.otherwise, data_fit, bindings
+                )
             return None
 
     def hyperparams(self) -> set[str]:
@@ -240,13 +248,17 @@ class IfFittingDataHasProperty(BranchTransform):
     ) -> FitTransform | None:
         bindings = bindings or {}
         with self.parallel_backend() as backend:
-            test_result: bool = self.test_transform.on_backend(backend).apply(
-                data_fit, bindings
-            )
+            test_result: bool = self.test_transform.on_backend(
+                backend.push_trace("test")
+            ).apply(data_fit, bindings)
             if test_result:
-                return backend.fit(self.then_transform, data_fit, bindings)
+                return backend.push_trace("then").fit(
+                    self.then_transform, data_fit, bindings
+                )
             elif self.otherwise is not None:
-                return backend.fit(self.otherwise, data_fit, bindings)
+                return backend.push_trace("otherwise").fit(
+                    self.otherwise, data_fit, bindings
+                )
             else:
                 return None
 
@@ -277,12 +289,12 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
         with self.parallel_backend() as backend:
             if len(self.bindings_sequence) > 0:
                 data_fit = backend.maybe_put(data_fit)
-            for bindings in self.bindings_sequence:
+            for i, bindings in enumerate(self.bindings_sequence):
                 fits.append(
                     ForBindings.FitResult(
                         bindings,
                         # submit in parallel on backend
-                        backend.fit(
+                        backend.push_trace(f"[{i}]").fit(
                             self.transform,
                             data_fit,
                             {**base_bindings, **bindings},
@@ -315,10 +327,10 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
                 data_apply = backend.maybe_put(data_apply)
             bindings = []
             results: list[Future[DataResult]] = []
-            for fit_result in state:
+            for i, fit_result in enumerate(state):
                 bindings.append(fit_result.bindings)
                 results.append(
-                    backend.apply(fit_result.fit, data_apply),
+                    backend.push_trace(f"[{i}]").apply(fit_result.fit, data_apply),
                 )
             return backend.submit(
                 "_combine_results",
