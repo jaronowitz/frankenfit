@@ -721,6 +721,20 @@ def test_read_write_dataset(diamonds_df: pd.DataFrame, tmp_path):
     ).pure
 
 
+def test_write_read_dataset(diamonds_df: pd.DataFrame, tmp_path):
+    (ff.DataFramePipeline().write_dataset(str(tmp_path / "test.dataset"))).apply(
+        diamonds_df
+    )
+
+    df = (
+        ff.DataFramePipeline().read_dataset(
+            str(tmp_path / "test.dataset"),
+        )
+    ).apply()
+
+    assert diamonds_df.equals(df)
+
+
 def test_Assign(diamonds_df: pd.DataFrame):
     # kwargs style
     pip = ff.DataFramePipeline().assign(

@@ -74,6 +74,7 @@ from typing import (
 
 import numpy as np
 import pandas as pd
+import pyarrow  # type: ignore
 from attrs import NOTHING, field
 from pyarrow import dataset  # type: ignore
 
@@ -210,8 +211,9 @@ class ReadDataset(ConstantDataFrameTransform):
     format: Optional[str] = None
     filter: Optional[dataset.Expression] = None
     index_col: Optional[str | int] = None
-    dataset_kwargs: Optional[dict] = None
-    scanner_kwargs: Optional[dict] = None
+    partitioning_schema: Optional[list[tuple]] = None
+    dataset_kwargs: dict = field(factory=dict)
+    scanner_kwargs: dict = field(factory=dict)
     no_cache: bool = False
 
     def __attrs_post_init__(self):
@@ -219,17 +221,59 @@ class ReadDataset(ConstantDataFrameTransform):
             self.pure = False
 
     def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
-        ds = dataset.dataset(
-            self.paths, format=self.format, **(self.dataset_kwargs or {})
-        )
+        if len(self.paths) == 1:
+            paths = self.paths[0]
+        dataset_kwargs = self.dataset_kwargs
+        if self.partitioning_schema is not None:
+            dataset_kwargs = {
+                **dataset_kwargs,
+                **{
+                    "partitioning": dataset.partitioning(
+                        pyarrow.schema(self.partitioning_schema)
+                    )
+                },
+            }
+        ds = dataset.dataset(paths, format=self.format, **dataset_kwargs)
         columns = self.columns or None
         df_out = ds.to_table(
-            columns=columns, filter=self.filter, **(self.scanner_kwargs or {})
+            columns=columns, filter=self.filter, **self.scanner_kwargs
         ).to_pandas()
         # can we tell arrow this?
         if self.index_col is not None:
             df_out = df_out.set_index(self.index_col)
         return df_out
+
+
+@params
+class WriteDataset(Identity[pd.DataFrame]):
+    base_dir: str = fmt_str_field()
+    format: str = "parquet"
+    partitioning_schema: Optional[list[tuple]] = None
+    write_dataset_args: dict = field(factory=dict)
+    existing_data_behavior: str = "delete_matching"
+
+    pure = False
+
+    def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
+        table = pyarrow.Table.from_pandas(data_apply)
+        write_kwargs = self.write_dataset_args
+        if self.partitioning_schema is not None:
+            write_kwargs = {
+                **write_kwargs,
+                **{
+                    "partitioning": dataset.partitioning(
+                        pyarrow.schema(self.partitioning_schema)
+                    )
+                },
+            }
+        dataset.write_dataset(
+            table,
+            self.base_dir,
+            format=self.format,
+            existing_data_behavior=self.existing_data_behavior,
+            **write_kwargs,
+        )
+        return data_apply
 
 
 @params
@@ -993,6 +1037,19 @@ class DataFrameCallChain(Generic[P_co]):
     ) -> P_co:
         """
         Append a :class:`ReadDataset` transform to this pipeline.
+        """
+
+    @callchain(WriteDataset)
+    def write_dataset(  # type: ignore [empty-body]
+        self,
+        base_dir: str | HP,
+        format: str | HP = "parquet",
+        partitioning_schema: Optional[list[tuple]] = None,
+        write_dataset_args: dict | None = None,
+        existing_data_behavior: str = "delete_matching",
+    ) -> P_co:
+        """
+        Applend a :class:`WriteDataset` transform to this pipeline.
         """
 
     @callchain(Select)
