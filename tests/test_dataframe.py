@@ -68,10 +68,7 @@ def diamonds_df():
 
 def test_then(diamonds_df: pd.DataFrame):
     t: ff.DataFramePipeline = (
-        ff.ReadDataFrame(diamonds_df)
-        .then()
-        .z_score(["price"])
-        .clip(["price"], lower=-2, upper=2)
+        ff.ReadDataFrame(diamonds_df).then().z_score(["price"]).clip(-2, 2, ["price"])
     )
     assert isinstance(t, ff.DataFramePipeline)
 
@@ -265,15 +262,38 @@ def test_RenameColumns(diamonds_df: pd.DataFrame):
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))
 
 
+def test_affixes(diamonds_df: pd.DataFrame):
+    df = (
+        ff.DataFramePipeline().affix("pre_", "_post", cols=["price"]).apply(diamonds_df)
+    )
+    assert df.equals(diamonds_df.rename(columns={"price": "pre_price_post"}))
+    df = ff.DataFramePipeline().affix("pre_", "_post").apply(diamonds_df)
+    assert all(c.startswith("pre_") and c.endswith("_post") for c in df.columns)
+
+    df = ff.DataFramePipeline().prefix("pre_", cols=["price"]).apply(diamonds_df)
+    assert df.equals(diamonds_df.rename(columns={"price": "pre_price"}))
+    df = ff.DataFramePipeline().prefix("pre_").apply(diamonds_df)
+    assert all(c.startswith("pre_") for c in df.columns)
+
+    df = ff.DataFramePipeline().suffix("_suf", cols=["price"]).apply(diamonds_df)
+    assert df.equals(diamonds_df.rename(columns={"price": "price_suf"}))
+    df = ff.DataFramePipeline().suffix("_suf").apply(diamonds_df)
+    assert all(c.endswith("_suf") for c in df.columns)
+
+
 def test_Clip(diamonds_df: pd.DataFrame):
     df = diamonds_df
-    result = ff.DataFramePipeline().clip(["price"], upper=150, lower=100).apply(df)
+    result = ff.DataFramePipeline().clip(upper=150, lower=100, cols=["price"]).apply(df)
     assert (result["price"] <= 150).all() & (result["price"] >= 100).all()
-    clip_price = ff.DataFramePipeline().clip(["price"], upper=ff.HP("upper"))
+    clip_price = ff.DataFramePipeline().clip(
+        upper=ff.HP("upper"), lower=None, cols=["price"]
+    )
     for upper in (100, 200, 300):
         result = clip_price.apply(df, upper=upper)
         assert (result["price"] <= upper).all()
-    clip_price = ff.DataFramePipeline().clip(["price"], lower=ff.HP("lower"))
+    clip_price = ff.DataFramePipeline().clip(
+        lower=ff.HP("lower"), upper=None, cols=["price"]
+    )
     for lower in (100, 200, 300):
         result = clip_price.apply(df, lower=lower)
         assert (result["price"] >= lower).all()
@@ -283,7 +303,7 @@ def test_ImputeConstant() -> None:
     df = pd.DataFrame({"col1": pd.Series([1.0, np.nan, 2.0])})
     assert (
         ff.DataFramePipeline()
-        .impute_constant(["col1"], 0.0)
+        .impute_constant(0.0, ["col1"])
         .apply(df)
         .equals(df.fillna(0.0))
     )
@@ -291,16 +311,16 @@ def test_ImputeConstant() -> None:
 
 def test_Winsorize() -> None:
     df = pd.DataFrame({"col1": [float(x) for x in range(1, 101)]})
-    result = ff.DataFramePipeline().winsorize(["col1"], 0.2).fit(df).apply(df)
+    result = ff.DataFramePipeline().winsorize(0.2, ["col1"]).fit(df).apply(df)
     assert (result["col1"] > 20).all() and (result["col1"] < 81).all()
 
     # limits out of bounds
     with pytest.raises(ValueError):
-        ff.DataFramePipeline().winsorize(["col1"], -0.2).fit(df)
+        ff.DataFramePipeline().winsorize(-0.2, ["col1"]).fit(df)
     with pytest.raises(ValueError):
-        ff.DataFramePipeline().winsorize(["col1"], 1.2).fit(df)
+        ff.DataFramePipeline().winsorize(1.2, ["col1"]).fit(df)
     with pytest.raises(TypeError):
-        ff.DataFramePipeline().winsorize(["col1"], ff.HP("limit")).fit(
+        ff.DataFramePipeline().winsorize(ff.HP("limit"), ["col1"]).fit(
             df, limit="a"  # non-float
         )
 
@@ -499,17 +519,17 @@ def test_complex_pipeline_1(diamonds_df: pd.DataFrame):
         return (
             ff.DataFramePipeline()
             .print(fit_msg=f"Baking: {cols}")
-            .winsorize(cols, limit=0.05)
+            .winsorize(limit=0.05, cols=cols)
             .z_score(cols)
-            .impute_constant(cols, 0.0)
-            .clip(cols, upper=2, lower=-2)
+            .impute_constant(0.0, cols)
+            .clip(upper=2, lower=-2, cols=cols)
         )
 
     pipeline = (
         ff.DataFramePipeline()[FEATURES + ["{response_col}"]]
         .copy("{response_col}", "{response_col}_train")
-        .winsorize("{response_col}_train", limit=0.05)
-        .pipe(["carat", "{response_col}_train"], np.log1p)
+        .winsorize(0.05, "{response_col}_train")
+        .pipe(np.log1p, ["carat", "{response_col}_train"])
         .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
         .sk_learn(
             LinearRegression,
@@ -521,7 +541,7 @@ def test_complex_pipeline_1(diamonds_df: pd.DataFrame):
         )
         # transform {response_col}_hat from log-dollars back to dollars
         .copy("{response_col}_hat", "{response_col}_hat_dollars")
-        .pipe("{response_col}_hat_dollars", np.expm1)
+        .pipe(np.expm1, "{response_col}_hat_dollars")
     )
 
     assert pipeline.hyperparams() == {"bake_features", "predictors", "response_col"}
@@ -813,7 +833,7 @@ def test_Drop(diamonds_df: pd.DataFrame):
 
 def test_Pipe(diamonds_df: pd.DataFrame):
     result = (
-        ff.DataFramePipeline().pipe(["carat", "price"], np.log1p).apply(diamonds_df)
+        ff.DataFramePipeline().pipe(np.log1p, ["carat", "price"]).apply(diamonds_df)
     )
     assert (result["carat"] == np.log1p(diamonds_df["carat"])).all()
     assert (result["price"] == np.log1p(diamonds_df["price"])).all()
