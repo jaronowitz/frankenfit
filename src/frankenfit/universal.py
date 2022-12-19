@@ -132,6 +132,23 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
 
 
 @params
+class StateOf(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+    transform: Transform
+
+    def _submit_fit(
+        self,
+        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> Any:
+        with self.parallel_backend() as backend:
+            return backend.fit(self.transform, data_fit, bindings)
+
+    def _apply(self, data_apply: DataIn, state: Any) -> DataResult:
+        state = cast(FitTransform[Any, DataIn, DataResult], state)
+        return state.materialize_state().state()
+
+
+@params
 class BranchTransform(UniversalTransform):
     def _submit_apply(
         self,
@@ -693,6 +710,7 @@ class UniversalGrouper(Generic[P_co], Grouper[P_co], UniversalCallChain[P_co]):
 
 
 G_co = TypeVar("G_co", bound=UniversalGrouper, covariant=True)
+SelfUPI = TypeVar("SelfUPI", bound="UniversalPipelineInterface")
 
 
 class UniversalPipelineInterface(
@@ -723,6 +741,17 @@ class UniversalPipelineInterface(
             tag=tag if tag is not None else NOTHING,
         )
         return cast(G_co, grouper)
+
+    def last_state(self: SelfUPI) -> SelfUPI:
+        """
+        Replace the last transform ``t`` in the pipeline with `:class:StateOf(t)`.
+        """
+        if not len(self.transforms):
+            raise ValueError("last_state: undefined on empty pipeline")
+
+        self_copy = self + []
+        self_copy.transforms.append(StateOf(self_copy.transforms.pop()))
+        return self_copy
 
 
 class UniversalPipeline(
