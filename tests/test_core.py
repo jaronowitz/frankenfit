@@ -641,3 +641,58 @@ def test_pipeline_backends(diamonds_df: pd.DataFrame) -> None:
     tb3.apply(pip, diamonds_df)
     assert sum(v for k, v in tb3.key_counts.items() if k.endswith("._fit")) == 3
     assert sum(v for k, v in tb3.key_counts.items() if k.endswith("._apply")) == 3
+
+
+def test_IfPipelineIsFitting(diamonds_df: pd.DataFrame):
+    @define
+    class TracingBackend(ff.LocalBackend):
+        key_counts: dict = field(factory=dict)
+
+        def submit(
+            self, key_prefix: str, function: Callable, *function_args, **function_kwargs
+        ) -> core.LocalFuture[Any]:
+            key = ".".join(self.trace + (key_prefix,))
+            self.key_counts[key] = self.key_counts.get(key, 0) + 1
+            return super().submit(
+                key_prefix, function, *function_args, **function_kwargs
+            )
+
+    pip = ff.BasePipeline[pd.DataFrame](
+        transforms=[
+            ff.Identity(),
+            ff.core.IfPipelineIsFitting(ff.Identity()),
+            ff.Identity(),
+        ]
+    )
+
+    tb1 = TracingBackend()
+    fit = tb1.fit(pip, diamonds_df)
+    assert sum(v for k, v in tb1.key_counts.items() if k.endswith("._fit")) == 3
+
+    tb2 = TracingBackend()
+    tb2.apply(fit, diamonds_df)
+    assert sum(v for k, v in tb2.key_counts.items() if k.endswith("._apply")) == 2
+
+    tb3 = TracingBackend()
+    tb3.apply(pip, diamonds_df)
+    assert sum(v for k, v in tb3.key_counts.items() if k.endswith("._apply")) == 3
+
+    # Again with callchain syntax
+    pip = (
+        ff.UniversalPipeline[pd.DataFrame]()
+        .identity()
+        .if_fitting(ff.Identity())
+        .identity()
+    )
+
+    tb1 = TracingBackend()
+    fit = tb1.fit(pip, diamonds_df)
+    assert sum(v for k, v in tb1.key_counts.items() if k.endswith("._fit")) == 3
+
+    tb2 = TracingBackend()
+    tb2.apply(fit, diamonds_df)
+    assert sum(v for k, v in tb2.key_counts.items() if k.endswith("._apply")) == 2
+
+    tb3 = TracingBackend()
+    tb3.apply(pip, diamonds_df)
+    assert sum(v for k, v in tb3.key_counts.items() if k.endswith("._apply")) == 3

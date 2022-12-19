@@ -1358,6 +1358,13 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
             if len(fit_transforms) == 0 and data_apply is None:
                 return backend.put(self._empty_constructor())
             for (i, fit_transform) in enumerate(fit_transforms):
+                if isinstance(fit_transform.resolved_transform(), IfPipelineIsFitting):
+                    _LOG.debug(
+                        "%s._submit_apply: skipping IfPipelineIsFitting instance: %s",
+                        self.name,
+                        fit_transform.name,
+                    )
+                    continue
                 data_apply = backend.push_trace(f"[{i}]").apply(
                     fit_transform, data_apply
                 )
@@ -1484,3 +1491,26 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         result = copy.copy(self)
         result.transforms = transforms
         return result
+
+    def if_fitting(self: P, transform: Transform) -> P:
+        return self + IfPipelineIsFitting(transform)
+
+
+@params
+class IfPipelineIsFitting(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+    transform: Transform[DataIn, DataResult]
+
+    def _submit_fit(
+        self,
+        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> Any:
+        with self.parallel_backend() as backend:
+            return backend.push_trace("then").fit(self.transform, data_fit, bindings)
+
+    def _submit_apply(
+        self, data_apply: Optional[DataIn | Future[DataIn]] = None, state: Any = None
+    ) -> Future[DataResult] | None:
+        assert isinstance(state, FitTransform)
+        with self.parallel_backend() as backend:
+            return backend.push_trace("then").apply(state, data_apply)
