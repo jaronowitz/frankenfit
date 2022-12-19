@@ -17,5 +17,5 @@ docs/_build
 docs/conf.py
 diamonds.csv
 .dmypy.json
-scratch_*
+scratch*
 .coverage/
