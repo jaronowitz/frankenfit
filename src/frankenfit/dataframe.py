@@ -100,6 +100,7 @@ from .params import (
 from .universal import (
     ForBindings,
     Identity,
+    StatelessLambda,
     UniversalGrouper,
     UniversalPipeline,
     UniversalPipelineInterface,
@@ -964,77 +965,163 @@ A = TypeVar("A", bound="Assign")
 
 
 @params(auto_attribs=False)
-class Assign(StatelessDataFrameTransform):
-    # TODO: keys as fmt str hyperparams
-    assignments: dict[str, Callable | float | int | str] = dict_field()
+class Assign(DataFrameTransform):
+    assignments: dict[
+        int | str,  # int key indicates multi-column assignment, str indicates named
+        (
+            Transform[pd.DataFrame, pd.DataFrame]
+            | Future[pd.DataFrame]
+            | Callable
+            | float  # scalars...
+            | int
+            | str
+        ),
+    ]
 
-    assignment_fun_hyperparams: list[UserLambdaHyperparams]
-    assignment_fun_bindings: list[Bindings]
+    multi_column_assignments: Sequence[
+        Transform[pd.DataFrame, pd.DataFrame] | Future[pd.DataFrame] | Callable
+    ] = field(factory=list)
+
+    named_column_assignments: Mapping[
+        str,
+        (
+            Transform[pd.DataFrame, pd.DataFrame]
+            | Future[pd.DataFrame]
+            | Callable
+            | float  # scalars...
+            | int
+            | str
+        ),
+    ] = field(factory=dict)
 
     # Assign([assignment_dict][, tag=][, kwarg1=][, kwarg2][...])
     # ... with only one of assigment_dict or kwargs
     def __init__(self, *args, tag=NOTHING, **kwargs):
-        if len(args) > 0:
-            if len(kwargs) > 0:
-                raise ValueError(
-                    f"Expected only one of args or kwargs to be non-empty, "
-                    f"but both are: args={args!r}, kwargs={kwargs!r}"
-                )
-            if len(args) > 1:
-                raise ValueError(
-                    "Expected only a single dict-typed positional argument"
-                )
-            assignments = args[0]
-        else:
-            assignments = kwargs
-        self.__attrs_init__(tag=tag, assignments=assignments)
+        self.__attrs_init__(
+            multi_column_assignments=args,
+            named_column_assignments=kwargs,
+            tag=tag,
+        )
 
     def __attrs_post_init__(self):
-        self.assignment_fun_bindings = []
-        self.assignment_fun_hyperparams = []
-        for fun in self.assignments.values():
-            if not callable(fun):
-                continue
-            self.assignment_fun_hyperparams.append(
-                UserLambdaHyperparams.from_function_sig(fun, 1)
-            )
+        self.assignments = {}
+        for i, ass in enumerate(self.multi_column_assignments):
+            if callable(ass):
+                self.assignments[i] = StatelessLambda[pd.DataFrame, pd.DataFrame](ass)
+            else:
+                self.assignments[i] = ass
+        for k, ass in self.named_column_assignments.items():
+            if callable(ass):
+                self.assignments[k] = StatelessLambda[pd.DataFrame, pd.DataFrame](ass)
+            else:
+                self.assignments[k] = ass
 
     def hyperparams(self) -> set[str]:
         return (
             super()
             .hyperparams()
             .union(
-                *(ah.required_or_optional() for ah in self.assignment_fun_hyperparams)
+                *(
+                    ass.hyperparams()
+                    for k, ass in self.assignments.items()
+                    if isinstance(ass, Transform)
+                )
             )
         )
 
-    def resolve(self: A, bindings: Optional[Bindings] = None) -> A:
-        bindings = bindings or {}
-        resolved_self = super().resolve(bindings)
-        resolved_self.assignment_fun_bindings = [
-            ah.collect_bindings(bindings)
-            for ah in resolved_self.assignment_fun_hyperparams
-        ]
-        return resolved_self
-
-    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
-        kwargs: dict[str, Callable | float | int | str | Future] = {}
-        bindings_idx = 0
+    def _submit_fit(
+        self,
+        data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> dict[int | str, FitTransform | Future]:
         with self.parallel_backend() as backend:
-            data_fut = backend.maybe_put(data_apply)
-            for k, v in self.assignments.items():
-                if callable(v):
-                    fun = partial(v, **self.assignment_fun_bindings[bindings_idx])
-                    bindings_idx += 1
-                    kwargs[k] = backend.submit(k, fun, data_fut)
+            data_fit = backend.maybe_put(data_fit)
+            state: dict[int | str, FitTransform | Future] = {}
+            for k, ass in self.assignments.items():
+                if isinstance(k, int):
+                    trace = f"[{k}]"
                 else:
-                    kwargs[k] = v
+                    trace = k
 
-            return data_apply.assign(
-                **{
-                    k: v.result() if isinstance(v, Future) else v
-                    for k, v in kwargs.items()
-                }
+                if isinstance(ass, Transform):
+                    state[k] = backend.push_trace(trace).fit(ass, data_fit, bindings)
+                elif isinstance(ass, Future):
+                    state[k] = ass
+                else:
+                    state[k] = backend.put(ass)
+
+            return state
+
+    def _materialize_state(self, state: dict[int | str, FitTransform | Future]) -> Any:
+        state_dict = super()._materialize_state(state)
+        for k, v in state_dict.items():
+            if isinstance(v, FitTransform):
+                state_dict[k] = v.materialize_state()
+            elif isinstance(v, Future):
+                state_dict[k] = v.result()
+        return state_dict
+
+    def _do_assign(
+        self,
+        data_apply: pd.DataFrame,
+        *multi_cols: pd.DataFrame,
+        **named_cols: pd.DataFrame | pd.Series | int | float | str,
+    ):
+        result = data_apply
+        for mc_df in multi_cols:
+            result = result.assign(**{c: mc_df[c] for c in mc_df.columns})
+
+        for c, obj in named_cols.items():
+            val = obj
+            if isinstance(obj, pd.DataFrame):
+                if len(obj.columns) != 1:
+                    raise ValueError(
+                        f"_do_assign: named column assignment {c!r} expected a 1-"
+                        f"column DataFrame, but got: {obj.columns}"
+                    )
+                val = obj[obj.columns[0]]
+            result = result.assign(**{c: val})
+
+        return result
+
+    def _submit_apply(
+        self,
+        data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        state: dict[int | str, FitTransform | Future] | None = None,
+    ) -> Future[pd.DataFrame] | None:
+        assert state is not None
+        if data_apply is None:  # pragma: no cover
+            data_apply = pd.DataFrame()
+        with self.parallel_backend() as backend:
+            data_apply = backend.maybe_put(data_apply)
+            multi_col_futures: list[Future[pd.DataFrame]] = []
+            named_col_futures: dict[str, Future[pd.DataFrame]] = {}
+            for k, ass in state.items():
+                if isinstance(k, int):
+                    stash = multi_col_futures.append
+                    trace = f"[{k}]"
+                else:
+                    stash = partial(named_col_futures.__setitem__, k)
+                    trace = k
+
+                if isinstance(ass, FitTransform):
+                    fut = backend.push_trace(trace).apply(ass, data_apply)
+                elif isinstance(ass, Future):
+                    fut = ass
+                else:  # pragma: no cover
+                    raise TypeError(
+                        f"Assign internal error: non-FitTransform, non-Future "
+                        f"assignment: k={k!r}, ass={ass!r}"
+                    )
+                stash(fut)
+
+            return backend.submit(
+                "_do_assign",
+                self._do_assign,
+                data_apply,
+                *multi_col_futures,
+                pure=True,  # FIXME? what if impure children?
+                **named_col_futures,
             )
 
 
@@ -1190,9 +1277,18 @@ class DataFrameCallChain(Generic[P_co]):
     @callchain(Assign)
     def assign(  # type: ignore [empty-body]
         self,
-        *args,
+        # Multi-column assignments
+        *args: Transform[pd.DataFrame, pd.DataFrame] | Future[pd.DataFrame] | Callable,
         tag: Optional[str] = None,
-        **kwargs: Any,
+        # Named-column assignments
+        **kwargs: (
+            Transform[pd.DataFrame, pd.DataFrame]
+            | Future[pd.DataFrame]
+            | Callable
+            | float  # scalars...
+            | int
+            | str
+        ),
     ) -> P_co:
         """
         Append a :class:`Assign` transform to this pipeline.

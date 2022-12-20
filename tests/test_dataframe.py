@@ -47,7 +47,6 @@
 from __future__ import annotations
 
 from os import path
-from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -756,47 +755,46 @@ def test_write_read_dataset(diamonds_df: pd.DataFrame, tmp_path):
 
 
 def test_Assign(diamonds_df: pd.DataFrame):
-    # kwargs style
-    pip = ff.DataFramePipeline().assign(
-        intercept=1,
-        grp=lambda df: df.index % 5,
-        grp_2=lambda df, k: df.index % k,
-    )
-    assert pip.hyperparams() == {"k"}
-    result = pip.apply(diamonds_df, k=3)
-    assert cast(pd.DataFrame, result["intercept"] == 1).all()
-    assert cast(
-        pd.DataFrame,
-        # pandas-stubs is too dumb to type-check this...
-        result["grp"] == (diamonds_df.index % 5),  # type: ignore [operator]
-    ).all()
-    assert cast(
-        pd.DataFrame,
-        result["grp_2"] == (diamonds_df.index % 3),  # type: ignore [operator]
-    ).all()
+    do = ff.DataFramePipeline()
+    other_pipeline = do[["price", "carat"]].winsorize(0.1).suffix("_win")
+    backend = ff.LocalBackend()
 
-    # assignment_dict style
-    pip = ff.DataFramePipeline().assign(
-        {
-            "intercept": 1,
-            ff.HPFmtStr("grp_{k}"): lambda df, k: df.index % k,
-            ff.HPFmtStr("foo_{x}"): 42,
-        },
-        tag="foo",
+    pipeline = do.assign(
+        # multi-column assigments
+        do[["price", "carat"]].de_mean().suffix("_dmn"),  # pipeline
+        backend.apply(other_pipeline, diamonds_df),  # future
+        # lambda is wrapped in a StatelessLambda transform
+        lambda df: pd.DataFrame().assign(uppercut=df["cut"].str.upper()),
+        # named column assignments: transforms with 1-column output
+        price_dmn2=do["price"].de_mean(),
+        price_win2=backend.apply(other_pipeline["price_win"], diamonds_df),  # future
+        # lambda is wrapped in a StatelessLambda transform
+        price_rank=lambda df, price_scale=1.0: price_scale
+        * ((df["price"] - df["price"].min()) / (df["price"].max() - df["price"].min())),
+        intercept=1.0,  # scalar
     )
-    assert pip.hyperparams() == {"k", "x"}
-    result = pip.apply(diamonds_df, k=3, x="bar")
-    assert cast(pd.DataFrame, result["intercept"] == 1).all()
-    assert cast(
-        pd.DataFrame,
-        result["grp_3"] == (diamonds_df.index % 3),  # type: ignore [operator]
-    ).all()
+    assert pipeline.hyperparams() == {"price_scale"}
+    result = pipeline.on_backend(backend).apply(diamonds_df, price_scale=2.0)
+    assert set(result.columns) == set(diamonds_df.columns).union(
+        [
+            "price_dmn",
+            "carat_dmn",
+            "price_win",
+            "carat_win",
+            "uppercut",
+            "price_dmn2",
+            "price_win2",
+            "price_rank",
+            "intercept",
+        ]
+    )
+
+    fit = pipeline.on_backend(backend).fit(diamonds_df, price_scale=2.0)
+    fit.materialize_state()
 
     with pytest.raises(ValueError):
-        ff.DataFramePipeline().assign({"foo": 1}, bar=1)
-
-    with pytest.raises(ValueError):
-        ff.DataFramePipeline().assign({"foo": 1}, {"bar": 1})
+        # too many columns for a named assignment
+        do.assign(foo=do[["price", "carat"]]).apply(diamonds_df)
 
 
 def test_GroupByBindings(diamonds_df: pd.DataFrame):
