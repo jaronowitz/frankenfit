@@ -326,6 +326,9 @@ class LocalFuture(Generic[T_co], Future[T_co]):
     def belongs_to(self, backend: Backend) -> bool:
         return isinstance(backend, LocalBackend)
 
+    def __repr__(self):
+        return f"LocalFuture(obj={type(self.obj)})"
+
     def __eq__(self, other):
         if type(self) is not type(other):
             return False
