@@ -242,6 +242,10 @@ def dict_field(**kwargs):
     return field(converter=HPDict.maybe_from_value, **kwargs)
 
 
+class ALL_COLS:
+    ...
+
+
 @define
 class HPCols(HP):
     cols: list[str | HP]
@@ -250,7 +254,9 @@ class HPCols(HP):
     C = TypeVar("C", bound="HPCols")
 
     @classmethod
-    def maybe_from_value(cls: type[C], x: str | HP | None) -> C | str | HP | None:
+    def maybe_from_value(
+        cls: type[C], x: str | HP | ALL_COLS | None
+    ) -> C | str | HP | ALL_COLS | None:
         """_summary_
 
         :param x: _description_
@@ -258,7 +264,7 @@ class HPCols(HP):
         :return: _description_
         :rtype: HPCols | HP
         """
-        if isinstance(x, HP):
+        if isinstance(x, (HP, ALL_COLS)):
             return x
         if isinstance(x, str):
             return cls([x])
@@ -296,7 +302,7 @@ def _validate_not_empty(instance, attribute, value):
     if hasattr(value, "__len__"):
         if len(value) < 1:
             raise ValueError(f"{attribute.name} must not be empty but got {value}")
-    elif isinstance(value, HP):
+    elif isinstance(value, (HP, ALL_COLS)):
         return
     else:
         raise TypeError(f"{attribute.name} value has no length: {value}")

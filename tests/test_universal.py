@@ -362,3 +362,30 @@ def test_ForBindings(diamonds_df: pd.DataFrame):
 
     for x in result:
         assert x.result.equals(df[[x.bindings["target_col"]]])
+
+
+def test_StateOf(diamonds_df: pd.DataFrame) -> None:
+    @ff.params
+    class MyDeMean(ff.Transform[pd.DataFrame, pd.DataFrame]):
+        col: str
+
+        def _fit(self, data_fit: pd.DataFrame) -> Any:
+            return data_fit[[self.col]].mean()
+
+        def _apply(self, data_apply: pd.DataFrame, state: pd.DataFrame) -> pd.DataFrame:
+            return data_apply.assign(
+                **{self.col: data_apply[self.col] - state[self.col]}
+            )
+
+    mean = diamonds_df[["price"]].mean()
+    assert mean.equals(
+        ff.universal.StateOf(MyDeMean("price"))
+        .fit(diamonds_df)  # type: ignore [arg-type]
+        .apply()
+    )
+    p = ff.UniversalPipeline[pd.DataFrame]().then(MyDeMean("price")).last_state()
+    x = p.fit(diamonds_df).apply()
+    assert mean.equals(x)  # type: ignore [arg-type]
+
+    with pytest.raises(ValueError):
+        ff.UniversalPipeline().last_state()

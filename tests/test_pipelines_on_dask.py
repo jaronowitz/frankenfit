@@ -92,17 +92,17 @@ def test_pipeline_straight(
         return (
             ff.DataFramePipeline()
             .print(fit_msg=f"Baking: {cols}")
-            .winsorize(cols, limit=0.05)
+            .winsorize(0.05, cols)
             .z_score(cols)
-            .impute_constant(cols, 0.0)
-            .clip(cols, upper=2, lower=-2)
+            .impute_constant(0.0, cols)
+            .clip(upper=2, lower=-2, cols=cols)
         )
 
     model = (
         ff.DataFramePipeline()[FEATURES + ["{response_col}"]]
         .copy("{response_col}", "{response_col}_train")
-        .pipe(["carat", "{response_col}_train"], np.log1p)
-        .winsorize("{response_col}_train", limit=0.05)
+        .pipe(np.log1p, ["carat", "{response_col}_train"])
+        .winsorize(0.05, "{response_col}_train")
         .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
         .sk_learn(
             LinearRegression,
@@ -114,7 +114,7 @@ def test_pipeline_straight(
         )
         # transform {response_col}_hat from log-dollars back to dollars
         .copy("{response_col}_hat", "{response_col}_hat_dollars")
-        .pipe("{response_col}_hat_dollars", np.expm1)
+        .pipe(np.expm1, "{response_col}_hat_dollars")
     )
 
     # write data to csv
@@ -163,10 +163,10 @@ def test_parallelized_pipeline_1(
     def bake_features(cols) -> ff.DataFramePipeline:
         return (
             ff.DataFramePipeline(tag="bake_features")
-            .winsorize(cols, limit=0.05)
+            .winsorize(0.05, cols)
             .z_score(cols)
-            .impute_constant(cols, 0.0)
-            .clip(cols, upper=2, lower=-2)
+            .impute_constant(0.0, cols)
+            .clip(upper=2, lower=-2, cols=cols)
         )
 
     # per-cut feature means
@@ -185,8 +185,8 @@ def test_parallelized_pipeline_1(
         ff.DataFramePipeline()
         .select(FEATURES + ["{response_col}", "cut"])
         .copy("{response_col}", "{response_col}_train")
-        .winsorize("{response_col}_train", limit=0.05)
-        .pipe(["carat", "{response_col}_train"], np.log1p)
+        .winsorize(0.05, "{response_col}_train")
+        .pipe(np.log1p, ["carat", "{response_col}_train"])
         .if_hyperparam_is_true("bake_features", bake_features(FEATURES))
         .join(per_cut_means, how="left", on="cut")
         .sk_learn(
@@ -202,7 +202,7 @@ def test_parallelized_pipeline_1(
         )
         # transform {response_col}_hat from log-dollars back to dollars
         .copy("{response_col}_hat", "{response_col}_hat_dollars")
-        .pipe("{response_col}_hat_dollars", np.expm1)
+        .pipe(np.expm1, "{response_col}_hat_dollars")
     )
 
     assert complex_pipeline.hyperparams() == {

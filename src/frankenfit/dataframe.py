@@ -74,8 +74,9 @@ from typing import (
 
 import numpy as np
 import pandas as pd
+import pyarrow  # type: ignore
 from attrs import NOTHING, field
-from pyarrow import dataset  # type: ignore
+from pyarrow import dataset
 
 from .core import (
     Bindings,
@@ -88,6 +89,7 @@ from .core import (
     callchain,
 )
 from .params import (
+    ALL_COLS,
     HP,
     columns_field,
     dict_field,
@@ -98,6 +100,7 @@ from .params import (
 from .universal import (
     ForBindings,
     Identity,
+    StatelessLambda,
     UniversalGrouper,
     UniversalPipeline,
     UniversalPipelineInterface,
@@ -144,6 +147,15 @@ class StatelessDataFrameTransform(
     StatelessTransform[pd.DataFrame, pd.DataFrame], DataFrameTransform
 ):
     def _fit(self, data_fit: pd.DataFrame) -> None:
+        return None
+
+    def _submit_fit(
+        self,
+        data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> Any:
+        # optimize away the fitting of StatelessDataFrameTransforms
+        # N.B. this means we cannot have any side effects.
         return None
 
 
@@ -201,8 +213,9 @@ class ReadDataset(ConstantDataFrameTransform):
     format: Optional[str] = None
     filter: Optional[dataset.Expression] = None
     index_col: Optional[str | int] = None
-    dataset_kwargs: Optional[dict] = None
-    scanner_kwargs: Optional[dict] = None
+    partitioning_schema: Optional[list[tuple]] = None
+    dataset_kwargs: dict = field(factory=dict)
+    scanner_kwargs: dict = field(factory=dict)
     no_cache: bool = False
 
     def __attrs_post_init__(self):
@@ -210,17 +223,59 @@ class ReadDataset(ConstantDataFrameTransform):
             self.pure = False
 
     def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
-        ds = dataset.dataset(
-            self.paths, format=self.format, **(self.dataset_kwargs or {})
-        )
+        if len(self.paths) == 1:
+            paths = self.paths[0]
+        dataset_kwargs = self.dataset_kwargs
+        if self.partitioning_schema is not None:
+            dataset_kwargs = {
+                **dataset_kwargs,
+                **{
+                    "partitioning": dataset.partitioning(
+                        pyarrow.schema(self.partitioning_schema)
+                    )
+                },
+            }
+        ds = dataset.dataset(paths, format=self.format, **dataset_kwargs)
         columns = self.columns or None
         df_out = ds.to_table(
-            columns=columns, filter=self.filter, **(self.scanner_kwargs or {})
+            columns=columns, filter=self.filter, **self.scanner_kwargs
         ).to_pandas()
         # can we tell arrow this?
         if self.index_col is not None:
             df_out = df_out.set_index(self.index_col)
         return df_out
+
+
+@params
+class WriteDataset(Identity[pd.DataFrame]):
+    base_dir: str = fmt_str_field()
+    format: str = "parquet"
+    partitioning_schema: Optional[list[tuple]] = None
+    write_dataset_args: dict = field(factory=dict)
+    existing_data_behavior: str = "delete_matching"
+
+    pure = False
+
+    def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
+        table = pyarrow.Table.from_pandas(data_apply)
+        write_kwargs = self.write_dataset_args
+        if self.partitioning_schema is not None:
+            write_kwargs = {
+                **write_kwargs,
+                **{
+                    "partitioning": dataset.partitioning(
+                        pyarrow.schema(self.partitioning_schema)
+                    )
+                },
+            }
+        dataset.write_dataset(
+            table,
+            self.base_dir,
+            format=self.format,
+            existing_data_behavior=self.existing_data_behavior,
+            **write_kwargs,
+        )
+        return data_apply
 
 
 @params
@@ -244,8 +299,8 @@ class Join(DataFrameTransform):
         bindings = bindings or {}
         with self.parallel_backend() as backend:
             fit_left, fit_right = (
-                backend.fit(self.left, data_fit, bindings),
-                backend.fit(self.right, data_fit, bindings),
+                backend.push_trace("left").fit(self.left, data_fit, bindings),
+                backend.push_trace("right").fit(self.right, data_fit, bindings),
             )
             return (fit_left, fit_right)
 
@@ -273,13 +328,12 @@ class Join(DataFrameTransform):
         fit_left, fit_right = state
         with self.parallel_backend() as backend:
             fut_left, fut_right = (
-                backend.apply(fit_left, data_apply),
-                backend.apply(fit_right, data_apply),
+                backend.push_trace("left").apply(fit_left, data_apply),
+                backend.push_trace("right").apply(fit_right, data_apply),
             )
             return backend.submit("_do_merge", self._do_merge, fut_left, fut_right)
 
 
-@params
 class ColumnsTransform(DataFrameTransform):
     """
     Abstract base clase of all Transforms that require a list of columns as a parameter
@@ -298,7 +352,10 @@ class ColumnsTransform(DataFrameTransform):
     columns_field().
     """
 
-    cols: list[str] = columns_field()
+    def resolve_cols(self, cols: list[str] | ALL_COLS, df: pd.DataFrame) -> list[str]:
+        if isinstance(cols, ALL_COLS):
+            return list(df.columns)
+        return cols
 
 
 def fit_group_on_self(group_col_map):
@@ -493,6 +550,7 @@ class Copy(ColumnsTransform, StatelessDataFrameTransform):
     contents.
     """
 
+    cols: list[str] = columns_field()
     dest_cols: list[str] = columns_field()
 
     def _check_cols(self):
@@ -561,14 +619,19 @@ class Select(ColumnsTransform, StatelessDataFrameTransform):
             )
     """
 
+    cols: list[str] = columns_field()
+
     def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
         return data_apply[self.cols]
 
 
+@params
 class Drop(ColumnsTransform, StatelessDataFrameTransform):
     """
     Drop the given columns from the data.
     """
+
+    cols: list[str] = columns_field()
 
     def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
         return data_apply.drop(columns=self.cols)
@@ -593,13 +656,43 @@ class Rename(StatelessDataFrameTransform):
 
 
 @params
+class Affix(ColumnsTransform, StatelessDataFrameTransform):
+    prefix: str
+    suffix: str
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
+
+    def _apply(self, data_apply: pd.DataFrame, state: Any) -> pd.DataFrame:
+        cols = self.resolve_cols(self.cols, data_apply)
+        return data_apply.rename(
+            columns={c: self.prefix + c + self.suffix for c in cols}
+        )
+
+
+@params
+class Prefix(Affix):
+    prefix: str
+    suffix: str = field(default="", init=False)
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
+
+
+@params
+class Suffix(Affix):
+    suffix: str
+    prefix: str = field(default="", init=False)
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
+
+
+@params
 class Pipe(ColumnsTransform, StatelessDataFrameTransform):
     # TODO: support UserLambdaHyperparams for apply_fun
     apply_fun: Callable[[pd.DataFrame], pd.DataFrame]
 
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
+
     def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
-        result = self.apply_fun(data_apply[self.cols])
-        return data_apply.assign(**{c: result[c] for c in self.cols})
+        cols = self.resolve_cols(self.cols, data_apply)
+        result = self.apply_fun(data_apply[cols])
+        return data_apply.assign(**{c: result[c] for c in cols})
 
 
 # TODO Rank, MapQuantiles
@@ -607,14 +700,18 @@ class Pipe(ColumnsTransform, StatelessDataFrameTransform):
 
 @params
 class Clip(ColumnsTransform, StatelessDataFrameTransform):
-    upper: Optional[float] = None
-    lower: Optional[float] = None
+    upper: Optional[float]
+    lower: Optional[float]
+    # Regarding the type-ignore: even with our plugin, mypy cannot infer from the
+    # factory= kwarg that this attribute has a default value
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
 
     def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
+        cols = self.resolve_cols(self.cols, data_apply)
         return data_apply.assign(
             **{
                 col: data_apply[col].clip(upper=self.upper, lower=self.lower)
-                for col in self.cols
+                for col in cols
             }
         )
 
@@ -623,6 +720,7 @@ class Clip(ColumnsTransform, StatelessDataFrameTransform):
 class Winsorize(ColumnsTransform):
     # assume symmetric, i.e. trim the upper and lower `limit` percent of observations
     limit: float
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
 
     def _fit(self, data_fit: pd.DataFrame) -> Mapping[str, pd.Series]:
         if not isinstance(self.limit, float):
@@ -634,22 +732,22 @@ class Winsorize(ColumnsTransform):
                 f"Winsorize.limit must be a float between 0 and 1. Got: {self.limit}"
             )
 
+        cols = self.resolve_cols(self.cols, data_fit)
         return {
-            "lower": data_fit[self.cols].quantile(self.limit, interpolation="nearest"),
-            "upper": data_fit[self.cols].quantile(
-                1.0 - self.limit, interpolation="nearest"
-            ),
+            "lower": data_fit[cols].quantile(self.limit, interpolation="nearest"),
+            "upper": data_fit[cols].quantile(1.0 - self.limit, interpolation="nearest"),
         }
 
     def _apply(
         self, data_apply: pd.DataFrame, state: Mapping[str, pd.Series]
     ) -> pd.DataFrame:
+        cols = self.resolve_cols(self.cols, data_apply)
         return data_apply.assign(
             **{
                 col: data_apply[col].clip(
                     upper=state["upper"][col], lower=state["lower"][col]
                 )
-                for col in self.cols
+                for col in cols
             }
         )
 
@@ -657,10 +755,12 @@ class Winsorize(ColumnsTransform):
 @params
 class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
     value: Any
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
 
     def _apply(self, data_apply: pd.DataFrame, state) -> pd.DataFrame:
+        cols = self.resolve_cols(self.cols, data_apply)
         return data_apply.assign(
-            **{col: data_apply[col].fillna(self.value) for col in self.cols}
+            **{col: data_apply[col].fillna(self.value) for col in cols}
         )
 
 
@@ -680,51 +780,58 @@ class DeMean(ColumnsTransform):
     De-mean some columns.
     """
 
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
     w_col: Optional[str] = None
 
     def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
+        cols = self.resolve_cols(self.cols, data_fit)
         if self.w_col is not None:
-            return _weighted_means(data_fit, self.cols, self.w_col)
-        return data_fit[self.cols].mean()
+            return _weighted_means(data_fit, cols, self.w_col)
+        return data_fit[cols].mean()
 
     def _apply(self, data_apply: pd.DataFrame, state: pd.Series):
         means = state
-        return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
+        cols = self.resolve_cols(self.cols, data_apply)
+        return data_apply.assign(**{c: data_apply[c] - means[c] for c in cols})
 
 
 @params
 class ImputeMean(ColumnsTransform):
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
     w_col: Optional[str] = None
 
     def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
+        cols = self.resolve_cols(self.cols, data_fit)
         if self.w_col is not None:
-            return _weighted_means(data_fit, self.cols, self.w_col)
-        return data_fit[self.cols].mean()
+            return _weighted_means(data_fit, cols, self.w_col)
+        return data_fit[cols].mean()
 
     def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
         means = state
-        return data_apply.assign(
-            **{c: data_apply[c].fillna(means[c]) for c in self.cols}
-        )
+        cols = self.resolve_cols(self.cols, data_apply)
+        return data_apply.assign(**{c: data_apply[c].fillna(means[c]) for c in cols})
 
 
 @params
 class ZScore(ColumnsTransform):
+    cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
     w_col: Optional[str] = None
 
     def _fit(self, data_fit: pd.DataFrame) -> dict[str, pd.Series]:
+        cols = self.resolve_cols(self.cols, data_fit)
         if self.w_col is not None:
-            means = _weighted_means(data_fit, self.cols, self.w_col)
+            means = _weighted_means(data_fit, cols, self.w_col)
         else:
-            means = data_fit[self.cols].mean()
-        return {"means": means, "stddevs": data_fit[self.cols].std()}
+            means = data_fit[cols].mean()
+        return {"means": means, "stddevs": data_fit[cols].std()}
 
     def _apply(
         self, data_apply: pd.DataFrame, state: dict[str, pd.Series]
     ) -> pd.DataFrame:
+        cols = self.resolve_cols(self.cols, data_apply)
         means, stddevs = state["means"], state["stddevs"]
         return data_apply.assign(
-            **{c: (data_apply[c] - means[c]) / stddevs[c] for c in self.cols}
+            **{c: (data_apply[c] - means[c]) / stddevs[c] for c in cols}
         )
 
 
@@ -858,81 +965,167 @@ A = TypeVar("A", bound="Assign")
 
 
 @params(auto_attribs=False)
-class Assign(StatelessDataFrameTransform):
-    # TODO: keys as fmt str hyperparams
-    assignments: dict[str, Callable | float | int | str] = dict_field()
+class Assign(DataFrameTransform):
+    assignments: dict[
+        int | str,  # int key indicates multi-column assignment, str indicates named
+        (
+            Transform[pd.DataFrame, pd.DataFrame]
+            | Future[pd.DataFrame]
+            | Callable
+            | float  # scalars...
+            | int
+            | str
+        ),
+    ]
 
-    assignment_fun_hyperparams: list[UserLambdaHyperparams]
-    assignment_fun_bindings: list[Bindings]
+    multi_column_assignments: Sequence[
+        Transform[pd.DataFrame, pd.DataFrame] | Future[pd.DataFrame] | Callable
+    ] = field(factory=list)
+
+    named_column_assignments: Mapping[
+        str,
+        (
+            Transform[pd.DataFrame, pd.DataFrame]
+            | Future[pd.DataFrame]
+            | Callable
+            | float  # scalars...
+            | int
+            | str
+        ),
+    ] = field(factory=dict)
 
     # Assign([assignment_dict][, tag=][, kwarg1=][, kwarg2][...])
     # ... with only one of assigment_dict or kwargs
     def __init__(self, *args, tag=NOTHING, **kwargs):
-        if len(args) > 0:
-            if len(kwargs) > 0:
-                raise ValueError(
-                    f"Expected only one of args or kwargs to be non-empty, "
-                    f"but both are: args={args!r}, kwargs={kwargs!r}"
-                )
-            if len(args) > 1:
-                raise ValueError(
-                    "Expected only a single dict-typed positional argument"
-                )
-            assignments = args[0]
-        else:
-            assignments = kwargs
-        self.__attrs_init__(tag=tag, assignments=assignments)
+        self.__attrs_init__(
+            multi_column_assignments=args,
+            named_column_assignments=kwargs,
+            tag=tag,
+        )
 
     def __attrs_post_init__(self):
-        self.assignment_fun_bindings = []
-        self.assignment_fun_hyperparams = []
-        for fun in self.assignments.values():
-            if not callable(fun):
-                continue
-            self.assignment_fun_hyperparams.append(
-                UserLambdaHyperparams.from_function_sig(fun, 1)
-            )
+        self.assignments = {}
+        for i, ass in enumerate(self.multi_column_assignments):
+            if callable(ass):
+                self.assignments[i] = StatelessLambda[pd.DataFrame, pd.DataFrame](ass)
+            else:
+                self.assignments[i] = ass
+        for k, ass in self.named_column_assignments.items():
+            if callable(ass):
+                self.assignments[k] = StatelessLambda[pd.DataFrame, pd.DataFrame](ass)
+            else:
+                self.assignments[k] = ass
 
     def hyperparams(self) -> set[str]:
         return (
             super()
             .hyperparams()
             .union(
-                *(ah.required_or_optional() for ah in self.assignment_fun_hyperparams)
+                *(
+                    ass.hyperparams()
+                    for k, ass in self.assignments.items()
+                    if isinstance(ass, Transform)
+                )
             )
         )
 
-    def resolve(self: A, bindings: Optional[Bindings] = None) -> A:
-        bindings = bindings or {}
-        resolved_self = super().resolve(bindings)
-        resolved_self.assignment_fun_bindings = [
-            ah.collect_bindings(bindings)
-            for ah in resolved_self.assignment_fun_hyperparams
-        ]
-        return resolved_self
-
-    def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
-        kwargs: dict[str, Callable | float | int | str | Future] = {}
-        bindings_idx = 0
+    def _submit_fit(
+        self,
+        data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> dict[int | str, FitTransform | Future]:
         with self.parallel_backend() as backend:
-            data_fut = backend.maybe_put(data_apply)
-            for k, v in self.assignments.items():
-                if callable(v):
-                    fun = partial(v, **self.assignment_fun_bindings[bindings_idx])
-                    bindings_idx += 1
-                    kwargs[k] = backend.submit(k, fun, data_fut)
+            data_fit = backend.maybe_put(data_fit)
+            state: dict[int | str, FitTransform | Future] = {}
+            for k, ass in self.assignments.items():
+                if isinstance(k, int):
+                    trace = f"[{k}]"
                 else:
-                    kwargs[k] = v
+                    trace = k
 
-            return data_apply.assign(
-                **{
-                    k: v.result() if isinstance(v, Future) else v
-                    for k, v in kwargs.items()
-                }
+                if isinstance(ass, Transform):
+                    state[k] = backend.push_trace(trace).fit(ass, data_fit, bindings)
+                elif isinstance(ass, Future):
+                    state[k] = ass
+                else:
+                    state[k] = backend.put(ass)
+
+            return state
+
+    def _materialize_state(self, state: dict[int | str, FitTransform | Future]) -> Any:
+        state_dict = super()._materialize_state(state)
+        for k, v in state_dict.items():
+            if isinstance(v, FitTransform):
+                state_dict[k] = v.materialize_state()
+            elif isinstance(v, Future):
+                state_dict[k] = v.result()
+        return state_dict
+
+    def _do_assign(
+        self,
+        data_apply: pd.DataFrame,
+        *multi_cols: pd.DataFrame,
+        **named_cols: pd.DataFrame | pd.Series | int | float | str,
+    ):
+        result = data_apply
+        for mc_df in multi_cols:
+            result = result.assign(**{c: mc_df[c] for c in mc_df.columns})
+
+        for c, obj in named_cols.items():
+            val = obj
+            if isinstance(obj, pd.DataFrame):
+                if len(obj.columns) != 1:
+                    raise ValueError(
+                        f"_do_assign: named column assignment {c!r} expected a 1-"
+                        f"column DataFrame, but got: {obj.columns}"
+                    )
+                val = obj[obj.columns[0]]
+            result = result.assign(**{c: val})
+
+        return result
+
+    def _submit_apply(
+        self,
+        data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        state: dict[int | str, FitTransform | Future] | None = None,
+    ) -> Future[pd.DataFrame] | None:
+        assert state is not None
+        if data_apply is None:  # pragma: no cover
+            data_apply = pd.DataFrame()
+        with self.parallel_backend() as backend:
+            data_apply = backend.maybe_put(data_apply)
+            multi_col_futures: list[Future[pd.DataFrame]] = []
+            named_col_futures: dict[str, Future[pd.DataFrame]] = {}
+            for k, ass in state.items():
+                if isinstance(k, int):
+                    stash = multi_col_futures.append
+                    trace = f"[{k}]"
+                else:
+                    stash = partial(named_col_futures.__setitem__, k)
+                    trace = k
+
+                if isinstance(ass, FitTransform):
+                    fut = backend.push_trace(trace).apply(ass, data_apply)
+                elif isinstance(ass, Future):
+                    fut = ass
+                else:  # pragma: no cover
+                    raise TypeError(
+                        f"Assign internal error: non-FitTransform, non-Future "
+                        f"assignment: k={k!r}, ass={ass!r}"
+                    )
+                stash(fut)
+
+            return backend.submit(
+                "_do_assign",
+                self._do_assign,
+                data_apply,
+                *multi_col_futures,
+                pure=True,  # FIXME? what if impure children?
+                **named_col_futures,
             )
 
 
-Cols = Union[str, HP, Sequence[Union[str, HP]]]
+Cols = Union[str, HP, ALL_COLS, Sequence[Union[str, HP]]]
 
 
 class DataFrameCallChain(Generic[P_co]):
@@ -986,6 +1179,19 @@ class DataFrameCallChain(Generic[P_co]):
         Append a :class:`ReadDataset` transform to this pipeline.
         """
 
+    @callchain(WriteDataset)
+    def write_dataset(  # type: ignore [empty-body]
+        self,
+        base_dir: str | HP,
+        format: str | HP = "parquet",
+        partitioning_schema: Optional[list[tuple]] = None,
+        write_dataset_args: dict | None = None,
+        existing_data_behavior: str = "delete_matching",
+    ) -> P_co:
+        """
+        Applend a :class:`WriteDataset` transform to this pipeline.
+        """
+
     @callchain(Select)
     def select(  # type: ignore [empty-body]
         self, cols: Cols, *, tag: Optional[str] = None
@@ -1023,6 +1229,43 @@ class DataFrameCallChain(Generic[P_co]):
         Append a :class:`Drop` transform to this pipeline.
         """
 
+    @callchain(Affix)
+    def affix(  # type: ignore [empty-body]
+        self,
+        prefix: str,
+        suffix: str,
+        cols: Cols | None = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append an :class:`Affix` transform to this pipeline.
+        """
+
+    @callchain(Prefix)
+    def prefix(  # type: ignore [empty-body]
+        self,
+        prefix: str,
+        cols: Cols | None = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append an :class:`Prefix` transform to this pipeline.
+        """
+
+    @callchain(Suffix)
+    def suffix(  # type: ignore [empty-body]
+        self,
+        suffix: str,
+        cols: Cols | None = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> P_co:
+        """
+        Append an :class:`Suffix` transform to this pipeline.
+        """
+
     @callchain(Rename)
     def rename(  # type: ignore [empty-body]
         self, how: Callable | dict[str, str] | HP, *, tag: Optional[str] = None
@@ -1034,9 +1277,18 @@ class DataFrameCallChain(Generic[P_co]):
     @callchain(Assign)
     def assign(  # type: ignore [empty-body]
         self,
-        *args,
+        # Multi-column assignments
+        *args: Transform[pd.DataFrame, pd.DataFrame] | Future[pd.DataFrame] | Callable,
         tag: Optional[str] = None,
-        **kwargs: Any,
+        # Named-column assignments
+        **kwargs: (
+            Transform[pd.DataFrame, pd.DataFrame]
+            | Future[pd.DataFrame]
+            | Callable
+            | float  # scalars...
+            | int
+            | str
+        ),
     ) -> P_co:
         """
         Append a :class:`Assign` transform to this pipeline.
@@ -1045,8 +1297,8 @@ class DataFrameCallChain(Generic[P_co]):
     @callchain(Pipe)
     def pipe(  # type: ignore [empty-body]
         self,
-        cols: Cols,
         apply_fun: Callable | HP,
+        cols: Cols | None = None,
         *,
         tag: Optional[str] = None,
     ) -> P_co:
@@ -1057,9 +1309,9 @@ class DataFrameCallChain(Generic[P_co]):
     @callchain(Clip)
     def clip(  # type: ignore [empty-body]
         self,
-        cols: Cols,
         upper: Optional[float | HP] = None,
         lower: Optional[float | HP] = None,
+        cols: Cols | None = None,
         *,
         tag: Optional[str] = None,
     ) -> P_co:
@@ -1069,7 +1321,7 @@ class DataFrameCallChain(Generic[P_co]):
 
     @callchain(Winsorize)
     def winsorize(  # type: ignore [empty-body]
-        self, cols: Cols, limit: float | HP, *, tag: Optional[str] = None
+        self, limit: float | HP, cols: Cols | None = None, *, tag: Optional[str] = None
     ) -> P_co:
         """
         Append a :class:`Winsorize` transform to this pipeline.
@@ -1077,7 +1329,7 @@ class DataFrameCallChain(Generic[P_co]):
 
     @callchain(ImputeConstant)
     def impute_constant(  # type: ignore [empty-body]
-        self, cols: Cols, value: Any, *, tag: Optional[str] = None
+        self, value: Any, cols: Cols | None = None, *, tag: Optional[str] = None
     ) -> P_co:
         """
         Append a :class:`ImputeConstant` transform to this pipeline.
@@ -1085,7 +1337,11 @@ class DataFrameCallChain(Generic[P_co]):
 
     @callchain(DeMean)
     def de_mean(  # type: ignore [empty-body]
-        self, cols: Cols, w_col: Optional[str | HP] = None, *, tag: Optional[str] = None
+        self,
+        cols: Cols | None = None,
+        w_col: Optional[str | HP] = None,
+        *,
+        tag: Optional[str] = None,
     ) -> P_co:
         """
         Append a :class:`DeMean` transform to this pipeline.
@@ -1093,7 +1349,11 @@ class DataFrameCallChain(Generic[P_co]):
 
     @callchain(ImputeMean)
     def impute_mean(  # type: ignore [empty-body]
-        self, cols: Cols, w_col: Optional[str | HP] = None, *, tag: Optional[str] = None
+        self,
+        cols: Cols | None = None,
+        w_col: Optional[str | HP] = None,
+        *,
+        tag: Optional[str] = None,
     ) -> P_co:
         """
         Append a :class:`ImputeMean` transform to this pipeline.
@@ -1101,7 +1361,11 @@ class DataFrameCallChain(Generic[P_co]):
 
     @callchain(ZScore)
     def z_score(  # type: ignore [empty-body]
-        self, cols: Cols, w_col: Optional[str | HP] = None, *, tag: Optional[str] = None
+        self,
+        cols: Cols | None = None,
+        w_col: Optional[str | HP] = None,
+        *,
+        tag: Optional[str] = None,
     ) -> P_co:
         """
         Append a :class:`ZScore` transform to this pipeline.

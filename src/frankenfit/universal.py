@@ -132,6 +132,23 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
 
 
 @params
+class StateOf(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+    transform: Transform
+
+    def _submit_fit(
+        self,
+        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        bindings: Optional[Bindings] = None,
+    ) -> Any:
+        with self.parallel_backend() as backend:
+            return backend.fit(self.transform, data_fit, bindings)
+
+    def _apply(self, data_apply: DataIn, state: Any) -> DataResult:
+        state = cast(FitTransform[Any, DataIn, DataResult], state)
+        return state.materialize_state().state()
+
+
+@params
 class BranchTransform(UniversalTransform):
     def _submit_apply(
         self,
@@ -176,9 +193,13 @@ class IfHyperparamIsTrue(BranchTransform):
             )
         with self.parallel_backend() as backend:
             if bindings.get(self.hp_name):
-                return backend.fit(self.then_transform, data_fit, bindings)
+                return backend.push_trace("then").fit(
+                    self.then_transform, data_fit, bindings
+                )
             elif self.otherwise is not None:
-                return backend.fit(self.otherwise, data_fit, bindings)
+                return backend.push_trace("otherwise").fit(
+                    self.otherwise, data_fit, bindings
+                )
             return None
 
     def hyperparams(self) -> set[str]:
@@ -201,9 +222,13 @@ class IfHyperparamLambda(BranchTransform):
         bindings = bindings or {}
         with self.parallel_backend() as backend:
             if self.fun(bindings):
-                return backend.fit(self.then_transform, data_fit, bindings)
+                return backend.push_trace("then").fit(
+                    self.then_transform, data_fit, bindings
+                )
             elif self.otherwise is not None:
-                return backend.fit(self.otherwise, data_fit, bindings)
+                return backend.push_trace("otherwise").fit(
+                    self.otherwise, data_fit, bindings
+                )
             return None
 
     def hyperparams(self) -> set[str]:
@@ -240,13 +265,17 @@ class IfFittingDataHasProperty(BranchTransform):
     ) -> FitTransform | None:
         bindings = bindings or {}
         with self.parallel_backend() as backend:
-            test_result: bool = self.test_transform.on_backend(backend).apply(
-                data_fit, bindings
-            )
+            test_result: bool = self.test_transform.on_backend(
+                backend.push_trace("test")
+            ).apply(data_fit, bindings)
             if test_result:
-                return backend.fit(self.then_transform, data_fit, bindings)
+                return backend.push_trace("then").fit(
+                    self.then_transform, data_fit, bindings
+                )
             elif self.otherwise is not None:
-                return backend.fit(self.otherwise, data_fit, bindings)
+                return backend.push_trace("otherwise").fit(
+                    self.otherwise, data_fit, bindings
+                )
             else:
                 return None
 
@@ -277,12 +306,12 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
         with self.parallel_backend() as backend:
             if len(self.bindings_sequence) > 0:
                 data_fit = backend.maybe_put(data_fit)
-            for bindings in self.bindings_sequence:
+            for i, bindings in enumerate(self.bindings_sequence):
                 fits.append(
                     ForBindings.FitResult(
                         bindings,
                         # submit in parallel on backend
-                        backend.fit(
+                        backend.push_trace(f"[{i}]").fit(
                             self.transform,
                             data_fit,
                             {**base_bindings, **bindings},
@@ -315,10 +344,10 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
                 data_apply = backend.maybe_put(data_apply)
             bindings = []
             results: list[Future[DataResult]] = []
-            for fit_result in state:
+            for i, fit_result in enumerate(state):
                 bindings.append(fit_result.bindings)
                 results.append(
-                    backend.apply(fit_result.fit, data_apply),
+                    backend.push_trace(f"[{i}]").apply(fit_result.fit, data_apply),
                 )
             return backend.submit(
                 "_combine_results",
@@ -392,7 +421,11 @@ class UserLambdaHyperparams:
 
 
 @params(auto_attribs=False)
-class StatelessLambda(UniversalTransform, StatelessTransform):
+class StatelessLambda(
+    Generic[DataIn, DataResult],
+    UniversalTransform[DataIn, DataResult],
+    StatelessTransform[DataIn, DataResult],
+):
     apply_fun: Callable = field()  # df[, bindings] -> df
 
     apply_fun_bindings: Bindings
@@ -681,6 +714,7 @@ class UniversalGrouper(Generic[P_co], Grouper[P_co], UniversalCallChain[P_co]):
 
 
 G_co = TypeVar("G_co", bound=UniversalGrouper, covariant=True)
+SelfUPI = TypeVar("SelfUPI", bound="UniversalPipelineInterface")
 
 
 class UniversalPipelineInterface(
@@ -711,6 +745,17 @@ class UniversalPipelineInterface(
             tag=tag if tag is not None else NOTHING,
         )
         return cast(G_co, grouper)
+
+    def last_state(self: SelfUPI) -> SelfUPI:
+        """
+        Replace the last transform ``t`` in the pipeline with `:class:StateOf(t)`.
+        """
+        if not len(self.transforms):
+            raise ValueError("last_state: undefined on empty pipeline")
+
+        self_copy = self + []
+        self_copy.transforms.append(StateOf(self_copy.transforms.pop()))
+        return self_copy
 
 
 class UniversalPipeline(
