@@ -421,7 +421,11 @@ class UserLambdaHyperparams:
 
 
 @params(auto_attribs=False)
-class StatelessLambda(UniversalTransform, StatelessTransform):
+class StatelessLambda(
+    Generic[DataIn, DataResult],
+    UniversalTransform[DataIn, DataResult],
+    StatelessTransform[DataIn, DataResult],
+):
     apply_fun: Callable = field()  # df[, bindings] -> df
 
     apply_fun_bindings: Bindings
