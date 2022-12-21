@@ -797,6 +797,22 @@ def test_Assign(diamonds_df: pd.DataFrame):
         do.assign(foo=do[["price", "carat"]]).apply(diamonds_df)
 
 
+def test_Assign_child_state(diamonds_df: pd.DataFrame):
+    do = ff.DataFramePipeline()
+    pipeline = do.assign(price_dmn=do["price"].de_mean())[["price_dmn"]]
+
+    df1 = diamonds_df.sample(1000)
+    df2 = diamonds_df.sample(5000)
+
+    fit = pipeline.fit(df1)
+    own_result = fit.apply(df1)
+    other_result = fit.apply(df2)
+
+    assert own_result["price_dmn"].equals(df1["price"] - df1["price"].mean())
+    # assert we subtracted the first dataframe's mean
+    assert other_result["price_dmn"].equals(df2["price"] - df1["price"].mean())
+
+
 def test_GroupByBindings(diamonds_df: pd.DataFrame):
     df = diamonds_df.head()
     result = (

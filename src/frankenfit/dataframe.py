@@ -422,6 +422,9 @@ class GroupByCols(DataFrameTransform):
     fitting_schedule: Callable[[dict[str, Any]], DfLocIndex | DfLocPredicate] = field(
         default=fit_group_on_self
     )
+    as_index: bool = False
+    group_keys: bool = False
+    sort: bool = False
 
     def _fit(
         self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
@@ -435,8 +438,6 @@ class GroupByCols(DataFrameTransform):
                 self.fitting_schedule(group_col_map)  # type: ignore
             ]
             # fit the transform on the fitting data for this group
-            # TODO: new per-group tags for the FitTransforms? How should find_by_tag()
-            # work on FitGroupBy? (By overriding _children())
             return self.transform.fit(df_group_fit, bindings)
 
         return (
@@ -463,7 +464,12 @@ class GroupByCols(DataFrameTransform):
 
         return (
             data_apply.merge(state, how="left", on=self.cols)
-            .groupby(self.cols, as_index=False, sort=False, group_keys=False)
+            .groupby(
+                self.cols,
+                as_index=self.as_index,
+                sort=self.sort,
+                group_keys=self.group_keys,
+            )
             .apply(apply_on_group)
         )
 
@@ -1468,6 +1474,9 @@ class DataFramePipelineInterface(
         fitting_schedule: Optional[
             Callable[[dict[str, Any]], DfLocIndex | DfLocPredicate] | HP
         ] = None,
+        as_index: bool = False,
+        group_keys: bool = False,
+        sort: bool = False,
     ) -> G_co:
         """
         Return a :class:`Grouper` object, which will consume the next Transform
@@ -1521,6 +1530,9 @@ class DataFramePipelineInterface(
             "transform",
             cols=cols,
             fitting_schedule=(fitting_schedule or fit_group_on_self),
+            as_index=as_index,
+            group_keys=group_keys,
+            sort=sort,
         )
         return cast(G_co, grouper)
 
