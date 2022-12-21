@@ -93,7 +93,10 @@ T = TypeVar("T")
 @params
 class UniversalTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
     def then(
-        self, other: Optional[Transform | list[Transform]] = None
+        self,
+        other: Optional[
+            Transform | FitTransform | list[Transform | FitTransform]
+        ] = None,
     ) -> "UniversalPipeline":
         result = super().then(other)
         return UniversalPipeline(transforms=result.transforms)
@@ -133,13 +136,15 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
 
 @params
 class StateOf(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
-    transform: Transform
+    transform: Transform | FitTransform
 
     def _submit_fit(
         self,
         data_fit: Optional[DataIn | Future[DataIn]] = None,
         bindings: Optional[Bindings] = None,
     ) -> Any:
+        if isinstance(self.transform, FitTransform):
+            return self.transform
         with self.parallel_backend() as backend:
             return backend.fit(self.transform, data_fit, bindings)
 

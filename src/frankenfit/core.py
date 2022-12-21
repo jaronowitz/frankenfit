@@ -73,6 +73,7 @@ from typing import (
     Iterator,
     Literal,
     Optional,
+    Sequence,
     Sized,
     Type,
     TypeVar,
@@ -843,20 +844,28 @@ class Transform(ABC, Generic[DataIn, DataResult]):
             yield backend
 
     def then(
-        self: Transform, other: Optional[Transform | list[Transform]] = None
+        self: Transform,
+        other: Optional[
+            Transform | list[Transform | FitTransform] | FitTransform
+        ] = None,
     ) -> BasePipeline:
+        transforms: Sequence[Transform | FitTransform]
         if other is None:
             transforms = [self]
         elif isinstance(other, list):
             transforms = [self] + other
-        elif isinstance(other, Transform):
+        elif isinstance(other, (Transform, FitTransform)):
             transforms = [self, other]
         else:
-            raise TypeError(f"then(): other must be Transform or list, got: {other!r}")
+            raise TypeError(
+                f"then(): other must be (Fit)Transform or list, got: {other!r}"
+            )
 
         return BasePipeline(transforms=transforms)
 
-    def __add__(self, other: Optional[Transform | list[Transform]]) -> BasePipeline:
+    def __add__(
+        self, other: Optional[Transform | list[Transform | FitTransform]] | FitTransform
+    ) -> BasePipeline:
         return self.then(other)
 
     def __eq__(self, other: object) -> bool:
@@ -1175,7 +1184,7 @@ def _convert_pipeline_transforms(value):
     if isinstance(value, BasePipeline):
         # "coalesce" Pipelines
         tf_seq = value.transforms
-    elif isinstance(value, Transform):
+    elif isinstance(value, (Transform, FitTransform)):
         tf_seq = [value]
     elif value is None:  # pragma: no cover
         tf_seq = []
@@ -1186,7 +1195,7 @@ def _convert_pipeline_transforms(value):
         if isinstance(tf_elem, BasePipeline):
             # "coalesce" Pipelines
             result.extend(tf_elem.transforms)
-        elif isinstance(tf_elem, Transform):
+        elif isinstance(tf_elem, (Transform, FitTransform)):
             result.append(tf_elem)
         else:
             raise TypeError(f"Pipeline cannot contain a non-Transform: {tf_elem!r}")
@@ -1210,7 +1219,9 @@ class Grouper(Generic[P_co]):
         self._wrapper_kwarg_name_for_wrappee = wrapper_kwarg_name_for_wrappee
         self._wrapper_other_kwargs = wrapper_other_kwargs
 
-    def then(self, other: Optional[Transform | list[Transform]]) -> P_co:
+    def then(
+        self, other: Optional[Transform | FitTransform | list[Transform | FitTransform]]
+    ) -> P_co:
         if not isinstance(self._pipeline_upstream, BasePipeline):  # pragma: no cover
             raise TypeError(
                 f"Grouper cannot be applied to non-BasePipeline upstream: "
@@ -1218,7 +1229,7 @@ class Grouper(Generic[P_co]):
                 f"{type(self._pipeline_upstream)}"
             )
 
-        if not isinstance(other, Transform):
+        if not isinstance(other, (Transform, FitTransform)):
             other = type(self._pipeline_upstream)(transforms=other)
 
         wrapping_kwargs = dict(
@@ -1228,7 +1239,9 @@ class Grouper(Generic[P_co]):
         wrapping_transform = self._wrapper_class(**wrapping_kwargs)
         return self._pipeline_upstream + cast(Transform, wrapping_transform)
 
-    def __add__(self, other: Optional[Transform | list[Transform]]) -> P_co:
+    def __add__(
+        self, other: Optional[Transform | FitTransform | list[Transform | FitTransform]]
+    ) -> P_co:
         return self.then(other)
 
 
@@ -1237,7 +1250,7 @@ DataInOut = TypeVar("DataInOut")
 
 @params(auto_attribs=False)
 class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
-    transforms: list[Transform[DataInOut, DataInOut]] = field(
+    transforms: list[Transform[DataInOut, DataInOut] | FitTransform] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
 
@@ -1245,7 +1258,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     def _check_transforms(self, attribute, value):
         t_is_first = True
         for t in value:
-            if not isinstance(t, Transform):
+            if not isinstance(t, (Transform, FitTransform)):
                 raise TypeError(
                     "Pipeline sequence must comprise Transform instances; found "
                     f"non-Transform {t!r} (type {type(t)})"
@@ -1336,7 +1349,13 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
                 return backend.put(self._empty_constructor())
             for (i, t) in enumerate(self.transforms):
                 trace = f"[{i}]"
-                ft = backend.push_trace(trace).fit(t, data_fit, bindings)
+
+                # skip fitting of already-fit FitTransforms
+                if isinstance(t, FitTransform):
+                    ft = t
+                else:
+                    assert isinstance(t, Transform)
+                    ft = backend.push_trace(trace).fit(t, data_fit, bindings)
                 fit_transforms.append(ft)
                 if i < n - 1 or return_what == "result":
                     data_fit = backend.push_trace(trace).apply(ft, data_fit)
@@ -1407,7 +1426,9 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     def __add__(
         self: P,
         other: Optional[
-            Transform[DataInOut, DataInOut] | list[Transform[DataInOut, DataInOut]]
+            Transform[DataInOut, DataInOut]
+            | FitTransform
+            | list[Transform[DataInOut, DataInOut] | FitTransform]
         ],
     ) -> P:
         return self.then(other)
@@ -1415,7 +1436,9 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     def then(
         self: P,
         other: Optional[
-            Transform[DataInOut, DataInOut] | list[Transform[DataInOut, DataInOut]]
+            Transform[DataInOut, DataInOut]
+            | FitTransform
+            | list[Transform[DataInOut, DataInOut] | FitTransform]
         ] = None,
     ) -> P:
         """
@@ -1482,7 +1505,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         elif isinstance(other, BasePipeline):
             # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
-        elif isinstance(other, Transform):
+        elif isinstance(other, (Transform, FitTransform)):
             transforms = self.transforms + [other]
         elif isinstance(other, list):
             transforms = self.transforms + other

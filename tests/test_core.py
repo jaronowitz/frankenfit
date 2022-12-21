@@ -696,3 +696,30 @@ def test_IfPipelineIsFitting(diamonds_df: pd.DataFrame):
     tb3 = TracingBackend()
     tb3.apply(pip, diamonds_df)
     assert sum(v for k, v in tb3.key_counts.items() if k.endswith("._apply")) == 3
+
+
+def test_pipeline_with_FitTransform(diamonds_df: pd.DataFrame):
+    @ff.params
+    class DeMean(ff.Transform[pd.DataFrame, pd.DataFrame]):
+        """
+        De-mean some columns.
+        """
+
+        cols: list[str]
+
+        def _fit(self, data_fit: pd.DataFrame, bindings=None) -> pd.Series:
+            return data_fit[self.cols].mean()
+
+        def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
+            means = state
+            return data_apply.assign(**{c: data_apply[c] - means[c] for c in self.cols})
+
+    df1 = diamonds_df.sample(10_000)
+    fit = DeMean(["price"]).fit(df1)
+
+    target = diamonds_df.assign(price=diamonds_df["price"] - df1["price"].mean())
+    pip = ff.ReadDataFrame(diamonds_df).then(fit)
+    assert pip.apply().equals(target)
+
+    pip = ff.DataFramePipeline().read_data_frame(diamonds_df).then(fit)
+    assert pip.apply().equals(target)

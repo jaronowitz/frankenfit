@@ -114,7 +114,10 @@ T = TypeVar("T")
 
 class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
     def then(
-        self, other: Optional[Transform | list[Transform]] = None
+        self,
+        other: Optional[
+            Transform | FitTransform | list[Transform | FitTransform]
+        ] = None,
     ) -> "DataFramePipeline":
         result = super().then(other)
         return DataFramePipeline(transforms=result.transforms)
