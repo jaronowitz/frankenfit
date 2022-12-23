@@ -50,7 +50,7 @@ ff.dataframe.DeMean(["x", "y", "z"]).visualize()
 pip = ff.DataFramePipeline(transforms=[
     ffdf.DeMean(["x", "y", "z"]),
     ffdf.Winsorize(["x", "y", "z"], limit=0.05),
-    
+
 ])
 pip.visualize()
 #ff.DataFramePipeline()

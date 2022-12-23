@@ -168,7 +168,7 @@ from attrs import define
 class GenerateRandomData(ff.StatelessTransform):
     cols: dict[str, dict]
     nrows: int
-    
+
     def _apply(self, df_apply, state=None):
         return pd.DataFrame({
             c: np.random.normal(size=self.nrows, **cparams) for (c, cparams) in self.cols.items()

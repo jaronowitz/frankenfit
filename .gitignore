@@ -19,3 +19,4 @@ diamonds.csv
 .dmypy.json
 scratch*
 .coverage/
+notebooks/*.ipynb

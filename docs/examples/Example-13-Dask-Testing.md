@@ -141,9 +141,8 @@ ds.write_dataset(
 ```
 
 ```{code-cell} ipython3
-
 ff.dataframe.WriteDataset(
-    "./test6", 
+    "./test6",
     partitioning_schema=pa.schema([("year", pa.int16()), ("month", pa.int8()), ("day", pa.int32())])
 ).apply(
     df
@@ -165,7 +164,7 @@ ff.dataframe.WriteDataset(
         day=lambda df: df.index.day,
     )
     .write_dataset(
-        "./test7", 
+        "./test7",
         partitioning_schema=pa.schema(
             [("year", pa.int16()), ("month", pa.int8()), ("day", pa.int32())]
         )

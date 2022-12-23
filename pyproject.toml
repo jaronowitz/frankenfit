@@ -163,3 +163,6 @@ data_file = ".coverage/coverage"
 
 [tool.isort]
 profile = "black"
+
+[tool.jupytext]
+formats = "notebooks///ipynb,docs///md:myst"

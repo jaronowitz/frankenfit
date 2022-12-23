@@ -141,7 +141,7 @@ index_in = set(np.random.choice(df.index, size=int(len(df) / 2), replace=False))
 index_out = index_all - index_in
 df_in = df.loc[list(index_in)]
 df_out = df.loc[list(index_out)]
-    
+
 import itertools
 
 fits = []

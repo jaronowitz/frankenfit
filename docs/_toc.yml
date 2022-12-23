@@ -2,9 +2,16 @@
 # Learn more at https://jupyterbook.org/customize/toc.html
 
 format: jb-book
-root: intro
+root: cover
 chapters:
+- file: synopsis
+- file: transform_and_pipelines
+- file: implementing_transforms
+- file: hyperparams_intro
+- file: crossval
+- file: dataframes
+- file: branching_and_grouping
+- file: backends
+- file: tips_tricks
+- file: examples
 - file: api
-# - file: markdown
-# - file: notebooks
-# - file: markdown-notebooks
