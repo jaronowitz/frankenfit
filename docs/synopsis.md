@@ -1,6 +1,7 @@
 ---
 jupytext:
   cell_metadata_filter: -all
+  formats: notebooks///ipynb,docs///md:myst
   text_representation:
     extension: .md
     format_name: myst
@@ -42,7 +43,7 @@ import frankenfit as ff
 
 With Frankenfit, we can:
 
-## Describe pipelines
+## Create pipelines
 
 Create concise and readable descriptions of data learning and transformation
 pipelines using a callchain-style API. A pipeline is a sequence of transforms, each
