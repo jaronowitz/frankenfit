@@ -2,6 +2,10 @@
 
 Copyright (c) 2022 Max Bane (max@thebanes.org)
 
+## Table of contents
+
+```{tableofcontents}
+```
 ## License (BSD 2-Clause plus patents)
 
 Redistribution and use in source and binary forms, with or without modification, are
@@ -47,8 +51,3 @@ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT
 LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 :::
-
-## Table of contents
-
-```{tableofcontents}
-```
