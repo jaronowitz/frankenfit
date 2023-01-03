@@ -240,12 +240,12 @@ def test_fit_apply_futures() -> None:
 def test_then() -> None:
     t = ff.Identity[str]()
     t2 = ff.Identity[str]()
-    assert isinstance(t.then(), ff.BasePipeline)
+    assert isinstance(t.then(), ff.Pipeline)
     p = t.then(t2)
-    assert isinstance(p, ff.BasePipeline)
+    assert isinstance(p, ff.Pipeline)
     assert len(p) == 2
     p = t.then([t2])
-    assert isinstance(p, ff.BasePipeline)
+    assert isinstance(p, ff.Pipeline)
     assert len(p) == 2
     with pytest.raises(TypeError):
         t.then(42)  # type: ignore [arg-type]
@@ -401,17 +401,17 @@ def test_hyperparams(diamonds_df: pd.DataFrame) -> None:
 
 
 def test_Pipeline(diamonds_df: pd.DataFrame) -> None:
-    p = core.BasePipeline[pd.DataFrame]()
+    p = core.Pipeline[pd.DataFrame]()
     assert len(p) == 0
     # empty pipeline equiv to identity
     assert diamonds_df.equals(p.fit(diamonds_df).apply(diamonds_df))
 
     # bare transform, automatically becomes list of 1
-    p = core.BasePipeline[pd.DataFrame](transforms=ff.Identity())
+    p = core.Pipeline[pd.DataFrame](transforms=ff.Identity())
     assert len(p) == 1
     assert p.fit(diamonds_df).apply(diamonds_df).equals(diamonds_df)
 
-    p = core.BasePipeline[pd.DataFrame](
+    p = core.Pipeline[pd.DataFrame](
         transforms=[
             ff.Identity(),
             ff.Identity(),
@@ -427,32 +427,30 @@ def test_Pipeline(diamonds_df: pd.DataFrame) -> None:
     assert df.equals(diamonds_df)
 
     # pipeline of pipeline is coalesced
-    p2 = core.BasePipeline[pd.DataFrame](transforms=p)
+    p2 = core.Pipeline[pd.DataFrame](transforms=p)
     assert len(p2) == len(p)
     assert p2 == p
-    p2 = core.BasePipeline[pd.DataFrame](transforms=[p])
+    p2 = core.Pipeline[pd.DataFrame](transforms=[p])
     assert len(p2) == len(p)
     assert p2 == p
 
     # TypeError for a non-Transform in the pipeline
     with pytest.raises(TypeError):
-        core.BasePipeline(transforms=42)
+        core.Pipeline(transforms=42)
     with pytest.raises(TypeError):
-        core.BasePipeline(transforms=[ff.Identity(), 42])
+        core.Pipeline(transforms=[ff.Identity(), 42])
 
 
 def test_Pipeline_callchaining(diamonds_df: pd.DataFrame) -> None:
     # call-chaining should give the same result as list of transform instances
-    PipelineWithMethods = core.BasePipeline[pd.DataFrame].with_methods(
-        identity=ff.Identity
-    )
+    PipelineWithMethods = core.Pipeline[pd.DataFrame].with_methods(identity=ff.Identity)
     assert (
         inspect.signature(
             PipelineWithMethods.identity  # type: ignore [attr-defined]
         ).return_annotation
-        == "BasePipelineWithMethods"
+        == "PipelineWithMethods"
     )
-    pipeline_con = core.BasePipeline[pd.DataFrame](transforms=[ff.Identity()])
+    pipeline_con = core.Pipeline[pd.DataFrame](transforms=[ff.Identity()])
     pipeline_chain = PipelineWithMethods().identity()  # type: ignore [attr-defined]
     assert (
         pipeline_con.fit(diamonds_df)
@@ -463,9 +461,7 @@ def test_Pipeline_callchaining(diamonds_df: pd.DataFrame) -> None:
 
 def test_tags(diamonds_df: pd.DataFrame) -> None:
     tagged_ident = ff.Identity[Any](tag="mytag")
-    pip = core.BasePipeline[Any](
-        transforms=[ff.Identity(), tagged_ident, ff.Identity()]
-    )
+    pip = core.Pipeline[Any](transforms=[ff.Identity(), tagged_ident, ff.Identity()])
     assert pip.find_by_name("Identity#mytag") is tagged_ident
     with pytest.raises(KeyError):
         pip.find_by_name("mingus dew")
@@ -494,9 +490,7 @@ def test_FitTransform_materialize_state() -> None:
         return fit_transform.state() == fit_transform.materialize_state().state()
 
     tagged_ident = ff.Identity[Any](tag="mytag")
-    pip = core.BasePipeline[Any](
-        transforms=[ff.Identity(), tagged_ident, ff.Identity()]
-    )
+    pip = core.Pipeline[Any](transforms=[ff.Identity(), tagged_ident, ff.Identity()])
     fit = ff.LocalBackend().fit(pip)
     assert not has_materialized_state(fit)
     with pytest.raises(ValueError):
@@ -519,8 +513,8 @@ def test_simple_visualize() -> None:
     p.visualize()
 
 
-def test_empty_BasePipeline() -> None:
-    pip = ff.BasePipeline[str]()
+def test_empty_Pipeline() -> None:
+    pip = ff.Pipeline[str]()
     fit = pip.fit()
 
     # data_apply is not None, backend is None: identity
@@ -565,9 +559,9 @@ def test_empty_BasePipeline() -> None:
 
 
 def test_pipeline_then() -> None:
-    pip = ff.BasePipeline[str](transforms=[ff.Identity[str]()])
-    pip2 = ff.BasePipeline[str](transforms=[ff.Identity[str](), ff.Identity[str]()])
-    pip3 = ff.BasePipeline[str](
+    pip = ff.Pipeline[str](transforms=[ff.Identity[str]()])
+    pip2 = ff.Pipeline[str](transforms=[ff.Identity[str](), ff.Identity[str]()])
+    pip3 = ff.Pipeline[str](
         transforms=[ff.Identity[str](), ff.Identity[str](), ff.Identity[str]()]
     )
 
@@ -657,7 +651,7 @@ def test_IfPipelineIsFitting(diamonds_df: pd.DataFrame):
                 key_prefix, function, *function_args, **function_kwargs
             )
 
-    pip = ff.BasePipeline[pd.DataFrame](
+    pip = ff.Pipeline[pd.DataFrame](
         transforms=[
             ff.Identity(),
             ff.core.IfPipelineIsFitting(ff.Identity()),

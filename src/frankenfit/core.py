@@ -91,7 +91,7 @@ _LOG = logging.getLogger(__name__)
 
 T = TypeVar("T")
 T_co = TypeVar("T_co", covariant=True)
-P = TypeVar("P", bound="BasePipeline")
+P = TypeVar("P", bound="Pipeline")
 R = TypeVar("R", bound="Transform")
 B = TypeVar("B", bound="Backend")
 R_co = TypeVar("R_co", covariant=True, bound="Transform")
@@ -250,7 +250,7 @@ class Backend(ABC):
     @overload
     def apply(
         self,
-        what: BasePipeline[DataInOut],
+        what: Pipeline[DataInOut],
         data_apply: Optional[DataInOut | Future[DataInOut]] = None,
         bindings: Optional[Bindings] = None,
         /,
@@ -263,7 +263,7 @@ class Backend(ABC):
         what: (
             FitTransform[R, DataIn, DataResult]
             | StatelessTransform[DataIn, DataResult]
-            | BasePipeline[DataInOut]
+            | Pipeline[DataInOut]
         ),
         data_apply: Optional[
             DataIn | Future[DataIn] | DataInOut | Future[DataInOut]
@@ -290,7 +290,7 @@ class Backend(ABC):
             fit_what = self.fit(what, data, bindings)
             return self.apply(fit_what, data)
 
-        if isinstance(what, BasePipeline):
+        if isinstance(what, Pipeline):
             result = (
                 what.resolve(bindings)
                 .on_backend(self)
@@ -302,7 +302,7 @@ class Backend(ABC):
         if not isinstance(what, FitTransform):  # pragma: no cover
             raise TypeError(
                 f"{self}: cannot apply object: {what!r}. Please provide a "
-                "FitTransform, BasePipeline, or StatelessTransform."
+                "FitTransform, Pipeline, or StatelessTransform."
             )
         assert isinstance(what, FitTransform)
         if len(bindings):
@@ -515,7 +515,6 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         raise KeyError(f"No child FitTransform found with name: {name}")
 
 
-# TODO: remove need for Transform subclasses to write @transform?
 @params
 class Transform(ABC, Generic[DataIn, DataResult]):
     """
@@ -848,7 +847,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         other: Optional[
             Transform | list[Transform | FitTransform] | FitTransform
         ] = None,
-    ) -> BasePipeline:
+    ) -> Pipeline:
         transforms: Sequence[Transform | FitTransform]
         if other is None:
             transforms = [self]
@@ -861,11 +860,11 @@ class Transform(ABC, Generic[DataIn, DataResult]):
                 f"then(): other must be (Fit)Transform or list, got: {other!r}"
             )
 
-        return BasePipeline(transforms=transforms)
+        return Pipeline(transforms=transforms)
 
     def __add__(
         self, other: Optional[Transform | list[Transform | FitTransform]] | FitTransform
-    ) -> BasePipeline:
+    ) -> Pipeline:
         return self.then(other)
 
     def __eq__(self, other: object) -> bool:
@@ -1147,8 +1146,8 @@ def callchain(transform_class: type[R]) -> Callable[[C], C]:
 
 def method_wrapping_transform(
     class_qualname: str, method_name: str, transform_class: type[R]
-) -> Callable[..., BasePipeline]:
-    def method_impl(self, *args, **kwargs) -> BasePipeline:
+) -> Callable[..., Pipeline]:
+    def method_impl(self, *args, **kwargs) -> Pipeline:
         return self + transform_class(*args, **kwargs)
 
     method_impl.__annotations__.update(
@@ -1181,7 +1180,7 @@ def method_wrapping_transform(
 
 def _convert_pipeline_transforms(value):
     result = []
-    if isinstance(value, BasePipeline):
+    if isinstance(value, Pipeline):
         # "coalesce" Pipelines
         tf_seq = value.transforms
     elif isinstance(value, (Transform, FitTransform)):
@@ -1192,7 +1191,7 @@ def _convert_pipeline_transforms(value):
         tf_seq = list(value)
 
     for tf_elem in tf_seq:
-        if isinstance(tf_elem, BasePipeline):
+        if isinstance(tf_elem, Pipeline):
             # "coalesce" Pipelines
             result.extend(tf_elem.transforms)
         elif isinstance(tf_elem, (Transform, FitTransform)):
@@ -1203,7 +1202,7 @@ def _convert_pipeline_transforms(value):
     return result
 
 
-P_co = TypeVar("P_co", bound="BasePipeline", covariant=True)
+P_co = TypeVar("P_co", bound="Pipeline", covariant=True)
 
 
 class Grouper(Generic[P_co]):
@@ -1222,9 +1221,9 @@ class Grouper(Generic[P_co]):
     def then(
         self, other: Optional[Transform | FitTransform | list[Transform | FitTransform]]
     ) -> P_co:
-        if not isinstance(self._pipeline_upstream, BasePipeline):  # pragma: no cover
+        if not isinstance(self._pipeline_upstream, Pipeline):  # pragma: no cover
             raise TypeError(
-                f"Grouper cannot be applied to non-BasePipeline upstream: "
+                f"Grouper cannot be applied to non-Pipeline upstream: "
                 f"{self._pipeline_upstream} with type "
                 f"{type(self._pipeline_upstream)}"
             )
@@ -1249,7 +1248,7 @@ DataInOut = TypeVar("DataInOut")
 
 
 @params(auto_attribs=False)
-class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
+class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     transforms: list[Transform[DataInOut, DataInOut] | FitTransform] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
@@ -1502,7 +1501,7 @@ class BasePipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         """
         if other is None:
             transforms = self.transforms
-        elif isinstance(other, BasePipeline):
+        elif isinstance(other, Pipeline):
             # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
         elif isinstance(other, (Transform, FitTransform)):

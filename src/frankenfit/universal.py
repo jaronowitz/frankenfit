@@ -68,7 +68,6 @@ from typing import (
 from attrs import NOTHING, define, field
 
 from .core import (
-    BasePipeline,
     Bindings,
     DataIn,
     DataInOut,
@@ -77,6 +76,7 @@ from .core import (
     Future,
     Grouper,
     P_co,
+    Pipeline,
     SentinelDict,
     StatelessTransform,
     Transform,
@@ -723,7 +723,7 @@ SelfUPI = TypeVar("SelfUPI", bound="UniversalPipelineInterface")
 
 
 class UniversalPipelineInterface(
-    Generic[DataInOut, G_co, P_co], UniversalCallChain[P_co], BasePipeline[DataInOut]
+    Generic[DataInOut, G_co, P_co], UniversalCallChain[P_co], Pipeline[DataInOut]
 ):
     # Self = TypeVar("Self", bound="UniversalPipelineInterface")
 

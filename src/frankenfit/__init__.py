@@ -81,13 +81,13 @@ except _PNFE:  # pragma: no cover
 from frankenfit.backend import DaskBackend
 from frankenfit.core import (  # Exceptions that users can catch
     Backend,
-    BasePipeline,
     Bindings,
     ConstantTransform,
     FitTransform,
     Future,
     LocalBackend,
     NonInitialConstantTransformWarning,
+    Pipeline,
     StatelessTransform,
     Transform,
     UnresolvedHyperparameterError,
