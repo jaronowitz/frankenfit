@@ -34,6 +34,8 @@ repos:
         name: jupytext
         files: >-
             docs/.*\.md
+        exclude: >-
+            docs/(api\.md|cover\.md)
         entry: jupytext --set-format "notebooks///ipynb,docs///md:myst" --sync
         language: system
         pass_filenames: true
