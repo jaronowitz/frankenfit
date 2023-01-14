@@ -388,7 +388,10 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
     The fit state of the transformation, as returned by the ``Transform``
     object's ``_fit()`` method at fit-time, is available from :meth:`state()`,
     and this is the state that will be used at apply-time (i.e., passed as the
-    ``state`` argument of the user's ``_apply()`` method).
+    ``state`` argument of the Transform's ``_apply()`` method).
+
+    Frankenfit users should never need to construct a `FitTransform` object themselves.
+    They are always obtained from :meth:`Transform.fit()` or :meth:`Backend.fit()`.
     """
 
     _Self = TypeVar("_Self", bound="FitTransform")
@@ -548,17 +551,33 @@ class Transform(ABC, Generic[DataIn, DataResult]):
     constructing an instance with some parameters (which may be hypeparameters), and
     then calling its ``fit()`` and ``apply()`` methods (note no leading underscores).
 
-    A subclass ``C`` will automatically find itself in possession of an inner class
-    ``FitC``, which derives from ``FitTransform``.  ``C.fit()`` will then return a
-    ``C.FitC`` instance (encapsulating the state returned by the subclasser's ``_fit()``
-    implementation), whose ``apply()`` method (i.e., ``C.FitC.apply()``) employs the
-    subclasser's ``_apply()`` implementation.
-
     .. WARNING::
         Subclasses must not keep parameters in fields named ``fit``, ``apply``,
         ``state``, ``params``, or ``bindings`` as these would break functionality by
         overriding expected method names.
 
+    Parameters
+    ----------
+    tag : str
+        All Transform subclasses accept an optional `tag` param that is used for naming
+        and selecting Transforms that belong to Pipelines. If not supplied, a default
+        value is creating based on the Transform's class name and a nonce value.
+
+        .. SEEALSO::
+            :meth:`find_by_tag`, :meth:`FitTransform.find_by_tag`.
+
+    Attributes
+    ----------
+    pure : bool
+        Wether this Transform represents a "pure" computation, i.e. one that can be
+        cached safely. This may be used by some backends to avoid unnecessary
+        recomputations. The default value is True; some subclasses may wish to override
+        it with False if they should always be recomputed whenever applied. For example,
+        Transforms that read data, generate random outputs, or have desired side
+        effects.
+
+    Examples
+    --------
     An example of writing a ``Transform`` subclass::
 
         from attrs import define

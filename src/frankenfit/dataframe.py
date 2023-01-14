@@ -727,7 +727,24 @@ class Clip(ColumnsTransform, StatelessDataFrameTransform):
 
 @params
 class Winsorize(ColumnsTransform):
-    # assume symmetric, i.e. trim the upper and lower `limit` percent of observations
+    """
+    Symmetrically winsorize the specified columns of a pandas DataFrame, i.e., trim the
+    upper and lower ``limit`` percent of values ("outliers") by replacing them with the
+    ``limit``-th percentile of their respective column.
+
+    Parameters
+    ----------
+    limit : float
+        The percentile threshold beyond which values are trimmed. More precisely, for
+        each target column, values less than the ``limit``-th percentile of that column
+        are replaced by ``limit``-th percentile, and values greater than the ``1 -
+        limit``-th percentile are replaced by the ``1 - limit``-th percentile.
+
+    cols: list(str) | ALL_COLS, optional
+        The names of the columns to winsorize. If omitted, all columns found in the
+        DataFrame are winsorized.
+    """
+
     limit: float
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
 
@@ -786,7 +803,18 @@ def _weighted_means(df: pd.DataFrame, cols: list[str], w_col: str) -> pd.Series:
 @params
 class DeMean(ColumnsTransform):
     """
-    De-mean some columns.
+    De-mean the specified columns of a pandas DataFrame.
+
+    Parameters
+    ----------
+    cols: list(str) | ALL_COLS, optional
+        A list of the names of the columns to de-mean, or else the :class:`ALL_COLS`
+        type to indicate that all columns should be de-meaned. Optional; by default, all
+        columns are de-meaned.
+
+    w_col: str, optional
+        Optional name of the column to use as a source of observation weights when
+        computing the means. If omitted, the means are unweighted.
     """
 
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
@@ -796,7 +824,7 @@ class DeMean(ColumnsTransform):
         cols = self.resolve_cols(self.cols, data_fit)
         if self.w_col is not None:
             return _weighted_means(data_fit, cols, self.w_col)
-        return data_fit[cols].mean()
+        return data_fit[cols].mean(numeric_only=True)
 
     def _apply(self, data_apply: pd.DataFrame, state: pd.Series):
         means = state
@@ -813,7 +841,7 @@ class ImputeMean(ColumnsTransform):
         cols = self.resolve_cols(self.cols, data_fit)
         if self.w_col is not None:
             return _weighted_means(data_fit, cols, self.w_col)
-        return data_fit[cols].mean()
+        return data_fit[cols].mean(numeric_only=True)
 
     def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
         means = state
@@ -831,7 +859,7 @@ class ZScore(ColumnsTransform):
         if self.w_col is not None:
             means = _weighted_means(data_fit, cols, self.w_col)
         else:
-            means = data_fit[cols].mean()
+            means = data_fit[cols].mean(numeric_only=True)
         return {"means": means, "stddevs": data_fit[cols].std()}
 
     def _apply(
