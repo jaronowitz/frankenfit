@@ -1,5 +1,14 @@
-body:not([data-theme="light"]) .highlight {
+/* There is only darkness. */
+div.theme-toggle-container {
+    display: none;
+}
+
+body .highlight {
     background-color: var(--color-background-secondary) !important;
+}
+
+div.cell_output .highlight {
+    background-color: var(--color-background-primary) !important;
 }
 
 div.cell_output table {
