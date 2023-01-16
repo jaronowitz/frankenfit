@@ -356,6 +356,8 @@ class ColumnsTransform(DataFrameTransform):
     """
 
     def resolve_cols(self, cols: list[str] | ALL_COLS, df: pd.DataFrame) -> list[str]:
+        # TODO/FIXME: accept a list of columns to ignore; currently the weighted
+        # transforms will transform their own weights!
         if isinstance(cols, ALL_COLS):
             return list(df.columns)
         return cols
@@ -851,6 +853,22 @@ class ImputeMean(ColumnsTransform):
 
 @params
 class ZScore(ColumnsTransform):
+    """
+    Z-score the specified columns of a pandas DataFrame.
+
+    Parameters
+    ----------
+    cols: list(str) | ALL_COLS, optional
+        A list of the names of the columns to z-score, or else the :class:`ALL_COLS`
+        type to indicate that all columns should be z-scored. Optional; by default, all
+        columns are z-scored.
+
+    w_col: str, optional
+        Optional name of the column to use as a source of observation weights when
+        computing the means to use for z-scoring. If omitted, the means are unweighted.
+        In any case, the standard deviations are always unweighted.
+    """
+
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
     w_col: Optional[str] = None
 
