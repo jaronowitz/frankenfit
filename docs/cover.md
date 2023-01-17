@@ -1,6 +1,6 @@
 # Frankenfit Documentation
 
-Copyright (c) 2022 Max Bane (max@thebanes.org)
+Copyright (c) 2023 Max Bane (max@thebanes.org)
 
 ## Table of contents
 
