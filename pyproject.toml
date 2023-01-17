@@ -91,6 +91,7 @@ docs = [
     'furo',
     'jupytext',
     'pydataset',
+    'scikit-learn',
 ]
 
 dev = [

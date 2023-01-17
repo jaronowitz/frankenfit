@@ -45,13 +45,14 @@ With Frankenfit, we can:
 
 ## Create pipelines
 
-Create concise and readable descriptions of data learning and transformation
-pipelines using a callchain-style API. A pipeline is a sequence of transforms, each
-applying to the output of the transform that precedes it. For example, here's a pipeline
-for predicting diamond prices, including feature preparation and response
-transformations:
+Create concise and readable descriptions of data learning and transformation pipelines
+using a callchain-style API. A pipeline is a sequence of transforms, each applying to
+the output of the transform that precedes it. For example, here's a pipeline for
+predicting diamond prices, including feature preparation and response transformations:
 
 ```{code-cell}
+:tags: [remove-cell]
+# FIXME: this cell should not be visible in docs output.
 import matplotlib.pyplot as plt
 plt.style.use('./dracula.mplstyle')
 ```

@@ -15,6 +15,7 @@ kernelspec:
 
 ```{code-cell} ipython3
 :tags: [remove-cell]
+# FIXME: this cell should not appear in docs output
 import matplotlib.pyplot as plt
 plt.style.use('./dracula.mplstyle')
 ```
@@ -237,7 +238,10 @@ This will come in handy later when we wish to refer to specific Transforms embed
 larger pipelines, as described in [Tagging and selecting Transforms].
 
 ```{important}
-While `tag` is a parameter, whose value may optionally be supplied when creating a Transform, `name` is *not* a parameter, and cannot be set directly. It's just an attribute whose value is automatically derived from the Transform's class name and `tag`.
+While `tag` is a parameter, whose value may optionally be supplied when creating a
+Transform, `name` is *not* a parameter, and cannot be set directly. It's just read-only
+attribute whose value is automatically derived from the Transform's class name and
+`tag`.
 ```
 
 +++
@@ -274,13 +278,15 @@ Furthermore, once the user has an instance of `Transform` or `FitTransform` in h
 nothing truly prevents him from modifying its parameters or state. This should be
 avoided except for a few extraordinary circumstances (e.g. making a modified copy of a
 `Transform` whose type is not known at runtime), and in any case, the Pipeline
-call-chain API, which is preferred over direct instantiation of `Transform`s, makes it
-difficult to do so.
+call-chain API, which is preferred over direct instantiation of `Transform` objects,
+makes it difficult to do so.
 ```
 
 +++
 
 ## Pipelines
+
+### Composing Transforms
 
 When modeling or analyzing some dataset, one usually wishes to **compose** many
 Transforms. For example, consider the dataset of diamond prices and covariates:
@@ -291,43 +297,164 @@ diamonds_df.head()
 
 Suppose we want to build a model that predicts diamond prices as a function of their
 weight (`carat`), pavilion `depth` (how "tall" the diamond is), and `table` diameter
-(how wide the diamond's uppermost facet is; see [this figure](https://en.wikipedia.org/wiki/Diamond_cut#/media/File:Diamond_facets.svg) on wikipedia).
+(how wide the diamond's uppermost facet is; see [this
+figure](https://en.wikipedia.org/wiki/Diamond_cut#/media/File:Diamond_facets.svg) on
+wikipedia).
+
+To do so, we can imagine fitting a simple linear regression model on these variables.
+But first we note that these variables have very different ranges and scales from each
+other, as well as outliers:
 
 ```{code-cell} ipython3
-diamonds_df.hist()
-diamonds_df.describe()
+# Recall that train_df is a random sample of half the observations in diamonds_df
+train_df.hist()
+train_df.describe()
 ```
+
+Therefore in practice we'll want to apply several feature-cleaning transformations to
+the data before fitting a regression model. Specifically, let's suppose we want to:
+
+1. Winsorize all four variables to trim outliers.
+2. Log-transform the `carat` and `price` variables to make them more symmetric.
+3. Z-score the three predictor variables to put them on the same scale with zero means.
+   (It's important to do this after the previous steps, so that the means and standard
+   deviations used for the z-scores are not distorted by outliers.)
+4. Fit a linear regression of `price` predicted by `carat`, `table`, and `depth`.
+5. Finally, because we log-transformed `price`, exponentiate the predictions of the
+   regression model to put them back in the original units.
+
+The `frankenfit.dataframe` module provides Transforms for all of these operations
+([`Winsorize`](frankenfit.dataframe.Winsorize), [`ZScore`](frankenfit.dataframe.ZScore),
+[`SKLearn`](frankenfit.dataframe.SKLearn)), and naively we might manually combine them,
+along with some pandas `assign()` calls, to implement our end-to-end model. For
+example, we could instantiate our transforms like so:
 
 ```{code-cell} ipython3
-import pandas as pd
-import frankenfit as ff
+from sklearn.linear_model import LinearRegression
 
-@ff.params
-class DeMean(ff.Transform):
-    """
-    De-mean some columns.
-
-    Parameters
-    ----------
-    cols : list(str)
-        The names of the columns to de-mean.
-    """
-    cols: list[str]
-
-    def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
-        # return state as a pandas Series of the columns' means in data_fit, indexed by
-        # column name
-        return data_fit[self.cols].mean()
-
-    def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
-        # return a new DataFrame in which the columns have been demeaned with respect to
-        # the provided state
-        return data_apply.assign(
-            **{c: data_apply[c] - state[c] for c in self.cols}
-        )
+winsorize = ff.dataframe.Winsorize(0.05)
+z_score = ff.dataframe.ZScore(["carat", "table", "depth"])
+regress = ff.dataframe.SKLearn(
+    sklearn_class=LinearRegression,
+    x_cols=["carat", "table", "depth"],
+    response_col="price",
+    hat_col="price_hat",
+    class_params={"fit_intercept": True}  # additional arguments for LinearRegression
+)
 ```
 
-As authors of a Transform, in most cases we must implement `_fit` and `_apply` methods.
+And then, whenever we want to fit our model on some fitting data, we go through a
+procedure like that below, where each Transform is fit on the result of fitting and
+applying the previous transform to the data:
+
+```{code-cell} ipython3
+import numpy as np
+
+# start with train_df as the input data
+winsorize_fit = winsorize.fit(train_df)
+df = winsorize_fit.apply(train_df)
+
+# log-transform carat and price
+df = df.assign(
+    carat=np.log1p(df["carat"]),
+    price=np.log1p(df["price"]),
+)
+
+z_score_fit = z_score.fit(df)
+df = z_score_fit.apply(df)
+
+regress_fit = regress.fit(df)
+df = regress_fit.apply(df)
+
+# exponentiate price_hat back to dollars
+df = df.assign(
+    price_hat_dollars=np.expm1(df["price_hat"])
+)
+
+df.head()
+```
+
+At the end of this process, we have three `FitTransform` instances `winsorize_fit`,
+`z_score_fit`, and `regress_fit`, as well as the DataFrame `df`, which contains the
+results of applying our whole model to its own fitting data.
+
+Incidentally, we can see that model does a reasonable job of predicting its own fitting
+data, with a 92% correlation between `price_hat_dollars` and the original,
+un-standardized `price`, though there is clearly some non-random structure to the
+errors:
+
+```{code-cell} ipython3
+eval_df = (
+    train_df[["price"]]
+    .assign(price_hat_dollars=df["price_hat_dollars"])
+)
+eval_df.plot.scatter(x="price_hat_dollars", y="price", alpha=0.3)
+eval_df.hist(figsize=(5,2))
+eval_df.corr()
+```
+
+Even more incidentally, the `state()` of `regress_fit` is just a (fit) scikit-learn
+[`LinearRegression`](
+    https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html
+) object, so if we are interested in the betas learned for the predictors, we can access
+them in the usual way. Unsurprisingly, it seems that `carat` is the most important by
+far for `price`:
+
+```{code-cell} ipython3
+regress_fit.state().coef_, regress_fit.state().intercept_
+```
+
+To predict the prices of previously unseen diamonds, we must go through a similar
+process of applying each `FitTransform` in turn to some new dataset with the same
+schema:
+
+```{code-cell} ipython3
+# recall that test_df is the other half of diamonds_df
+# we use "oos" as an abbreviation of "out-of-sample"
+df_oos = winsorize_fit.apply(test_df)
+df_oos = df_oos.assign(
+    carat=np.log1p(df_oos["carat"]),
+    price=np.log1p(df_oos["price"]),
+)
+df_oos = z_score_fit.apply(df_oos)
+df_oos = regress_fit.apply(df_oos)
+df_oos = df_oos.assign(
+    price_hat_dollars=np.expm1(df_oos["price_hat"])
+)
+
+df_oos.head()
+```
+
+The virtue of using `FitTransform` objects like this is that our entire end-to-end model
+of diamond prices, including feature cleaning and regression, was fit strictly on one
+set of data (the fitting data or training set) and is being applied strictly
+out-of-sample to new data (the test data). The test data is winsorized using the
+quantiles that were observed on the fitting data, it's z-scored using the means and
+standard deviations that were observed on the fitting data, and predicted prices are
+generated using the regression betas that were learned on the fitting data.
+
+```{important}
+There is, to invent some terminology, a clean separation between **fit-time** and
+**apply-time**.
+```
+
+As expected, the out-of-sample predictions are not as correlated with observed `price`
+as the in-sample predictions, although the degradation is very slight, perhaps
+suggesting that our training set was not very biased:
+
+```{code-cell} ipython3
+eval_oos_df = (
+    test_df[["price"]]
+    .assign(price_hat_dollars=df_oos["price_hat_dollars"])
+)
+eval_oos_df.corr()
+```
+
+### Pipeline Transforms
+
+Now, this is generally **not** how one should use Frankenfit to implement data modeling
+pipelines. The example above serves merely to introduce the basic principles from the
+ground up, so to speak. 
 
 ```{code-cell} ipython3
 dmn.visualize()

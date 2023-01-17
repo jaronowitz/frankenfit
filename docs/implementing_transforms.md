@@ -12,3 +12,34 @@ kernelspec:
 ---
 
 # Implementing your own transforms
+
+```{code-cell} ipython3
+import pandas as pd
+import frankenfit as ff
+
+@ff.params
+class DeMean(ff.Transform):
+    """
+    De-mean some columns.
+
+    Parameters
+    ----------
+    cols : list(str)
+        The names of the columns to de-mean.
+    """
+    cols: list[str]
+
+    def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
+        # return state as a pandas Series of the columns' means in data_fit, indexed by
+        # column name
+        return data_fit[self.cols].mean()
+
+    def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
+        # return a new DataFrame in which the columns have been demeaned with respect to
+        # the provided state
+        return data_apply.assign(
+            **{c: data_apply[c] - state[c] for c in self.cols}
+        )
+```
+
+As authors of a Transform, in most cases we must implement `_fit` and `_apply` methods.
