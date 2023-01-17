@@ -28,18 +28,19 @@ repos:
     hooks:
     -   id: flake8
         additional_dependencies: [flake8-pyproject]
--   repo: local
-    hooks:
-      - id: jupytext
-        name: jupytext
-        files: >-
-            docs/.*\.md
-        exclude: >-
-            docs/(api\.md|cover\.md)
-        entry: jupytext --set-format "notebooks///ipynb,docs///md:myst" --sync
-        language: system
-        pass_filenames: true
-        always_run: false
+# This is dangerous! You can lose uncommitted work if not careful.
+# -   repo: local
+#     hooks:
+#       - id: jupytext
+#         name: jupytext
+#         files: >-
+#             docs/.*\.md
+#         exclude: >-
+#             docs/(api\.md|cover\.md)
+#         entry: jupytext --set-format "notebooks///ipynb,docs///md:myst" --sync
+#         language: system
+#         pass_filenames: true
+#         always_run: false
 -   repo: local
     hooks:
       - id: mypy
