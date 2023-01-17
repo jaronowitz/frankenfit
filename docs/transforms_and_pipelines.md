@@ -13,6 +13,12 @@ kernelspec:
   name: python3
 ---
 
+```{code-cell} ipython3
+:tags: [remove-cell]
+import matplotlib.pyplot as plt
+plt.style.use('./dracula.mplstyle')
+```
+
 # Transforms and pipelines
 
 ## Transforms
@@ -275,6 +281,22 @@ difficult to do so.
 +++
 
 ## Pipelines
+
+When modeling or analyzing some dataset, one usually wishes to **compose** many
+Transforms. For example, consider the dataset of diamond prices and covariates:
+
+```{code-cell} ipython3
+diamonds_df.head()
+```
+
+Suppose we want to build a model that predicts diamond prices as a function of their
+weight (`carat`), pavilion `depth` (how "tall" the diamond is), and `table` diameter
+(how wide the diamond's uppermost facet is; see [this figure](https://en.wikipedia.org/wiki/Diamond_cut#/media/File:Diamond_facets.svg) on wikipedia).
+
+```{code-cell} ipython3
+diamonds_df.hist()
+diamonds_df.describe()
+```
 
 ```{code-cell} ipython3
 import pandas as pd
