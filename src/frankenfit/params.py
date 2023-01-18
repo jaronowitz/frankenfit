@@ -243,7 +243,13 @@ def dict_field(**kwargs):
 
 
 class ALL_COLS:
-    ...
+    """
+    Subclasses of :class:`frankenfit.dataframe.ColumnsTransform` use instances of this
+    class to indicate that a parameter should refer to all columns found in the data.
+    """
+
+    def __repr__(self) -> str:
+        return "<ALL_COLS>"
 
 
 @define

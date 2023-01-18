@@ -103,6 +103,7 @@ from frankenfit.dataframe import (  # Exceptions that users can catch
     fit_group_on_self,
 )
 from frankenfit.params import (
+    ALL_COLS,
     HP,
     HPCols,
     HPDict,

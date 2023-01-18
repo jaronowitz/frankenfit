@@ -340,33 +340,46 @@ class Join(DataFrameTransform):
 class ColumnsTransform(DataFrameTransform):
     """
     Abstract base clase of all Transforms that require a list of columns as a parameter
-    (cols).  Subclasses acquire a mandatory `cols` argument to their constructors, which
-    can be supplied as a list of any combination of:
-
-    - string column names,
-    - hyperparameters exepcted to resolve to column names,
-    - format strings that will be evaluated as hyperparameters formatted on the bindings
-      dict.
-
-    A scalar value for cols (e.g. a single string) will be converted automatically to a
-    list of one element at construction time.
-
-    Subclasses may define additional parameters with the same behavior as cols by using
-    columns_field().
+    (typically ``cols``). Provides a utility method, :meth:`resolve_cols` for resolving
+    the list of column names to which such a parameter refers in the case that it has
+    the special :class:`frankenfit.ALL_COLS`.
     """
 
-    def resolve_cols(self, cols: list[str] | ALL_COLS, df: pd.DataFrame) -> list[str]:
-        # TODO/FIXME: accept a list of columns to ignore; currently the weighted
-        # transforms will transform their own weights!
+    def resolve_cols(
+        self,
+        cols: list[str] | ALL_COLS,
+        df: pd.DataFrame,
+        ignore: str | list[str] | None = None,
+    ) -> list[str]:
+        """
+        Utilty method returning the list of all column names in ``df`` if ``cols`` is an
+        instance of :class:`frankenfit.ALL_COLS`, otherwise returns `cols` unmodified.
+
+        Parameters
+        ----------
+        cols :
+            A list of column names or instance of ``ALL_COLS``. Presumably the value of
+            some ``columns_field()``-like parameter in the subclass.
+        df :
+            The DataFrame from which to get column names if ``cols`` is ``ALL_COLS()``.
+            Presumably the fit-time or apply-time data of the subclass.
+        ignore :
+            Optional column name or list of column names *not* to include in the result
+            if ``cols`` is ``ALL_COLS``.
+        """
+        if ignore is None:
+            ignore = []
+        elif isinstance(ignore, str):
+            ignore = [ignore]
         if isinstance(cols, ALL_COLS):
-            return list(df.columns)
+            return list(c for c in df.columns if c not in ignore)
         return cols
 
 
 def fit_group_on_self(group_col_map):
     """
-    The default fitting schedule for :class:`GroupBy`: for each group, the grouped-by
-    transform is fit on the data belonging to that group.
+    The default fitting schedule for :class:`GroupByCols`: for each group, the
+    grouped-by transform is fit on the data belonging to that group.
     """
     return lambda df: reduce(
         operator.and_, (df[c] == v for (c, v) in group_col_map.items())
@@ -375,7 +388,7 @@ def fit_group_on_self(group_col_map):
 
 def fit_group_on_all_other_groups(group_col_map):
     """
-    A built-in fitting schedule for :class:`GroupBy`: for each group, the grouped-by
+    A built-in fitting schedule for :class:`GroupByCols`: for each group, the grouped-by
     transform is fit on the data belonging to all other groups. This is similar to
     k-fold cross-validation if the groups are viewed as folds.
     """
@@ -385,8 +398,10 @@ def fit_group_on_all_other_groups(group_col_map):
 
 
 class UnfitGroupError(ValueError):
-    """Exception raised when a group-by-like transform is applied to data
-    containing groups on which it was not fit."""
+    """
+    Exception raised when a group-by-like transform is applied to data containing groups
+    on which it was not fit.
+    """
 
 
 DfLocIndex = Union[pd.Series, List, slice, np.ndarray]
@@ -823,14 +838,14 @@ class DeMean(ColumnsTransform):
     w_col: Optional[str] = None
 
     def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
-        cols = self.resolve_cols(self.cols, data_fit)
+        cols = self.resolve_cols(self.cols, data_fit, ignore=self.w_col)
         if self.w_col is not None:
             return _weighted_means(data_fit, cols, self.w_col)
         return data_fit[cols].mean(numeric_only=True)
 
     def _apply(self, data_apply: pd.DataFrame, state: pd.Series):
         means = state
-        cols = self.resolve_cols(self.cols, data_apply)
+        cols = self.resolve_cols(self.cols, data_apply, ignore=self.w_col)
         return data_apply.assign(**{c: data_apply[c] - means[c] for c in cols})
 
 
@@ -840,14 +855,14 @@ class ImputeMean(ColumnsTransform):
     w_col: Optional[str] = None
 
     def _fit(self, data_fit: pd.DataFrame) -> pd.Series:
-        cols = self.resolve_cols(self.cols, data_fit)
+        cols = self.resolve_cols(self.cols, data_fit, ignore=self.w_col)
         if self.w_col is not None:
             return _weighted_means(data_fit, cols, self.w_col)
         return data_fit[cols].mean(numeric_only=True)
 
     def _apply(self, data_apply: pd.DataFrame, state: pd.Series) -> pd.DataFrame:
         means = state
-        cols = self.resolve_cols(self.cols, data_apply)
+        cols = self.resolve_cols(self.cols, data_apply, ignore=self.w_col)
         return data_apply.assign(**{c: data_apply[c].fillna(means[c]) for c in cols})
 
 
@@ -873,7 +888,7 @@ class ZScore(ColumnsTransform):
     w_col: Optional[str] = None
 
     def _fit(self, data_fit: pd.DataFrame) -> dict[str, pd.Series]:
-        cols = self.resolve_cols(self.cols, data_fit)
+        cols = self.resolve_cols(self.cols, data_fit, ignore=self.w_col)
         if self.w_col is not None:
             means = _weighted_means(data_fit, cols, self.w_col)
         else:
@@ -883,7 +898,7 @@ class ZScore(ColumnsTransform):
     def _apply(
         self, data_apply: pd.DataFrame, state: dict[str, pd.Series]
     ) -> pd.DataFrame:
-        cols = self.resolve_cols(self.cols, data_apply)
+        cols = self.resolve_cols(self.cols, data_apply, ignore=self.w_col)
         means, stddevs = state["means"], state["stddevs"]
         return data_apply.assign(
             **{c: (data_apply[c] - means[c]) / stddevs[c] for c in cols}

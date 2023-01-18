@@ -890,3 +890,16 @@ def test_empty_dataframe_pipeline(diamonds_df: pd.DataFrame):
     # data_apply is future not None, backend is not None: future identity
     assert local.apply(pip, LocalFuture(df)).result().equals(df)
     assert local.apply(fit, LocalFuture(df)).result().equals(df)
+
+
+def test_ALL_COLS(diamonds_df: pd.DataFrame):
+    # Mypy has a hard time understanding that the `cols` argument is optional
+    dmn_unw = ff.dataframe.DeMean()  # type: ignore [call-arg]
+    dmn_w = ff.dataframe.DeMean(w_col="carat")  # type: ignore [call-arg]
+
+    assert dmn_unw.resolve_cols(
+        dmn_unw.cols, diamonds_df, ignore=dmn_unw.w_col
+    ) == list(diamonds_df.columns)
+    assert dmn_w.resolve_cols(dmn_w.cols, diamonds_df, ignore=dmn_w.w_col) == list(
+        c for c in diamonds_df.columns if c != "carat"
+    )
