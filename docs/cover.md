@@ -1,6 +1,13 @@
 # Frankenfit Documentation
 
-Copyright (c) 2023 Max Bane (max@thebanes.org)
+Copyright © 2023 Max Bane (max@thebanes.org)
+
+> “For instance, when bread is baked some parts are split at the surface, and these 
+> parts which thus open, and have a certain fashion contrary to the purpose of the 
+> baker’s art, are beautiful in a manner, and in a peculiar way excite a desire for
+> eating.”
+>
+> ---Marcus Aurelius, *Meditations*, as translated by George Long in 1862
 
 ## Table of contents
 
