@@ -1,6 +1,5 @@
 ---
 jupytext:
-  cell_metadata_filter: -all
   formats: notebooks///ipynb,docs///md:myst
   text_representation:
     extension: .md
@@ -13,8 +12,9 @@ kernelspec:
   name: python3
 ---
 
-```{code-cell} ipython3
+```{code-cell}
 :tags: [remove-cell]
+
 # FIXME: this cell should not appear in docs output
 import matplotlib.pyplot as plt
 plt.style.use('./dracula.mplstyle')
@@ -36,7 +36,7 @@ by [`Pipeline`](frankenfit.Pipeline) objects. For example, a Pipeline (specifica
 `DataFramePipeline`) comprising a [`Winsorize`](frankenfit.dataframe.Winsorize)
 Transform followed by a [`DeMean`](frankenfit.dataframe.DeMean) might look like this:
 
-```{code-cell} ipython3
+```{code-cell}
 import frankenfit as ff
 
 ff.DataFramePipeline().winsorize(limit=0.01).de_mean();
@@ -47,13 +47,13 @@ Transforms whose fitting data and apply data are meant to be pandas DataFrames a
 in the module `frankenfit.dataframe`, and we might instantiate the ``DeMean`` Transform
 directly as follows:
 
-```{code-cell} ipython3
+```{code-cell}
 dmn = ff.dataframe.DeMean()
 ```
 
 Let's load some data:
 
-```{code-cell} ipython3
+```{code-cell}
 # Load a dataset of diamond prices and covariates
 from pydataset import data
 diamonds_df = data("diamonds")[["carat", "depth", "table", "price"]]
@@ -71,7 +71,7 @@ Throughout the documentation we make use of the
 The `DeMean` Transform instance `dmn` may then be **fit** on the data. By default it
 learns to de-mean all columns in the DataFrame.
 
-```{code-cell} ipython3
+```{code-cell}
 fit_dmn = dmn.fit(diamonds_df)
 ```
 
@@ -79,7 +79,7 @@ The [`fit()`](frankenfit.Transform.fit) method returns an instance of `FitTransf
 which encapsulates the **state** that was learned on the fitting data, and which may be
 **applied** to a dataset by calling its `apply()` method.
 
-```{code-cell} ipython3
+```{code-cell}
 fit_dmn.apply(diamonds_df).head()
 ```
 
@@ -96,14 +96,14 @@ exact type and value of the state is an implementation detail of the Transform i
 question, and in the case of `DeMean` we can see that its state is a pandas `Series` of
 means, indexed by column name:
 
-```{code-cell} ipython3
+```{code-cell}
 fit_dmn.state()
 ```
 
 Crucially, the fitting data and apply data need not be the same. For example, we might
 de-mean the dataset with respect to the means observed on some subsample of it:
 
-```{code-cell} ipython3
+```{code-cell}
 dmn.fit(diamonds_df.sample(100)).apply(diamonds_df).head()
 ```
 
@@ -111,7 +111,7 @@ Or we might divide the data into disjoint "training" and "test" sets, feeding th
 to `fit()` and the latter to `apply()`. We call this an **out-of-sample** application of
 the Transform.
 
-```{code-cell} ipython3
+```{code-cell}
 train_df = diamonds_df.sample(frac=0.5)
 test_df = diamonds_df.loc[list(set(diamonds_df.index) - set(train_df.index))]
 
@@ -137,12 +137,12 @@ above has two optional parameters:
 
 Therefore we can define a `DeMean` Transform that only de-means the `price` and `table` columns of the data, or one which de-means `price` with respect to its `carat`-weighted mean:
 
-```{code-cell} ipython3
+```{code-cell}
 dmn_2cols = ff.dataframe.DeMean(["price", "table"])
 dmn_2cols.fit(train_df).apply(test_df).head()
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 dmn_price_weighted = ff.dataframe.DeMean(["price"], w_col="carat")
 dmn_price_weighted.fit(train_df).apply(test_df).head()
 ```
@@ -192,24 +192,24 @@ field-specifier; see TODO.
 
 Once constructed, Transform instances carry their parameters as attributes:
 
-```{code-cell} ipython3
+```{code-cell}
 dmn_2cols.cols
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 dmn_2cols.w_col is None
 ```
 
 It is also possible to retrieve the names of a Transform's parameters by calling the
 [`params()`](frankenfit.Transform.params) method:
 
-```{code-cell} ipython3
+```{code-cell}
 dmn_2cols.params()
 ```
 
 The `repr` of a Transform instance additionally shows the values of its parameters:
 
-```{code-cell} ipython3
+```{code-cell}
 display(dmn_2cols)
 display(ff.dataframe.Winsorize(0.01, "price"))
 ```
@@ -219,18 +219,18 @@ the examples above. This is a special, implicit parameter common to all Transfor
 now we need only note its existence, and that it automatically receives a value, which
 may be overridden by the `tag` keyword-only argument available to all Transforms, e.g.:
 
-```{code-cell} ipython3
+```{code-cell}
 win_price = ff.dataframe.Winsorize(0.01, "price", tag="winsorize_price")
 win_price
 ```
 
 Every Transform has a `name` attribute that incorporates its class name and `tag`:
 
-```{code-cell} ipython3
+```{code-cell}
 win_price.name
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 dmn_2cols.name
 ```
 
@@ -291,7 +291,7 @@ makes it difficult to do so.
 When modeling or analyzing some dataset, one usually wishes to **compose** many
 Transforms. For example, consider the dataset of diamond prices and covariates:
 
-```{code-cell} ipython3
+```{code-cell}
 diamonds_df.head()
 ```
 
@@ -305,7 +305,7 @@ To do so, we can imagine fitting a simple linear regression model on these varia
 But first we note that these variables have very different ranges and scales from each
 other, as well as outliers:
 
-```{code-cell} ipython3
+```{code-cell}
 # Recall that train_df is a random sample of half the observations in diamonds_df
 train_df.hist()
 train_df.describe()
@@ -329,7 +329,7 @@ The `frankenfit.dataframe` module provides Transforms for all of these operation
 along with some pandas `assign()` calls, to implement our end-to-end model. For
 example, we could instantiate our transforms like so:
 
-```{code-cell} ipython3
+```{code-cell}
 from sklearn.linear_model import LinearRegression
 
 winsorize = ff.dataframe.Winsorize(0.05)
@@ -347,7 +347,7 @@ And then, whenever we want to fit our model on some fitting data, we go through 
 procedure like that below, where each Transform is fit on the result of fitting and
 applying the previous transform to the data:
 
-```{code-cell} ipython3
+```{code-cell}
 import numpy as np
 
 # start with train_df as the input data
@@ -383,7 +383,7 @@ data, with a 92% correlation between `price_hat_dollars` and the original,
 un-standardized `price`, though there is clearly some non-random structure to the
 errors:
 
-```{code-cell} ipython3
+```{code-cell}
 eval_df = (
     train_df[["price"]]
     .assign(price_hat_dollars=df["price_hat_dollars"])
@@ -400,7 +400,7 @@ Even more incidentally, the `state()` of `regress_fit` is just a (fit) scikit-le
 them in the usual way. Unsurprisingly, it seems that `carat` is the most important by
 far for `price`:
 
-```{code-cell} ipython3
+```{code-cell}
 regress_fit.state().coef_, regress_fit.state().intercept_
 ```
 
@@ -408,7 +408,7 @@ To predict the prices of previously unseen diamonds, we must go through a simila
 process of applying each `FitTransform` in turn to some new dataset with the same
 schema:
 
-```{code-cell} ipython3
+```{code-cell}
 # recall that test_df is the other half of diamonds_df
 # we use "oos" as an abbreviation of "out-of-sample"
 df_oos = winsorize_fit.apply(test_df)
@@ -442,7 +442,7 @@ As expected, the out-of-sample predictions are not as correlated with observed `
 as the in-sample predictions, although the degradation is very slight, perhaps
 suggesting that our training set was not very biased:
 
-```{code-cell} ipython3
+```{code-cell}
 eval_oos_df = (
     test_df[["price"]]
     .assign(price_hat_dollars=df_oos["price_hat_dollars"])
@@ -454,9 +454,47 @@ eval_oos_df.corr()
 
 Now, this is generally **not** how one should use Frankenfit to implement data modeling
 pipelines. The example above serves merely to introduce the basic principles from the
-ground up, so to speak. 
+ground up, so to speak. Rather than manually chaining Transforms together in a laborious
+and error-prone way as we saw above, we should use a special Transform, called
+[`Pipeline`](frankenfit.Pipeline) (and its subclasses), which *contains other
+Transforms.* The `Pipeline` Transform takes a single parameter, `transforms`, which is a
+list of Transforms to be composed together sequentially as we did manually above.
 
-```{code-cell} ipython3
+Our diamond price-modeling pipeline can be rewritten as an actual `Pipeline` like so:
+
+```{code-cell} python
+price_model = ff.Pipeline(
+    transforms=[
+        ff.dataframe.Winsorize(0.05),
+        ff.dataframe.Assign(
+          carat=lambda df: np.log1p(df["carat"]),
+          price=lambda df: np.log1p(df["price"]),
+        ),
+        ff.dataframe.ZScore(["carat", "table", "depth"]),
+        ff.dataframe.SKLearn(
+            sklearn_class=LinearRegression,
+            x_cols=["carat", "table", "depth"],
+            response_col="price",
+            hat_col="price_hat",
+            class_params={"fit_intercept": True}
+        ),
+        ff.dataframe.Assign(
+          price_hat_dollars=lambda df: np.expm1(df["price_hat"])
+        ),
+    ]
+)
+```
+
+```{note}
+Note that we've introduced a new Transform, [`Assign`](frankenfit.dataframe.Assign),
+which ...
+```
+
+
+XXX, later re callchaining: In particular, because we are transforming pandas
+DataFrames, we can use [`DataFramePipeline`](frankenfit.DataFramePipeline). Like all
+
+```{code-cell}
 dmn.visualize()
 ```
 

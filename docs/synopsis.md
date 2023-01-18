@@ -1,6 +1,5 @@
 ---
 jupytext:
-  cell_metadata_filter: -all
   formats: notebooks///ipynb,docs///md:myst
   text_representation:
     extension: .md
