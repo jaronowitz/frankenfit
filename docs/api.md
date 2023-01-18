@@ -14,13 +14,11 @@
     :members:
     :private-members: _fit, _apply
 
-..
-    # .. autoclass:: FitTransform
-    #     :members:
-    #
-    # .. autoclass:: StatelessTransform
-    #     :show-inheritance:
-    #     :members:
+.. autoclass:: FitTransform
+    :members:
+
+.. autoclass:: StatelessTransform
+    :members:
 ```
 
 ## Writing a `Transform` subclass
@@ -70,11 +68,6 @@ Foobar.
     :inherited-members:
 
 ..
-    # .. autoclass:: BasePipeline
-    #     :show-inheritance:
-    #     :members:
-    #     :inherited-members:
-    #
     # .. autoclass:: frankenfit.universal.IfHyperparamIsTrue
     #     :show-inheritance:
     #     :members:
@@ -102,9 +95,21 @@ Foobar.
 ### DataFrame Transforms
 
 ```{eval-rst}
+.. autoclass:: frankenfit.dataframe.Assign
+
+.. autoclass:: frankenfit.dataframe.Clip
+
+.. autoclass:: frankenfit.dataframe.Correlation
+
 .. autoclass:: frankenfit.dataframe.DeMean
 
+.. autoclass:: frankenfit.dataframe.Pipe
+
+.. autoclass:: frankenfit.dataframe.SKLearn
+
 .. autoclass:: frankenfit.dataframe.Winsorize
+
+.. autoclass:: frankenfit.dataframe.ZScore
 
 ..
     # .. autoclass:: Identity

@@ -710,9 +710,25 @@ class Suffix(Affix):
 
 @params
 class Pipe(ColumnsTransform, StatelessDataFrameTransform):
+    """
+    Select the specified columns of a DataFrame and pipe the resulting sub-DataFrame
+    through a function.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    apply_fun: Callable[[pd.DataFrame], pd.DataFrame]
+        The function through which to pipe the selected data. At apply-time, ``Pipe``
+        returns the result of ``apply_fun(data_apply[cols])``.
+
+    cols: list(str) | ALL_COLS, optional
+        The names of the columns to select. If omitted, the entire apply-time DataFrame
+        is passed to ``apply_fun``.
+    """
+
     # TODO: support UserLambdaHyperparams for apply_fun
     apply_fun: Callable[[pd.DataFrame], pd.DataFrame]
-
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
 
     def _apply(self, data_apply: pd.DataFrame, state: None) -> pd.DataFrame:
@@ -726,10 +742,26 @@ class Pipe(ColumnsTransform, StatelessDataFrameTransform):
 
 @params
 class Clip(ColumnsTransform, StatelessDataFrameTransform):
+    """
+    Clip the specified columns of a pandas DataFrame.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    upper: float, optional
+        Values greater than `upper` are replaced by `upper`.
+
+    lower: float, optional
+        Values less than `lower` are replaced by `lower`.
+
+    cols: list(str) | ALL_COLS, optional
+        The names of the columns to clip. If omitted, all columns found in the DataFrame
+        are clipped.
+    """
+
     upper: Optional[float]
     lower: Optional[float]
-    # Regarding the type-ignore: even with our plugin, mypy cannot infer from the
-    # factory= kwarg that this attribute has a default value
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
 
     def _apply(self, data_apply: pd.DataFrame, _: None) -> pd.DataFrame:
@@ -754,7 +786,7 @@ class Winsorize(ColumnsTransform):
     limit : float
         The percentile threshold beyond which values are trimmed. More precisely, for
         each target column, values less than the ``limit``-th percentile of that column
-        are replaced by ``limit``-th percentile, and values greater than the ``1 -
+        are replaced by the ``limit``-th percentile, and values greater than the ``1 -
         limit``-th percentile are replaced by the ``1 - limit``-th percentile.
 
     cols: list(str) | ALL_COLS, optional
@@ -908,30 +940,48 @@ class ZScore(ColumnsTransform):
 @params
 class SKLearn(DataFrameTransform):
     """
-    Wrap a scikit-learn ("sklearn") model. At fit-time, the given sklearn model class
-    is instantiated (with arguments from ``class_params``) and trained on the fitting
-    data by calling its ``fit()`` method. At apply-time, the now-fit sklearn model
-    object is used to generated predictions by calling its `predict()` method, which are
+    Wrap a scikit-learn ("sklearn") model. At fit-time, the given sklearn model class is
+    instantiated (with arguments from ``class_params``) and trained on the fitting data
+    by calling its ``fit()`` method. At apply-time, the now-fit sklearn model object is
+    used to generated predictions by calling its ``predict()`` method, which are
     assigned to the apply-time data as a new column, ``hat_col``.
 
-    :param sklearn_class: The sklearn class to wrap.
-    :param x_cols: The predictor columns. These are selected from the fit/apply-data to
-        create the ``X`` argument to the sklearn model's ``fit()`` and ``predict()``
-        methods.
-    :param response_col: The response column. At fit-time, this is selected from the
-        fitting data to create the ``y`` argument to the sklearn model's ``fit()``
-        method.
-    :param hat_col: The name of the new column to create at apply-time containing
-        predictions from the sklearn model.
-    :param class_params: Parameters to pass as kwargs to the ``sklearn_class``
+    Parameters
+    ----------
+    sklearn_class: type
+        The sklearn class to wrap.
+    x_cols: list[str]
+        The predictor columns. These are selected from the fit/apply-data to create the
+        ``X`` argument to the sklearn model's ``fit()`` and ``predict()`` methods.
+    response_col: str
+        The response column. At fit-time, this is selected from the fitting data to
+        create the ``y`` argument to the sklearn model's ``fit()`` method.
+    hat_col: str
+        The name of the new column to create at apply-time containing predictions from
+        the sklearn model.
+    class_params: dict[str, Any], optional
+        Optional parameters to pass as named arguments to the ``sklearn_class``
         constructor when instantiating it.
-    :param w_col: The sample weight column. If specified, this is selected at fit-time
-        from the fitting data to create the ``sample_weight`` keyword argument to the
-        sklearn model's ``fit()`` method.
+    w_col: str, optional
+        Optional name of a sample weight column. If specified, this is selected at
+        fit-time from the fitting data to create the ``sample_weight`` named argument to
+        the sklearn model's ``fit()`` method.
 
         .. WARNING:: Not every sklearn model accepts a ``sample_weight`` keyword
             argument to its ``fit()`` method. Consult the documentation of whichever
             sklearn model you are using.
+
+    Examples
+    --------
+    ::
+
+        regress = ff.dataframe.SKLearn(
+            sklearn_class=LinearRegression,
+            x_cols=["carat", "table", "depth"],
+            response_col="price",
+            hat_col="price_hat",
+            class_params={"fit_intercept": True}  # additional kwargs LinearRegression
+        )
     """
 
     sklearn_class: type  # TODO: protocol?
@@ -992,25 +1042,35 @@ class Correlation(StatelessDataFrameTransform):
     Compute the correlation between each pair of columns in the cross-product of
     ``left_cols`` and ``right_cols``.
 
-    :param left_cols: List of "left" correlands. Result will have one row per element of
-        ``left_cols``.
-    :param right_cols: List of "right" correlands. Result will have one column per
-        element of ``right_cols``.
-    :param method: One of ``"pearson"``, ``"spearman"``, or ``"kendall"``, specifying
-        which type of correlation coefficient to compute.
-    :param min_obs: The minimum number of non-missing values for each pair of columns.
-        If a pair has fewer than this many non-missing observations, then the
-        correlation for that pair will be missing in the result.
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
 
-    Example::
+    Parameters
+    ----------
+    left_cols: list[str]
+        List of "left" correlands. Result will have one row per element of
+        ``left_cols``.
+    right_cols: list[str]
+        List of "right" correlands. Result will have one column per element of
+        ``right_cols``.
+    method: str
+        One of ``"pearson"``, ``"spearman"``, or ``"kendall"``, specifying which type of
+        correlation coefficient to compute.
+    min_obs: int
+        The minimum number of non-missing values for each pair of columns.  If a pair
+        has fewer than this many non-missing observations, then the correlation for that
+        pair will be missing in the result.
+
+    Examples
+    --------
+    ::
 
         from pydataset import data
         df = data("diamonds")
-        ff.Correlation(["price"], ["carat"]).apply(df)
+        ff.dataframe.Correlation(["price"], ["carat"]).apply(df)
         # -->           carat
         # --> price  0.921591
 
-        ff.Correlation(["table", "depth"], ["x", "y", "z"]).apply(df)
+        ff.dataframe.Correlation(["table", "depth"], ["x", "y", "z"]).apply(df)
         # -->               x         y         z
         # --> table  0.195344  0.183760  0.150929
         # --> depth -0.025289 -0.029341  0.094924

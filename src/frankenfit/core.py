@@ -1045,14 +1045,29 @@ class SentinelDict(dict):
 
 class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
     """
-    Abstract base class of Transforms that have no state to fit. ``fit()`` is a
-    null op on a ``StatelessTransform``, and the ``state()`` of its fit is
-    always ``None``. Subclasses must not implement ``_fit()``.
+    Abstract base class of Transforms that have no state to fit.
+    :meth:`~Transform.fit()` is a null op on a ``StatelessTransform``, and the
+    :meth:`~FitTransform.state()` of its fit is always ``None``. If subclasses implement
+    :meth:`~Transform._fit`, they must ensure that it returns ``None``.
 
-    As a convenience, ``StatelessTransform`` has an ``apply()`` method
-    (ordinarily only the corresponding fit would). For any
-    ``StatelessTransform`` ``t``, ``t.apply(df, bindings)`` is equivalent to
-    ``t.fit(df, bindings=bindings).apply(df)``.
+    As a convenience, ``StatelessTransform`` has an :meth:`apply()` method
+    (ordinarily only the corresponding :class:`FitTransform` would). For any
+    ``StatelessTransform`` ``t``::
+
+        t.apply(df, bindings)
+
+    is equivalent to::
+
+        t.fit(df, bindings=bindings).apply(df)
+
+    In particular, if the ``StatelessTransform`` has fit-time and/or apply-time
+    side-effects (e.g., printing a message), then ``apply()`` will cause those
+    side-effects occur in the expected order.
+
+    .. TIP::
+
+        In the Frankenfit API documentation, stateless Transforms are marked by the
+        symbol "🏳️" with a link back to this class.
     """
 
     _Self = TypeVar("_Self", bound="StatelessTransform")
@@ -1068,10 +1083,11 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
         **kwargs,
     ) -> DataResult:
         """
-        Convenience function allowing one to apply a StatelessTransform without an
-        explicit preceding call to fit. Equivalent to calling fit() on the given data
-        (with the optional hyperparameter bindings as provided) and then returning the
-        result of applying the resulting FitTransform to that same data.
+        Convenience function allowing one to apply a ``StatelessTransform`` without an
+        Explicit preceding call to :meth:`~Transform.fit`. Equivalent to calling
+        ``fit()`` on the given data (with the optional hyperparameter bindings as
+        provided) and then returning the result of applying the resulting
+        :class:`FitTransform` to that same data.
         """
         return self.backend.apply(self, data_apply, bindings, **kwargs).result()
 
