@@ -21,6 +21,14 @@
 
 .. autoclass:: StatelessTransform
     :members:
+    :show-inheritance:
+
+.. autoclass:: ConstantTransform
+    :members:
+    :show-inheritance:
+
+.. autoclass:: NonInitialConstantTransformWarning
+    :show-inheritance:
 ```
 
 ## Writing a `Transform` subclass
@@ -67,7 +75,6 @@ Foobar.
 .. autoclass:: Pipeline
     :show-inheritance:
     :members:
-    :inherited-members:
 
 ..
     # .. autoclass:: frankenfit.universal.IfHyperparamIsTrue

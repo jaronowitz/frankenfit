@@ -1119,17 +1119,17 @@ class ConstantTransform(
     Generic[DataIn, DataResult], StatelessTransform[DataIn, DataResult]
 ):
     """
-    Abstract base class of Transforms that have no state to fit, and, at apply
-    time, produce output data that is independent of the input data.
-    Usually, a ``ConstantTransform`` is some kind of data reader or data generator.
-    Its parameters and bindings may influence its output, but it takes no input
-    data to be transformed per se.
+    Abstract base class of :class:`StatelessTransforms <StatelessTransform>` that have
+    no state to fit, and furthermore, at apply time, produce output data that is
+    independent of the input data.  Usually, a ``ConstantTransform`` is some kind of
+    data reader or data generator. Its parameters and bindings may influence its output,
+    but it takes no input data to be transformed per se.
 
     Because it has the effect of discarding the output of all preceding
     computations in a :class:`Pipeline`, a warning is emited
     (:class:`NonInitialConstantTransformWarning`) whenever a
     ``ConstantTransform`` is fit on non-empty input data, or found to be
-    non-initial in a Pipeline.
+    non-initial in a `Pipeline`.
     """
 
     _Self = TypeVar("_Self", bound="ConstantTransform")

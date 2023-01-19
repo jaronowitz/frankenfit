@@ -60,11 +60,11 @@ diamonds_df = data("diamonds")[["carat", "depth", "table", "price"]]
 diamonds_df.head()
 ```
 
-```{note}
+:::{note}
 Throughout the documentation we make use of the
 [pydataset](https://pypi.org/project/pydataset/) package for loading example data like
 `diamonds`.
-```
+:::
 
 +++
 
@@ -147,12 +147,12 @@ dmn_price_weighted = ff.dataframe.DeMean(["price"], w_col="carat")
 dmn_price_weighted.fit(train_df).apply(test_df).head()
 ```
 
-```{tip}
+:::{tip}
 Note that parameters have an order and can generally be specified positionally or by
 name. So for example `DeMean(["price", "table"])` could also be written as
 `DeMean(cols=["price", "table"])`, and `DeMean(["price"], w_col="carat")` could be written as
 `DeMean(["price"], "carat")` or `DeMean(cols=["price"], w_col="carat")`.
-```
+:::
 
 [`Winsorize`](frankenfit.dataframe.Winsorize) is an example of a Transform with a
 required parameter, `limit`, which specifies the threshold at which extreme values
@@ -170,7 +170,7 @@ Winsorizing just the `price` column's top and bottom 5% of values:
 ff.dataframe.Winsorize(limit=0.05, cols=["price"])
 ```
 
-```{tip}
+:::{tip}
 `DeMean` and `Winsorize` are part of a larger family of [DataFrame
 Transforms](dataframe-api) that accept a `cols` parameter. Others include `ZScore`,
 `Select`, `Drop`, `ImputeConstant`, and many more. As a notational convenience, all of
@@ -186,7 +186,7 @@ data.
 When implementing one's own bespoke Transforms on DataFrames, it is possible to get this
 same behavior by using the [`columns_field`](frankenfit.params.columns_field)
 field-specifier; see TODO.
-```
+:::
 
 +++
 
@@ -239,12 +239,12 @@ dmn_2cols.name
 This will come in handy later when we wish to refer to specific Transforms embedded in
 larger pipelines, as described in [Tagging and selecting Transforms].
 
-```{important}
+:::{important}
 While `tag` is a parameter, whose value may optionally be supplied when creating a
 Transform, `name` is *not* a parameter, and cannot be set directly. It's just a
 read-only attribute whose value is automatically derived from the Transform's class name
 and `tag`.
-```
+:::
 
 +++
 
@@ -273,7 +273,7 @@ Instances of `Transform` and `FitTransform` are both immutable and re-usable:
   different datasets. The `apply()` method never modifies the data that it is given;
   it returns a copy of the data in which the fit transformation has been applied.
 
-```{note}
+:::{note}
 It's worth noting that nothing formally prevents a rogue `Transform` implementation from
 modifying the fitting data or apply data. This is Python, after all. Immutability is
 merely a convention to be followed when implementing a new `Transform`.
@@ -284,8 +284,9 @@ avoided except for a few extraordinary circumstances (e.g. making a modified cop
 `Transform` whose type is not known at runtime), and in any case, the Pipeline
 call-chain API, which is preferred over direct instantiation of `Transform` objects,
 makes it difficult to do so.
-```
+:::
 
+(stateless-transforms)=
 ### Stateless Transforms
 
 A number of Transforms don't actually have any state to fit; Frankenfit calls these
@@ -331,7 +332,7 @@ log_price_lambda = ff.universal.StatelessLambda(
 )
 ```
 
-```{note}
+:::{note}
 The reader no doubt noticed that
 [`StatelessLambda`](frankenfit.universal.StatelessLambda) is kept under
 [`frankenfit.universal`](universal-api), rather than under
@@ -339,7 +340,7 @@ The reader no doubt noticed that
 distinction is that `frankenfit.dataframe` is for Transforms that operate on DataFrames,
 while `frankenfit.universal` is for Transforms that make no assumption about the type of
 the data.
-```
+:::
 
 To illustrate, `log_price` can be fit (always with `None` state) and applied like any
 other Transform:
@@ -368,7 +369,7 @@ log_price.apply(diamonds_df).head()
 All `StatlessTransforms` inherit an [`apply()`](frankenfit.StatelessTransform.apply)
 method, which is syntactic sugar for ``.fit(...).apply(...)``.
 
-```{important}
+:::{important}
 It's important to remember that *stateful* Transforms like
 [`DeMean`](frankenfit.dataframe.DeMean) and
 [`Winsorize`](frankenfit.dataframe.Winsorize) have no ``apply()`` method! They must
@@ -380,7 +381,7 @@ Stateless Transforms can be fit and applied in the same manner, and
 Furthermore, the signature of `StatelessTransform.apply()` is a little different than
 that of `FitTransform.apply()`, since it allows the specification of hyperparameter
 bindings, which can only be given at fit-time.
-```
+:::
 
 +++
 
@@ -530,10 +531,10 @@ in `train_df`, it's z-scored using the means and standard deviations that were o
 in `train_df`, and predicted prices are generated using the regression betas that were
 learned on `train_df`.
 
-```{important}
+:::{important}
 There is, to invent some terminology, a clean separation between **fit-time** and
 **apply-time**.
-```
+:::
 
 As expected, the out-of-sample predictions are not as correlated with observed `price`
 as the in-sample predictions, although the degradation is very slight, perhaps
@@ -643,15 +644,91 @@ ff.dataframe.Winsorize(0.05).visualize()
 This becomes especially useful for certain complex Transforms that group or combine
 other Transforms, such as those covered in {doc}`branching_and_grouping`.
 
-### Fit-and-apply in one go
++++
+
+### Fit-and-apply in one go: `Pipeline.apply()`
+
+A common operation with a Pipeline is to fit it and apply it on the same dataset, as in:
+
+```{code-cell} ipython3
+price_model.fit(train_df).apply(train_df).head()
+```
+
+However, as written above, this is inefficient. Recall that, under the hood,
+`price_model.fit(train_df)` does something like this:
+
+```{code-cell} ipython3
+winsorize_fit = winsorize.fit(train_df)
+df = winsorize_fit.apply(train_df)
+
+log_price_carat_fit = log_price_carat.fit(df)
+df = log_price_carat_fit.apply(df)
+
+z_score_fit = z_score.fit(df)
+df = z_score_fit.apply(df)
+
+regress_fit = regress.fit(df)
+df = regress_fit.apply(df)
+
+exp_price_hat_fit = exp_price_hat.fit(df)
+df = exp_price_hat_fit.apply(df)
+```
+
+In order to fit the next `Transform` in the sequence, `Pipeline.fit()` needs the result
+of applying the previous `FitTransform` to the fitting data. This means that by the time
+it has fit all of the Transforms, it has, as a side-effect, already computed the result
+of applying the whole Pipeline to its own fitting data. This is exactly what `df` is by
+the end of our example above.
+
+Thus when we call `apply()` on the Pipeline's own fitting data as in:
+
+```python
+price_model.fit(train_df).apply(train_df)
+```
+
+...we are duplicating work. All of the constituent `FitTransforms` will be applied to
+`train_df`, which is exactly what happened already at fit-time.
+
+For this reason, unlike ordinary stateful Transforms, Pipelines come with an
+[`apply()`](frankenfit.Pipeline.apply) method (otherwise `apply()` is only available on
+`StatelessTransforms` as discussed [above](stateless-transforms), or on the
+`FitTransform` object returned by `fit()`). Calling it on some data is equivalent
+to fitting and then applying the Pipeline on the same data, but more efficient.
+
+```{code-cell} ipython3
+assert (
+    price_model.apply(train_df)
+    .equals(
+        price_model.fit(train_df).apply(train_df)
+    )
+)
+```
+
+In general the only reason to call `Pipeline.fit()` is if one plans to apply the
+resulting `FitTransform` to some out-of-sample data, as in:
+
+```{code-cell} ipython3
+price_model.fit(train_df).apply(test_df).head()
+```
+
+The following table summarizes the distribution of `fit()` and `apply()` methods:
+
+|                                                       | `fit()` | `apply()` |
+|-------------------------------------------------------|---------|-----------|
+| [`Transform`](frankenfit.Transform)                   | ✔       |          |
+| [`FitTransform`](frankenfit.FitTransform)             |         | ✔        |
+| [`StatelessTransform`](frankenfit.StatelessTransform) | ✔       |  ✔       |
+| [`Pipeline`](frankenfit.Pipeline)                     | ✔       |  ✔       |
+
++++
 
 ### The call-chain API
+
++++
 
 ### Concatenating Pipelines
 
 ### Tagging and selecting Transforms
-
-+++
 
 XXX, later re callchaining: In particular, because we are transforming pandas
 DataFrames, we can use [`DataFramePipeline`](frankenfit.DataFramePipeline). Like all
