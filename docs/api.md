@@ -7,12 +7,14 @@
 
 ------------
 
-## Core `Transform` base classes
+## Core base classes
 
 ```{eval-rst}
 .. autoclass:: Transform
     :members:
     :private-members: _fit, _apply
+
+.. autodata:: frankenfit.core.DEFAULT_VISUALIZE_DIGRAPH_KWARGS
 
 .. autoclass:: FitTransform
     :members:
@@ -92,12 +94,29 @@ Foobar.
 
 ## Transform library
 
+(universal-api)=
+### Universal Transforms
+
+The module `frankenfit.universal` contains Frankenfit's built-in library of generically
+useful Transforms that make no assumptions about the type or shape of the data to which
+they are applied.
+
+```{eval-rst}
+.. autoclass:: frankenfit.universal.StatelessLambda
+```
+
+(dataframe-api)=
 ### DataFrame Transforms
+
+The module `frankenfit.dataframe` provides a library of broadly useful Transforms on 2-D
+Pandas DataFrames.
 
 ```{eval-rst}
 .. autoclass:: frankenfit.dataframe.Assign
 
 .. autoclass:: frankenfit.dataframe.Clip
+
+.. autoclass:: frankenfit.dataframe.Copy
 
 .. autoclass:: frankenfit.dataframe.Correlation
 

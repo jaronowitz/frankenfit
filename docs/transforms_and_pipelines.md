@@ -44,8 +44,8 @@ ff.DataFramePipeline().winsorize(limit=0.01).de_mean();
 
 However, it is also possible to instantiate Transform objects directly. For example,
 Transforms whose fitting data and apply data are meant to be pandas DataFrames are kept
-in the module `frankenfit.dataframe`, and we might instantiate the ``DeMean`` Transform
-directly as follows:
+in the module [`frankenfit.dataframe`](dataframe-api), and we might instantiate the
+``DeMean`` Transform directly as follows:
 
 ```{code-cell} ipython3
 dmn = ff.dataframe.DeMean()
@@ -167,17 +167,17 @@ ff.dataframe.Winsorize(limit=0.01)
 Winsorizing just the `price` column's top and bottom 5% of values:
 
 ```python
-ff.dataframe.Winsorize(limit=0.01, cols=["price"])
+ff.dataframe.Winsorize(limit=0.05, cols=["price"])
 ```
 
 ```{tip}
-`DeMean` and `Winsorize` are part of a larger family of DataFrame Transforms that accept
-a `cols` parameter. Others include `ZScore`, `Select`, `Drop`, `ImputeConstant`, and
-many more. As a notational convenience, all of these Transforms allow `cols` to be given
-as a single string, rather than a list of strings, in the case that the user wants the
-Transform to apply to a single column. Under the hood, this is converted to a length-1
-list. So our previous example could also be written most succinctly as `Winsorize(0.01,
-"price")`.
+`DeMean` and `Winsorize` are part of a larger family of [DataFrame
+Transforms](dataframe-api) that accept a `cols` parameter. Others include `ZScore`,
+`Select`, `Drop`, `ImputeConstant`, and many more. As a notational convenience, all of
+these Transforms allow `cols` to be given as a single string, rather than a list of
+strings, in the case that the user wants the Transform to apply to a single column.
+Under the hood, this is converted to a length-1 list. So our previous example could also
+be written most succinctly as `Winsorize(0.05, "price")`.
 
 Furthermore, all of the Transforms in this family follow the convention that omitting
 the `cols` argument indicates that the Transform should be applied to all columns in the
@@ -214,6 +214,8 @@ display(dmn_2cols)
 display(ff.dataframe.Winsorize(0.01, "price"))
 ```
 
+#### Tags
+
 The observant reader doubtlessly noticed the presence of a parameter named `"tag"` in
 the examples above. This is a special, implicit parameter common to all Transforms. For
 now we need only note its existence, and that it automatically receives a value, which
@@ -239,9 +241,9 @@ larger pipelines, as described in [Tagging and selecting Transforms].
 
 ```{important}
 While `tag` is a parameter, whose value may optionally be supplied when creating a
-Transform, `name` is *not* a parameter, and cannot be set directly. It's just read-only
-attribute whose value is automatically derived from the Transform's class name and
-`tag`.
+Transform, `name` is *not* a parameter, and cannot be set directly. It's just a
+read-only attribute whose value is automatically derived from the Transform's class name
+and `tag`.
 ```
 
 +++
@@ -250,10 +252,12 @@ attribute whose value is automatically derived from the Transform's class name a
 
 Transform instances like `dmn` are best thought of as light-weight, abstract, immutable
 descriptions of what to do to some as-yet unspecified data; they store no data or state
-in and of themselves. They are essentially factories for producing `FitTransform`
-instances by feeding data to their `fit()` methods, and it's those `FitTransform`
-instances which hold the (possibly heavyweight) state of the now-fit Transform, and are
-actually capable of transforming data through their `apply()` methods.
+in and of themselves. They are essentially factories for producing
+[`FitTransform`](frankenfit.FitTransform) instances by feeding data to their
+[`fit()`](frankenfit.Transform.fit) methods, and it's those `FitTransform` instances
+which hold the (possibly heavyweight) state of the now-fit Transform, and are actually
+capable of transforming data through their [`apply()`](frankenfit.FitTransform.apply)
+methods.
 
 Instances of `Transform` and `FitTransform` are both immutable and re-usable:
 
@@ -284,7 +288,99 @@ makes it difficult to do so.
 
 ### Stateless Transforms
 
-`Pipe`
+A number of Transforms don't actually have any state to fit; Frankenfit calls these
+[`StatelessTransforms`](frankenfit.StatelessTransform). For these Transforms, the
+`fit()` method is essentially a null operation, and by convention the `state()` of the
+resulting `FitTransform` is `None`. All of the action is in `apply()`.
+
+For example, suppose we just want to log-transform some column like `price`; that is,
+replace each value $x$ with $\log(1+x)$. (The $1$ is there to ensure that we don't try
+to compute $\log(0)$.) This is an operation that always gives the same result regardless
+of what might be observed on any fitting data, hence stateless. We could of course
+accomplish this directly with numpy and pandas:
+
+```{code-cell} ipython3
+import numpy as np
+
+np.log1p(diamonds_df[["price"]]).head()
+```
+
+But as we'll see in the next section, it is often useful to be able to represent such
+stateless data manipulations as Frankenfit `Transforms`, so that we can compose them
+easily with other (possibly stateful) Transforms in our data pipelines, and generally
+work with a common API for invoking all of our data manipulations.
+
+The Frankenfit library provides a few workhorse `StatelessTransforms` that can be used
+to wrap simple stateless operations like `np.log1p` above:
+
+* [`Pipe`](frankenfit.dataframe.Pipe) lets us easily "pipe" (the specified
+  columns of) a DataFrame through an arbitrary function, as long as it accepts and
+  returns a DataFrame:
+
+```{code-cell} ipython3
+log_price = ff.dataframe.Pipe(np.log1p, cols="price")
+```
+
+* [`StatelessLambda`](frankenfit.universal.StatelessLambda) is even more
+  generic. It passes the apply-time data (which may or may not be a DataFrame) directly
+  to a user-supplied function, returning the result.
+
+```{code-cell} ipython3
+log_price_lambda = ff.universal.StatelessLambda(
+    lambda df: df.assign(price=np.log1p(df["price"]))
+)
+```
+
+```{note}
+The reader no doubt noticed that
+[`StatelessLambda`](frankenfit.universal.StatelessLambda) is kept under
+[`frankenfit.universal`](universal-api), rather than under
+[`frankenfit.dataframe`](dataframe-api) like the other Transforms introduced so far. The
+distinction is that `frankenfit.dataframe` is for Transforms that operate on DataFrames,
+while `frankenfit.universal` is for Transforms that make no assumption about the type of
+the data.
+```
+
+To illustrate, `log_price` can be fit (always with `None` state) and applied like any
+other Transform:
+
+```{code-cell} ipython3
+log_price_fit = log_price.fit(diamonds_df)
+display(log_price_fit.state())
+```
+
+```{code-cell} ipython3
+log_price_fit.apply(diamonds_df).head()
+```
+
+Because `fit()` is a null operation, the fitting data argument is optional:
+
+```{code-cell} ipython3
+log_price.fit().apply(diamonds_df).head()
+```
+
+In fact, as a convenience, the `fit()` call can be skipped entirely:
+
+```{code-cell} ipython3
+log_price.apply(diamonds_df).head()
+```
+
+All `StatlessTransforms` inherit an [`apply()`](frankenfit.StatelessTransform.apply)
+method, which is syntactic sugar for ``.fit(...).apply(...)``.
+
+```{important}
+It's important to remember that *stateful* Transforms like
+[`DeMean`](frankenfit.dataframe.DeMean) and
+[`Winsorize`](frankenfit.dataframe.Winsorize) have no ``apply()`` method! They must
+first be `fit()`, which returns a [`FitTransform`](frankenfit.FitTransform) instance,
+and it's the `FitTransform` that has [`apply()`](frankenfit.FitTransform.apply).
+Stateless Transforms can be fit and applied in the same manner, and
+[`StatelessTransform.apply()`](frankenfit.StatelessTransform.apply) is merely a convenience.
+
+Furthermore, the signature of `StatelessTransform.apply()` is a little different than
+that of `FitTransform.apply()`, since it allows the specification of hyperparameter
+bindings, which can only be given at fit-time.
+```
 
 +++
 
@@ -336,8 +432,13 @@ example, we could instantiate our transforms like so:
 ```{code-cell} ipython3
 from sklearn.linear_model import LinearRegression
 
+# 1. Winsorize all four variables
 winsorize = ff.dataframe.Winsorize(0.05)
+# 2. Log-transform carat and price
+log_price_carat = ff.dataframe.Pipe(np.log1p, ["price", "carat"])
+# 3. Z-score the three predictor variables
 z_score = ff.dataframe.ZScore(["carat", "table", "depth"])
+# 4. Fit a linear regression
 regress = ff.dataframe.SKLearn(
     sklearn_class=LinearRegression,
     x_cols=["carat", "table", "depth"],
@@ -345,6 +446,8 @@ regress = ff.dataframe.SKLearn(
     hat_col="price_hat",
     class_params={"fit_intercept": True}  # additional arguments for LinearRegression
 )
+# 5. Exponentiate the predictions back to original units
+exp_price_hat = ff.dataframe.Pipe(np.expm1, "price_hat")
 ```
 
 And then, whenever we want to fit our model on some fitting data, we go through a
@@ -352,17 +455,14 @@ procedure like that below, where each Transform is fit on the result of fitting 
 applying the previous transform to the data:
 
 ```{code-cell} ipython3
-import numpy as np
-
 # start with train_df as the input data
 winsorize_fit = winsorize.fit(train_df)
 df = winsorize_fit.apply(train_df)
 
-# log-transform carat and price
-df = df.assign(
-    carat=np.log1p(df["carat"]),
-    price=np.log1p(df["price"]),
-)
+# remember that Pipe is stateless, so we could skip the explicit call to fit(), but
+# we'll use it here for symmetry with the other Transforms
+log_price_carat_fit = log_price_carat.fit(df)
+df = log_price_carat_fit.apply(df)
 
 z_score_fit = z_score.fit(df)
 df = z_score_fit.apply(df)
@@ -370,10 +470,8 @@ df = z_score_fit.apply(df)
 regress_fit = regress.fit(df)
 df = regress_fit.apply(df)
 
-# exponentiate price_hat back to dollars
-df = df.assign(
-    price_hat_dollars=np.expm1(df["price_hat"])
-)
+exp_price_hat_fit = exp_price_hat.fit(df)
+df = exp_price_hat_fit.apply(df)
 
 df.head()
 ```
@@ -390,9 +488,9 @@ errors:
 ```{code-cell} ipython3
 eval_df = (
     train_df[["price"]]
-    .assign(price_hat_dollars=df["price_hat_dollars"])
+    .assign(price_hat=df["price_hat"])
 )
-eval_df.plot.scatter(x="price_hat_dollars", y="price", alpha=0.3)
+eval_df.plot.scatter(x="price_hat", y="price", alpha=0.3)
 eval_df.hist(figsize=(5,2))
 eval_df.corr()
 ```
@@ -402,7 +500,7 @@ Even more incidentally, the `state()` of `regress_fit` is just a (fit) scikit-le
     https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html
 ) object, so if we are interested in the betas learned for the predictors, we can access
 them in the usual way. Unsurprisingly, it seems that `carat` is the most important by
-far for `price`:
+far for predicting `price`:
 
 ```{code-cell} ipython3
 regress_fit.state().coef_, regress_fit.state().intercept_
@@ -416,26 +514,21 @@ schema:
 # recall that test_df is the other half of diamonds_df
 # we use "oos" as an abbreviation of "out-of-sample"
 df_oos = winsorize_fit.apply(test_df)
-df_oos = df_oos.assign(
-    carat=np.log1p(df_oos["carat"]),
-    price=np.log1p(df_oos["price"]),
-)
+df_oos = log_price_carat_fit.apply(df_oos)
 df_oos = z_score_fit.apply(df_oos)
 df_oos = regress_fit.apply(df_oos)
-df_oos = df_oos.assign(
-    price_hat_dollars=np.expm1(df_oos["price_hat"])
-)
+df_oos = exp_price_hat_fit.apply(df_oos)
 
 df_oos.head()
 ```
 
 The virtue of using `FitTransform` objects like this is that our entire end-to-end model
 of diamond prices, including feature cleaning and regression, was fit strictly on one
-set of data (the fitting data or training set) and is being applied strictly
-out-of-sample to new data (the test data). The test data is winsorized using the
-quantiles that were observed on the fitting data, it's z-scored using the means and
-standard deviations that were observed on the fitting data, and predicted prices are
-generated using the regression betas that were learned on the fitting data.
+set of data (`train_df`) and is being applied strictly out-of-sample to new data
+(`test_df`). The data in `test_df` is winsorized using the quantiles that were observed
+in `train_df`, it's z-scored using the means and standard deviations that were observed
+in `train_df`, and predicted prices are generated using the regression betas that were
+learned on `train_df`.
 
 ```{important}
 There is, to invent some terminology, a clean separation between **fit-time** and
@@ -449,7 +542,7 @@ suggesting that our training set was not very biased:
 ```{code-cell} ipython3
 eval_oos_df = (
     test_df[["price"]]
-    .assign(price_hat_dollars=df_oos["price_hat_dollars"])
+    .assign(price_hat=df_oos["price_hat"])
 )
 eval_oos_df.corr()
 ```
@@ -470,10 +563,7 @@ Our diamond price-modeling pipeline can be rewritten as an actual `Pipeline` lik
 price_model = ff.Pipeline(
     transforms=[
         ff.dataframe.Winsorize(0.05),
-        ff.dataframe.Assign(
-          carat=lambda df: np.log1p(df["carat"]),
-          price=lambda df: np.log1p(df["price"]),
-        ),
+        ff.dataframe.Pipe(np.log1p, ["price", "carat"]),
         ff.dataframe.ZScore(["carat", "table", "depth"]),
         ff.dataframe.SKLearn(
             sklearn_class=LinearRegression,
@@ -482,17 +572,9 @@ price_model = ff.Pipeline(
             hat_col="price_hat",
             class_params={"fit_intercept": True}
         ),
-        ff.dataframe.Assign(
-          price_hat_dollars=lambda df: np.expm1(df["price_hat"])
-        ),
+        ff.dataframe.Pipe(np.expm1, "price_hat"),
     ]
 )
-```
-
-```{note}
-Note that we've introduced a new Transform, [`Assign`](frankenfit.dataframe.Assign),
-which, as we've used it here, takes the place of the manual `DataFrame.assign(...)`
-calls that made in the previous section.
 ```
 
 Now when we fit this `Pipeline` object `price_model` (which is just a `Transform` like
@@ -510,12 +592,18 @@ Wrapping up a composition of Transforms as a single Transform like this is quite
 powerful because it allows one easily to re-use the whole end-to-end model on multiple
 datasets, to embed it within other Pipelines, and so on. For example, since
 `price_model` is just a `Transform`, we could compose it with a
+[`Copy`](frankenfit.dataframe.Copy) Transform that preservse the original `price` column
+before all of the winsorizing and standardizing, and a
 [`Correlation`](frankenfit.dataframe.Correlation) Transform that computes the
-correlation between (standardized) `price` and `price_hat`:
+correlation between (standardized) `price_orig` and `price_hat`:
 
 ```{code-cell} ipython3
 price_model_corr = ff.Pipeline(
-    transforms=[price_model, ff.dataframe.Correlation(["price"], ["price_hat"])]
+    transforms=[
+        ff.dataframe.Copy("price", "price_orig"),
+        price_model,
+        ff.dataframe.Correlation(["price_orig"], ["price_hat"])
+    ]
 )
 
 price_model_corr_fit = price_model_corr.fit(train_df)

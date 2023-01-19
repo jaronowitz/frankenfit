@@ -569,11 +569,30 @@ class Filter(StatelessDataFrameTransform):
 
 
 @params
-class Copy(ColumnsTransform, StatelessDataFrameTransform):
+class Copy(StatelessDataFrameTransform):
     """
-    A stateless Transform that copies values from one or more source columns into
-    corresponding destination columns, either creating them or overwriting their
-    contents.
+    Copy values from one or more source columns into corresponding destination columns,
+    either creating them or overwriting their contents.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    cols: list[str] | str
+        The names of the source columns. Note that unlike for many other DataFrame
+        transforms, ``cols`` **may not** be omitted to indicate all columns. It may,
+        however, be a string as short-hand for a length-1 list.
+
+    dest_cols: list[str] | str
+        The names of the destination columns. If ``cols`` is length-1, then
+        ``dest_cols`` may have any length greater than zero; potentially many copies of
+        the source column will be created. Otherwise, ``cols`` and ``dest_cols`` must
+        have the same length.
+
+    Raises
+    ------
+    ValueError:
+        If ``len(cols) > 1`` and ``len(cols) != len(dest_cols)``.
     """
 
     cols: list[str] = columns_field()

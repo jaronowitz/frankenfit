@@ -431,6 +431,44 @@ class StatelessLambda(
     UniversalTransform[DataIn, DataResult],
     StatelessTransform[DataIn, DataResult],
 ):
+    """
+    Generically wrap a user-supplied function as a :class:`StatelessTransform`. At
+    apply-time, the input data is passed unaltered to ``apply_fun``, the result of which
+    is then the result of the Transform.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    apply_fun: Callable
+        The function through which to pass the apply-time data. ``apply_fun`` will be
+        called with the apply-time data as its first argument. Any additional arguments
+        in ``apply_fun``'s signature are treated as the names of hyperparameters, whose
+        values will also be supplied as named arguments with ``apply_fun`` is called.
+        See XXX for an overview of referencing hyperparameters from user-supplied
+        callable parameters.
+
+    Examples
+    --------
+    ::
+
+        df = diamonds_df
+        result = (
+            ff.UniversalPipeline()
+            .stateless_lambda(lambda df: df.rename(columns={"price": "price_orig"}))
+            .apply(df)
+        )
+        assert result.equals(df.rename(columns={"price": "price_orig"}))
+
+    With ``apply_fun`` referencing a hyperparameter named "response"::
+
+        pip = ff.UniversalPipeline().stateless_lambda(
+            lambda df, response: df.rename(columns={response: "foo"})
+        )
+        result = pip.apply(df, {"response": "price"})
+        assert result.equals(df.rename(columns={"price": "foo"}))
+    """
+
     apply_fun: Callable = field()  # df[, bindings] -> df
 
     apply_fun_bindings: Bindings

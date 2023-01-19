@@ -147,6 +147,10 @@ DEFAULT_VISUALIZE_DIGRAPH_KWARGS = {
     },
     "edge_attr": {"fontsize": "10", "fontname": "Monospace"},
 }
+"""
+The default keyword arguments passed to the ``graphviz.Digraph()`` constructor by
+:meth:`Transform.visualize() <frankenfit.Transform.visualize>`.
+"""
 
 
 class Future(Generic[T_co], ABC):
@@ -383,15 +387,16 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
 
     The ``Transform`` object that was fit, with any hyperparameters resolved
     against whatever bindings were provided at fit-time, is available as
-    :meth:`resolved_transform()``.
+    :meth:`resolved_transform()`.
 
     The fit state of the transformation, as returned by the ``Transform``
     object's ``_fit()`` method at fit-time, is available from :meth:`state()`,
     and this is the state that will be used at apply-time (i.e., passed as the
     ``state`` argument of the Transform's ``_apply()`` method).
 
-    Frankenfit users should never need to construct a `FitTransform` object themselves.
-    They are always obtained from :meth:`Transform.fit()` or :meth:`Backend.fit()`.
+    Frankenfit users should never need to construct a ``FitTransform`` object
+    themselves. They are always obtained from :meth:`Transform.fit()` or
+    :meth:`Backend.fit()`.
     """
 
     _Self = TypeVar("_Self", bound="FitTransform")
@@ -1009,8 +1014,15 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     def visualize(self, **digraph_kwargs):
         """
-        Return a visualization of this Transform as a ``graphviz.DiGraph``
-        object. The caller may render it to file or screen.
+        Return a visualization of this Transform as a ``graphviz.DiGraph`` object. The
+        caller may render it to file or screen.
+
+        Parameters
+        ----------
+        digraph_kwargs:
+            Additional keyword arguments to pass to ``graphviz.Digraph`` when
+            constructing the visualization. Extends and overwrites
+            :data:`frankenfit.core.DEFAULT_VISUALIZE_DIGRAPH_KWARGS`.
         """
         digraph = graphviz.Digraph(
             **{**DEFAULT_VISUALIZE_DIGRAPH_KWARGS, **digraph_kwargs}
