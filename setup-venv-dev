@@ -10,8 +10,8 @@ PYTHON="$1"
 
 echo "Clearing/creating environment at $ENVDIR with python binary $PYTHON"
 
-$PYTHON -m venv --clear --symlinks --upgrade-deps $ENVDIR
-$ENVDIR/bin/pip install -e "$SCRIPTPATH[dev]"
-cd $SCRIPTPATH
-$ENVDIR/bin/pre-commit install
-$ENVDIR/bin/pre-commit run --all-files
+"$PYTHON" -m venv --clear --symlinks --upgrade-deps "$ENVDIR"
+"$ENVDIR/bin/pip" install -e "$SCRIPTPATH[dev]"
+cd "$SCRIPTPATH"
+"$ENVDIR/bin/pre-commit" install
+"$ENVDIR/bin/pre-commit" run --all-files
