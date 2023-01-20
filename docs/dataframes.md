@@ -11,4 +11,4 @@ kernelspec:
   name: python3
 ---
 
-# Working with DataFrames
+# Working with DataFrames and `DataFramePipelines`
