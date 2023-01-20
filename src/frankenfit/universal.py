@@ -661,7 +661,7 @@ class UniversalCallChain(Generic[P_co]):
         self, *, tag: Optional[str] = None
     ) -> P_co:
         """
-        Append an :class:`Identity` transform to this pipeline.
+        Append an :class:`~frankenfit.universal.Identity` transform to this pipeline.
         """
 
     @callchain(IfHyperparamIsTrue)
@@ -675,7 +675,8 @@ class UniversalCallChain(Generic[P_co]):
         tag: Optional[str] = None,
     ) -> P_co:
         """
-        Append an :class:`IfHyperparamIsTrue` transform to this pipeline.
+        Append an :class:`~frankenfit.universal.IfHyperparamIsTrue` transform to this
+        pipeline.
         """
 
     @callchain(IfHyperparamLambda)
@@ -688,7 +689,8 @@ class UniversalCallChain(Generic[P_co]):
         tag: Optional[str] = None,
     ) -> P_co:
         """
-        Append an :class:`IfHyperparamLambda` transform to this pipeline.
+        Append an :class:`~frankenfit.universal.IfHyperparamLambda` transform to this
+        pipeline.
         """
 
     @callchain(IfFittingDataHasProperty)
@@ -701,7 +703,8 @@ class UniversalCallChain(Generic[P_co]):
         tag: Optional[str] = None,
     ) -> P_co:
         """
-        Append an :class:`IfFittingDataHasProperty` transform to this pipeline.
+        Append an :class:`~frankenfit.universal.IfFittingDataHasProperty` transform to
+        this pipeline.
         """
 
     @callchain(StatelessLambda)
@@ -709,7 +712,8 @@ class UniversalCallChain(Generic[P_co]):
         self, apply_fun: Callable, *, tag: Optional[str] = None
     ) -> P_co:
         """
-        Append a :class:`StatelessLambda` transform to this pipeline.
+        Append a :class:`~frankenfit.universal.StatelessLambda` transform to this
+        pipeline.
         """
 
     @callchain(StatefulLambda)
@@ -721,7 +725,8 @@ class UniversalCallChain(Generic[P_co]):
         tag: Optional[str] = None,
     ) -> P_co:
         """
-        Append a :class:`StatefulLambda` transform to this pipeline.
+        Append a :class:`~frankenfit.universal.StatefulLambda` transform to this
+        pipeline.
         """
 
     @callchain(Print)
@@ -734,7 +739,7 @@ class UniversalCallChain(Generic[P_co]):
         tag: Optional[str] = None,
     ) -> P_co:
         """
-        Append a :class:`Print` transform to this pipeline.
+        Append a :class:`~frankenfit.universal.Print` transform to this pipeline.
         """
 
     @callchain(LogMessage)
@@ -748,7 +753,7 @@ class UniversalCallChain(Generic[P_co]):
         tag: Optional[str] = None,
     ) -> P_co:
         """
-        Append a :class:`LogMessage` transform to this pipeline.
+        Append a :class:`~frankenfit.universal.LogMessage` transform to this pipeline.
         """
 
 
@@ -763,7 +768,6 @@ SelfUPI = TypeVar("SelfUPI", bound="UniversalPipelineInterface")
 class UniversalPipelineInterface(
     Generic[DataInOut, G_co, P_co], UniversalCallChain[P_co], Pipeline[DataInOut]
 ):
-    # Self = TypeVar("Self", bound="UniversalPipelineInterface")
 
     _Grouper: type[UniversalGrouper[P_co]] = UniversalGrouper[P_co]
 
@@ -775,9 +779,31 @@ class UniversalPipelineInterface(
         tag: str | None = None,
     ) -> G_co:
         """
-        Consume the next transform ``T`` in the call-chain by appending
-        ``ForBindings(bindings_sequence=..., combine_fun=..., transform=T)`` to
-        this pipeline.
+        Consume the next transform ``t`` in the call-chain by appending
+        :class:`ForBindings(bindings_sequence=..., combine_fun=..., transform=t)
+        <frankenfit.universal.ForBindings>` to this pipeline.
+
+        Examples
+        --------
+        ::
+
+            from pydataset import data
+            df = data("diamonds")
+            result = (
+                ff.UniversalPipeline[Any]()
+                .for_bindings(
+                    [
+                        {"target_col": "price"},
+                        {"target_col": "depth"},
+                        {"target_col": "table"},
+                    ],
+                    combine_fun=list,
+                )
+                .stateless_lambda(lambda df, target_col: df[[target_col]])
+            ).apply(df)
+
+            for x in result:
+                assert x.result.equals(df[[x.bindings["target_col"]]])
         """
         grouper = type(self)._Grouper(
             self,
@@ -791,7 +817,13 @@ class UniversalPipelineInterface(
 
     def last_state(self: SelfUPI) -> SelfUPI:
         """
-        Replace the last transform ``t`` in the pipeline with `:class:StateOf(t)`.
+        Replace the last transform ``t`` in the pipeline with
+        :class:`StateOf(t) <frankenfit.universal.StateOf>`.
+
+        Raises
+        ------
+        ValueError
+            If the pipeline is empty.
         """
         if not len(self.transforms):
             raise ValueError("last_state: undefined on empty pipeline")

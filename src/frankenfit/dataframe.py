@@ -591,7 +591,7 @@ class Copy(StatelessDataFrameTransform):
 
     Raises
     ------
-    ValueError:
+    ValueError
         If ``len(cols) > 1`` and ``len(cols) != len(dest_cols)``.
     """
 
@@ -642,26 +642,32 @@ class Select(ColumnsTransform, StatelessDataFrameTransform):
     Select the given columns from the data.
 
     .. TIP::
-        As syntactic sugar, :class:`Pipeline` overrides the index operator (via a custom
-        ``__getitem__`` implementatino) as a synonym for appending a ``Select``
-        transform to the pipeline. For example, the following three pipelines are
+        As syntactic sugar, :class:`DataFramePipeline` overrides the index operator (via
+        a custom ``__getitem__`` implementatino) as a synonym for appending a ``Select``
+        transform to the pipeline. For example, the following two pipelines are
         equivalent::
 
-            ff.Pipeline([..., Select(["col1", "col2"]), ...])
-
             (
-                ff.Pipeline()
+                ff.DataFramePipeline()
                 ...
                 .select(["col1", "col2"]
                 ...
             )
 
             (
-                ff.Pipeline()
+                ff.DataFramePipeline()
                 ...
-                ["col1", "col2"]
+                [["col1", "col2"]]
                 ...
             )
+
+    Parameters
+    ----------
+    cols: list[str] | str
+        The names of the source columns. Note that unlike for many other DataFrame
+        transforms, ``cols`` **may not** be omitted to indicate all columns. It may,
+        however, be a string as short-hand for a length-1 list.
+
     """
 
     cols: list[str] = columns_field()
@@ -687,8 +693,11 @@ class Rename(StatelessDataFrameTransform):
     """
     Rename columns.
 
-    :param how: Either a function that, given a column name, returns what it should be
-        renamed do, or a dict from old column names to corresponding new names.
+    Parameters
+    ----------
+    how: Callable[[str], str] | dict[str, str]
+        Either a function that, given a column name, returns what it should be renamed
+        do, or a dict from old column names to corresponding new names.
     """
 
     # TODO: support hp format-strs in keys and values
@@ -702,6 +711,24 @@ class Rename(StatelessDataFrameTransform):
 
 @params
 class Affix(ColumnsTransform, StatelessDataFrameTransform):
+    """
+    Affix a prefix and suffix to the names of the specified columns. At apply-time,
+    return a new ``DataFrame`` in which, for every column ``c`` selected by ``cols``,
+    that column has been renamed to ``prefix + c + suffix``.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    prefix: str
+        The prefix string.
+
+    suffix: str
+        The suffix string.
+
+    cols: list[str] | str | ALL_COLS, optional
+        The names of the columns to rename. If omitted, all columns are renamed.
+    """
     prefix: str
     suffix: str
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
@@ -715,6 +742,22 @@ class Affix(ColumnsTransform, StatelessDataFrameTransform):
 
 @params
 class Prefix(Affix):
+    """
+    Prepend a prefix to the names of the specified columns. At apply-time, return a new
+    ``DataFrame`` in which, for every column ``c`` selected by ``cols``, that column has
+    been renamed to ``prefix + c``. Implemented as a subclass of :class:`Affix` in which
+    ``suffix`` is always the empty string.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    prefix: str
+        The prefix string.
+
+    cols: list[str] | str | ALL_COLS, optional
+        The names of the columns to rename. If omitted, all columns are renamed.
+    """
     prefix: str
     suffix: str = field(default="", init=False)
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
@@ -722,6 +765,22 @@ class Prefix(Affix):
 
 @params
 class Suffix(Affix):
+    """
+    Append a suffix to the names of the specified columns.  At apply-time, return a new
+    ``DataFrame`` in which, for every column ``c`` selected by ``cols``, that column has
+    been renamed to ``c + suffix``. Implemented as a subclass of :class:`Affix` in which
+    ``prefix`` is always the empty string.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    suffix: str
+        The suffix string.
+
+    cols: list[str] | str | ALL_COLS, optional
+        The names of the columns to rename. If omitted, all columns are renamed.
+    """
     suffix: str
     prefix: str = field(default="", init=False)
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
@@ -741,7 +800,7 @@ class Pipe(ColumnsTransform, StatelessDataFrameTransform):
         The function through which to pipe the selected data. At apply-time, ``Pipe``
         returns the result of ``apply_fun(data_apply[cols])``.
 
-    cols: list(str) | ALL_COLS, optional
+    cols: list[str] | str | ALL_COLS, optional
         The names of the columns to select. If omitted, the entire apply-time DataFrame
         is passed to ``apply_fun``.
     """
@@ -1440,7 +1499,7 @@ class DataFrameCallChain(Generic[P_co]):
         ),
     ) -> P_co:
         """
-        Append a :class:`Assign` transform to this pipeline.
+        Append an :class:`Assign` transform to this pipeline.
         """
 
     @callchain(Pipe)
@@ -1473,7 +1532,7 @@ class DataFrameCallChain(Generic[P_co]):
         self, limit: float | HP, cols: Cols | None = None, *, tag: Optional[str] = None
     ) -> P_co:
         """
-        Append a :class:`Winsorize` transform to this pipeline.
+        Append a :class:`~frankenfit.dataframe.Winsorize` transform to this pipeline.
         """
 
     @callchain(ImputeConstant)
@@ -1481,7 +1540,7 @@ class DataFrameCallChain(Generic[P_co]):
         self, value: Any, cols: Cols | None = None, *, tag: Optional[str] = None
     ) -> P_co:
         """
-        Append a :class:`ImputeConstant` transform to this pipeline.
+        Append an :class:`ImputeConstant` transform to this pipeline.
         """
 
     @callchain(DeMean)
@@ -1505,7 +1564,7 @@ class DataFrameCallChain(Generic[P_co]):
         tag: Optional[str] = None,
     ) -> P_co:
         """
-        Append a :class:`ImputeMean` transform to this pipeline.
+        Append an :class:`ImputeMean` transform to this pipeline.
         """
 
     @callchain(ZScore)
@@ -1592,10 +1651,8 @@ class DataFramePipelineInterface(
     ) -> SelfDPI:
         """
         Return a new :class:`DataFramePipeline` (of the same subclass as
-        ``self``) containing a new :class:`Join` transform with this
-        pipeline as the ``Join``'s ``left`` argument.
-
-        .. SEEALSO:: :class:`Join`:
+        ``self``) containing a new :class:`frankenfit.dataframe.Join` transform with
+        this pipeline as the ``Join``'s ``left`` argument.
         """
         join = Join(
             self,
@@ -1619,17 +1676,17 @@ class DataFramePipelineInterface(
         sort: bool = False,
     ) -> G_co:
         """
-        Return a :class:`Grouper` object, which will consume the next Transform
-        in the call-chain by wrapping it in a :class:`GroupBy` transform and returning
-        the result of appending that ``GroupBy`` to this pipeline. It enables
-        Pandas-style call-chaining with ``GroupBy``.
+        Return a :class:`Grouper` object, which will consume the next Transform in the
+        call-chain by wrapping it in a :class:`frankenfit.dataframe.GroupByCols`
+        transform and returning the result of appending that ``GroupByCols`` to this
+        pipeline. It enables Pandas-style call-chaining with ``GroupByCols``.
 
         For example, grouping a single Transform::
 
             (
                 ff.DataFramePipeline()
                 # ...
-                .group_by("cut")  # -> PipelineGrouper
+                .group_by_cols("cut")  # -> PipelineGrouper
                     .z_score(cols)  # -> Pipeline
             )
 
@@ -1648,9 +1705,9 @@ class DataFramePipelineInterface(
             )
 
         .. NOTE::
-            When using ``group_by()``, by convention we add a level of indentation to
-            the next call in the call-chain, to indicate visually that it is being
-            consumed by the preceding ``group_by()`` call.
+            When using ``group_by_cols()``, by convention we add a level of indentation
+            to the next call in the call-chain, to indicate visually that it is being
+            consumed by the preceding ``group_by_cols()`` call.
 
         :param cols: The column(s) by which to group. The next Transform in the
             call-chain will be fit and applied separately on each subset of
