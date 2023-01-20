@@ -429,7 +429,8 @@ class GroupByCols(DataFrameTransform):
     :type fitting_schedule: Callable[[dict[str, object]], np.array[bool]]
 
     .. SEEALSO::
-        :meth:`DataFramePipeline.group_by_cols()`
+        :meth:`DataFramePipeline.group_by_cols()
+        <frankenfit.dataframe.DataFramePipelineInterface.group_by_cols>`
 
     """
 
@@ -641,6 +642,8 @@ class Select(ColumnsTransform, StatelessDataFrameTransform):
     """
     Select the given columns from the data.
 
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
     .. TIP::
         As syntactic sugar, :class:`DataFramePipeline` overrides the index operator (via
         a custom ``__getitem__`` implementatino) as a synonym for appending a ``Select``
@@ -680,6 +683,8 @@ class Select(ColumnsTransform, StatelessDataFrameTransform):
 class Drop(ColumnsTransform, StatelessDataFrameTransform):
     """
     Drop the given columns from the data.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
     """
 
     cols: list[str] = columns_field()
@@ -692,6 +697,8 @@ class Drop(ColumnsTransform, StatelessDataFrameTransform):
 class Rename(StatelessDataFrameTransform):
     """
     Rename columns.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
 
     Parameters
     ----------
@@ -907,6 +914,21 @@ class Winsorize(ColumnsTransform):
 
 @params
 class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
+    """
+    Replace missing values (``NaN``, per pandas convention) in the specified columns
+    with a constant value.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    value: Any
+        The constant value.
+
+    cols: list(str) | ALL_COLS, optional
+        The names of the columns in which to replace missing values. If omitted, all
+        columns found in the ``DataFrame`` are affected.
+    """
     value: Any
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
 
@@ -961,6 +983,21 @@ class DeMean(ColumnsTransform):
 
 @params
 class ImputeMean(ColumnsTransform):
+    """
+    Replace missing values (``NaN``, per pandas convention) in the specified columns
+    with the columns' respective fit-time means (optionally weighted by another column).
+
+    Parameters
+    ----------
+    cols: list(str) | ALL_COLS, optional
+        The names of the columns in which to replace missing values. If omitted, all
+        columns found in the ``DataFrame`` are affected.
+
+    w_col: str, optional
+        Optional name of the column to use as a source of observation weights when
+        computing the mean of each column selected by ``cols``. If omitted, the means
+        are unweighted.
+    """
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
     w_col: Optional[str] = None
 
@@ -1018,11 +1055,11 @@ class ZScore(ColumnsTransform):
 @params
 class SKLearn(DataFrameTransform):
     """
-    Wrap a scikit-learn ("sklearn") model. At fit-time, the given sklearn model class is
-    instantiated (with arguments from ``class_params``) and trained on the fitting data
-    by calling its ``fit()`` method. At apply-time, the now-fit sklearn model object is
-    used to generated predictions by calling its ``predict()`` method, which are
-    assigned to the apply-time data as a new column, ``hat_col``.
+    Wrap a ``scikit-learn`` ("sklearn") model. At fit-time, the given sklearn model
+    class is instantiated (with arguments from ``class_params``) and trained on the
+    fitting data by calling its ``fit()`` method. At apply-time, the now-fit sklearn
+    model object is used to generated predictions by calling its ``predict()`` method,
+    which are assigned to the apply-time data as a new column, ``hat_col``.
 
     Parameters
     ----------
@@ -1092,7 +1129,28 @@ class SKLearn(DataFrameTransform):
 @params
 class Statsmodels(DataFrameTransform):
     """
-    Wrap a statsmodels model.
+    Wrap a ``statsmodels`` model.  At fit-time, the given model class is instantiated
+    (with arguments from ``class_params``) and trained on the fitting data by calling
+    its ``fit()`` method. At apply-time, the now-fit model object is used to generated
+    predictions by calling its ``predict()`` method, which are assigned to the
+    apply-time data as a new column, ``hat_col``.
+
+    Parameters
+    ----------
+    sm_class: type
+        The ``statsmodels`` model class to wrap.
+    x_cols: list[str]
+        The predictor columns. These are selected from the fit/apply-data to create the
+        ``X`` argument to the model's ``fit()`` and ``predict()`` methods.
+    response_col: str
+        The response column. At fit-time, this is selected from the fitting data to
+        create the ``y`` argument to the model's ``fit()`` method.
+    hat_col: str
+        The name of the new column to create at apply-time containing predictions from
+        the ``statsmodels`` model.
+    class_params: dict[str, Any], optional
+        Optional parameters to pass as named arguments to the ``sm_class`` constructor
+        when instantiating it.
     """
 
     sm_class: type  # TODO: protocol?
@@ -1174,6 +1232,26 @@ A = TypeVar("A", bound="Assign")
 
 @params(auto_attribs=False)
 class Assign(DataFrameTransform):
+    """
+    Examples
+    --------
+    ::
+
+        pipeline = ff.DataFramePipeline().assign(
+            # multi-column assigments
+            do[["price", "carat"]].de_mean().suffix("_dmn"),  # pipeline
+            backend.apply(other_pipeline, diamonds_df),  # future
+            # lambda is wrapped in a StatelessLambda transform
+            lambda df: pd.DataFrame().assign(uppercut=df["cut"].str.upper()),
+            # named column assignments: transforms with 1-column output
+            price_dmn2=do["price"].de_mean(),
+            price_win2=backend.apply(other_pipeline["price_win"], diamonds_df),  # future
+            # lambda is wrapped in a StatelessLambda transform
+            price_rank=lambda df, price_scale=1.0: price_scale
+            * ((df["price"] - df["price"].min()) / (df["price"].max() - df["price"].min())),
+            intercept=1.0,  # scalar
+        )
+    """
     assignments: dict[
         int | str,  # int key indicates multi-column assignment, str indicates named
         (
@@ -1677,7 +1755,7 @@ class DataFramePipelineInterface(
     ) -> G_co:
         """
         Return a :class:`Grouper` object, which will consume the next Transform in the
-        call-chain by wrapping it in a :class:`frankenfit.dataframe.GroupByCols`
+        call-chain by wrapping it in a :class:`~frankenfit.dataframe.GroupByCols`
         transform and returning the result of appending that ``GroupByCols`` to this
         pipeline. It enables Pandas-style call-chaining with ``GroupByCols``.
 
@@ -1695,12 +1773,12 @@ class DataFramePipelineInterface(
             (
                 ff.DataFramePipeline()
                 # ...
-                .group_by("cut")
+                .group_by_cols("cut")
                     .then(
                         ff.DataFramePipeline()
-                        .winsorize(cols, limit=0.01)
-                        .z_score(cols)
-                        .clip(cols, upper=2, lower=-2)
+                        .winsorize(limit=0.01)
+                        .z_score()
+                        .clip(upper=2, lower=-2)
                     )
             )
 
@@ -1709,17 +1787,7 @@ class DataFramePipelineInterface(
             to the next call in the call-chain, to indicate visually that it is being
             consumed by the preceding ``group_by_cols()`` call.
 
-        :param cols: The column(s) by which to group. The next Transform in the
-            call-chain will be fit and applied separately on each subset of
-            data with a distinct combination of values in ``cols``.
-        :type cols: str | HP | list[str | HP]
-
-        :param fitting_schedule: How to determine the fitting data of each group. The
-            default schedule is :meth:`fit_group_on_self`. Use this to implement
-            workflows like cross-validation and sequential fitting.
-        :type fitting_schedule: Callable[dict[str, object], np.array[bool]]
-
-        :rtype: :class:`DataFramePipeline.Grouper`
+        .. SEEALSO:: See :class:`~frankenfit.dataframe.GroupByCols` for parameters.
         """
         grouper = type(self)._Grouper(
             self,

@@ -106,6 +106,8 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
     """
     The stateless Transform that, at apply-time, simply returns the input data
     unaltered.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
     """
 
     def _apply(self, data_apply: T, state: None) -> T:
@@ -585,10 +587,17 @@ class Print(Identity):
     An identity transform that has the side-effect of printing a message at fit- and/or
     apply-time.
 
-    :param fit_msg: Message to print at fit-time.
-    :param apply_msg: Message to print at apply-time.
-    :param dest: File object to which to print, or the name of a file to open in append
-        mode. If ``None`` (default), print to stdout.
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    fit_msg: str, optional
+        Message to print at fit-time.
+    apply_msg: str, optional
+        Message to print at apply-time.
+    dest: TextIO | str, optional
+        File object to which to print, or the name of a file to open in append mode. If
+        ``None`` (default), print to stdout.
     """
 
     fit_msg: Optional[str] = None
@@ -624,11 +633,22 @@ class LogMessage(Identity):
     An identity transform that has the side-effect of logging a message at fit- and/or
     apply-time. The message string(s) must be fully known at construction-time.
 
-    :param fit_msg: Message to log at fit-time.
-    :param apply_msg: Message to log at apply-time.
-    :param logger: Logger instance to which to log. If None (default), use
-        ``logging.getLogger("frankenfit.transforms")``
-    :param level: Level at which to log, default ``INFO``.
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    fit_msg: str, optional
+        Message to log at fit-time.
+
+    apply_msg: str, optional
+        Message to log at apply-time.
+
+    logger_name: str, optional
+        Logger instance to which to log. If ``None`` (default), use
+        ``logging.getLogger("frankenfit.universal")``
+
+    level: int, optional
+        Level at which to log, default ``INFO``.
     """
 
     fit_msg: Optional[str] = None

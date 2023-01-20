@@ -488,7 +488,8 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
     def state(self) -> Any:
         """
         Return the fit state of the transformation, which is an arbitrary object
-        determined by the implementation of ``{transform_class_name}._fit()``.
+        determined by the implementation of the ``Transform`` that was fit to obtain
+        this ``FitTransform`` instance.
         """
         return self.__state
 
@@ -571,16 +572,6 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         .. SEEALSO::
             :meth:`find_by_tag`, :meth:`FitTransform.find_by_tag`.
 
-    Attributes
-    ----------
-    pure : bool
-        Wether this Transform represents a "pure" computation, i.e. one that can be
-        cached safely. This may be used by some backends to avoid unnecessary
-        recomputations. The default value is True; some subclasses may wish to override
-        it with False if they should always be recomputed whenever applied. For example,
-        Transforms that read data, generate random outputs, or have desired side
-        effects.
-
     Examples
     --------
     An example of writing a ``Transform`` subclass::
@@ -620,8 +611,23 @@ class Transform(ABC, Generic[DataIn, DataResult]):
     """
 
     FitTransformClass: ClassVar[Type[FitTransform]] = FitTransform
+    """
+    Class variable pointing to the class object (which should be a subclass of
+    :class:`FitTransform`) to use when constructing the result of :meth:`fit()`.
+    Subclasses may override this if they want to customize the behavior of the
+    ``FitTransform`` instances returned by ``fit()``. Defaults to :class:`FitTransform`.
+    """
+
     backend = LOCAL_BACKEND  # type: Backend
+
     pure = True
+    """
+    Attribute indicating wether this Transform represents a "pure" computation, i.e. one
+    that can be cached safely. This may be used by some backends to avoid unnecessary
+    recomputations. The default value is ``True``; some subclasses may wish to override
+    it with ``False`` if they should always be recomputed whenever applied. For example,
+    Transforms that read data, generate random outputs, or have desired side effects.
+    """
 
     # TODO: do we really want tag to be hyperparameterizable? shouldn't it be
     # invariant wrt fit-time data and bindings?
@@ -781,9 +787,6 @@ class Transform(ABC, Generic[DataIn, DataResult]):
     def params(self) -> list[str]:
         """
         Return the names of all of the parameters
-
-        :return: list of parameter names.
-        :rtype: list[str]
         """
         field_names = list(fields_dict(self.__class__).keys())
         return field_names
@@ -792,11 +795,8 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         """
         Return the set of hyperparameter names that this :class:`Transform` expects to
         be bound at fit-time. If this Transform contains other Transforms (for example
-        if it's a :class:`Pipeline` or a :class:`Join`), then the set of hyperparameter
-        names is collected recursively.
-
-        :return: list of hyperparameter names.
-        :rtype: list[str]
+        if it's a :class:`Pipeline` or a :class:`~frankenfit.dataframe.Join`), then the
+        set of hyperparameter names is collected recursively.
         """
         # TODO: is there some way to report what type each hyperparam is expected to
         # have?
@@ -824,9 +824,9 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     def resolve(self: R, bindings: Optional[Bindings] = None) -> R:
         """
-        Returns a shallow copy of self with all HP-valued params resolved (but
-        not recursively), or raises UnresolvedHyperparameter if unable to do so
-        with the given bindings.
+        Returns a shallow copy of self with all hyperparameters (i.e.,
+        :class:`HP`-valued params) resolved (but not recursively), or raises
+        :class:`UnresolvedHyperparameter` if unable to do so with the given bindings.
         """
         bindings = bindings or {}
         params = self.params()
@@ -1129,7 +1129,7 @@ class ConstantTransform(
     computations in a :class:`Pipeline`, a warning is emited
     (:class:`NonInitialConstantTransformWarning`) whenever a
     ``ConstantTransform`` is fit on non-empty input data, or found to be
-    non-initial in a `Pipeline`.
+    non-initial in a :class:`Pipeline`.
     """
 
     _Self = TypeVar("_Self", bound="ConstantTransform")

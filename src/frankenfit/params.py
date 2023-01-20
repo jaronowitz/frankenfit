@@ -73,7 +73,7 @@ _T = TypeVar("_T")
 
 class UnresolvedHyperparameterError(NameError):
     """
-    Exception raised when a Transform is not able to resolve all of its
+    Exception raised when a :class:`Transform` is not able to resolve all of its
     hyperparameters at fit-time.
     """
 
@@ -81,9 +81,9 @@ class UnresolvedHyperparameterError(NameError):
 @define
 class HP:
     """
-    A hyperparameter; that is, a transformation parameter whose concrete value
-    is deferred until fit-time, at which point its value is "resolved" by a dict
-    of "bindings" provided to the :meth:`~Transform.fit()` call.
+    A hyperparameter: that is, a :class:`Transform` parameter whose concrete value is
+    deferred until fit-time, at which point its value is "**resolved**" by a dict of
+    "**bindings**" provided to the :meth:`~Transform.fit()` call.
 
     A :class:`FitTransform` cannot be created unless all of its parent
     ``Transform``'s hyperparameters resolved to concrete values. The resolved
@@ -120,26 +120,38 @@ class HP:
         """
         Return the concrete value of this hyperparameter according to the
         provided fit-time bindings. Exactly how the bindings determine the
-        concrete value will vary among subclasses of HP. By default, the name of
-        the hyperparam (its ``self.name``) is treated as a key in the ``bindings``
-        dict, whose value is the concrete value.
+        concrete value will vary among subclasses of ``HP``. By default, the name of the
+        hyperparam (its ``self.name``) is treated as a key in the ``bindings`` dict,
+        whose value is the concrete value.
 
-        :param bindings: The fit-time bindings dictionary with respect to which
-            to resolve this hyperparameter.
-        :type bindings: dict[str, object]
-        :return: Either the concrete value, or ``self`` (i.e., the
-            still-unresolved hyperparameter) if resolution is not possible with
-            the given bindings. After ``resolve()``-ing all of its
-            hyperparameters, a caller may check for any parameters that are
-            still HP objects to determine which, if any, hyperparameters could
-            not be resolved. The base implementation of :meth:`Transform.fit()`
-            raises an :class:`UnresolvedHyperparameterError` if any of the
-            Transform's (or its children's) hyperparameters fail to resolve.
-        :rtype: object
+        .. TIP::
+            It's generally not expected that users will call this method directly
+            themselves, instead relying on :meth:`Transform.fit()`,
+            :meth:`StatelessTransform.apply()`, :meth:`Pipeline.apply()`,
+            :meth:`Backend.fit()`, and :meth:`Backend.apply()` to do so for them as
+            appropriate, as part of their hyperparameter resolution logic.
 
         .. SEEALSO::
             :class:`UnresolvedHyperparameterError`, :meth:`Transform.fit`,
-            :meth:`StatelessTransform.apply`, :meth:`Pipeline.apply`.
+            :meth:`StatelessTransform.apply`, :meth:`Pipeline.apply`,
+            :meth:`Backend.fit`, :meth:`Backend.apply`.
+
+        Parameters
+        ----------
+        bindings: dict[str, object]
+            The fit-time bindings dictionary with respect to which to resolve this
+            hyperparameter.
+
+        Returns
+        -------
+        Any | HP
+            Either the concrete value, or ``self`` (i.e., the still-unresolved
+            hyperparameter) if resolution is not possible with the given bindings. After
+            ``resolve()``-ing all of its hyperparameters, a caller may check for any
+            parameters that are still HP objects to determine which, if any,
+            hyperparameters could not be resolved. The base implementation of
+            :meth:`Transform.fit()` raises an :class:`UnresolvedHyperparameterError` if
+            any of the Transform's (or its children's) hyperparameters fail to resolve.
         """
         # default: treat hp name as key into bindings
         return bindings.get(self.name, self)
