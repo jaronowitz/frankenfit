@@ -54,11 +54,11 @@ install it from source, `$ pip build .`, `$ pip sdist .`, `$ pip install .` shou
 work out of the box without creating any special virtual environment, as long as you're
 using Python 3.9+ and a recent version of `pip`.
 
-To get started with hacking on Frankenfit itself, make sure that the `python3.9`
+To get started with hacking on Frankenfit itself, make sure that the `python3.10`
 binary is on your path, clone this repo, and run:
 
 ```
-$ ./setup-venv-dev python3.9
+$ ./setup-venv-dev python3.10
 $ source ./.venv-dev/bin/activate
 ```
 
