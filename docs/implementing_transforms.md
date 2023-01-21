@@ -13,7 +13,7 @@ kernelspec:
 
 # Implementing your own transforms
 
-```{code-cell}
+```{code-cell} ipython3
 import pandas as pd
 import frankenfit as ff
 

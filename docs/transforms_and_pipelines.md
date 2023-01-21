@@ -439,7 +439,7 @@ winsorize = ff.dataframe.Winsorize(0.05)
 log_price_carat = ff.dataframe.Pipe(np.log1p, ["price", "carat"])
 # 3. Z-score the three predictor variables
 z_score = ff.dataframe.ZScore(["carat", "table", "depth"])
-# 4. Fit a linear regression
+# 4. Linear regression
 regress = ff.dataframe.SKLearn(
     sklearn_class=LinearRegression,
     x_cols=["carat", "table", "depth"],
@@ -482,7 +482,7 @@ At the end of this process, we have three `FitTransform` instances `winsorize_fi
 results of applying our whole model to its own fitting data.
 
 Incidentally, we can see that the model does a reasonable job of predicting its own
-fitting data, with a 92% correlation between `price_hat_dollars` and the original,
+fitting data, with a high correlation between `price_hat_dollars` and the original,
 un-standardized `price`, though there is clearly some non-random structure to the
 errors:
 
@@ -501,7 +501,8 @@ Even more incidentally, the `state()` of `regress_fit` is just a (fit) scikit-le
     https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html
 ) object, so if we are interested in the betas learned for the predictors, we can access
 them in the usual way. Unsurprisingly, it seems that `carat` is the most important by
-far for predicting `price`:
+far for predicting `price` (so much so that if we were doing this for real, we might
+consider dropping the other predictors altogether):
 
 ```{code-cell} ipython3
 regress_fit.state().coef_, regress_fit.state().intercept_
@@ -638,7 +639,7 @@ price_model = ff.Pipeline(
 )
 ```
 
-While useful for illustrating how Pipelines work from the ground up, this is generally
+While useful for illustrating how Pipelines work internally, this is generally
 *not* the preferred way to write data-modeling pipelines with Frankenfit. Instead we
 use what we call the **call-chain API**, so named because it involves making a "chain"
 of method calls on Pipeline objects to build up the sequence of Transforms
@@ -670,12 +671,70 @@ One can see two main differences from the previous style of writing a Pipeline:
 
 1. Instead of constructing an instance of [`Pipeline`](frankenfit.Pipeline), we begin by
    constructing an intance of [`DataFramePipeline`](frankenfit.DataFramePipeline).
-2. Rather than creating a list of `Transform` objects, we make a chain of method-calls;
+
+   This is because `Pipeline` is just a generic base class. It provides the core
+   functionality common to all pipelines, but no call-chain
+   methods.[^footnote-if-fitting] As noted earlier, Frankenfit's library of built-in
+   Transforms is organized into submodules:
+
+   * `frankefit.universal` for generically useful Transforms that make no assumptions
+     about the type or shape of the data.
+   * `frankenfit.dataframe` for Transforms that operate on `DataFrames`.
+
+   These also provide subclasses of `Pipeline`, available to users directly under the
+   `frankenfit` package namespace:
+
+   * [`ff.UniversalPipeline`](frankenfit.UniversalPipeline) defines call-chain methods
+     for all of the Transforms in `frankenfit.universal`.
+   * [`ff.DataFramePipeline`](frankenfit.DataFramePipeline) defines call-chain methods for all
+     of the Transforms in `frankenfit.dataframe`, *in addition to* those in
+     `frankenfit.universal`. (`DataFramePipeline` is in fact a subclass of
+     `UniversalPipeline`.)
+
+   Thus when writing our pipelines, we'll almost always be using `DataFramePipeline` (or
+   `UniversalPipeline`) rather than `Pipeline`, in order to use the call-chain methods.
+
+2. Rather than passing a list of `Transform` objects, we make a chain of method-calls;
    the method names are the [snake_case](https://en.wikipedia.org/wiki/Snake_case)
    transliterations of the corresponding
    [CamelCase](https://en.wikipedia.org/wiki/Camel_case) `Tranform` class names.
 
-XXX: Pipeline subclasses and the semantics of the call-chain.
+   We construct an initially empty pipeline with `DataFramePipeline()` and then proceed
+   to append Transforms to it with successive method calls. Each call passes its
+   arguments to the corresponding `Transform` class constructor and returns a new
+   pipeline with that `Transform` appended, ready for the next method call.
+
+[^footnote-if-fitting]: *Well actually,* the `Pipeline` base class does include
+[`then()`](frankenfit.Pipeline.then) and
+[`if_fitting()`](frankenfit.Pipeline.if_fitting), which act as call-chain methods,
+though not specific to any particular data operations.
+
++++
+
+It's important to note that each method call returns a *new* `DataFramePipeline`
+instance with an additional `Transform` at the end of its `transforms` parameter. The
+initial `DataFramePipeline` object is never modified:
+
+```{code-cell} ipython3
+empty_pipeline = ff.DataFramePipeline()
+empty_pipeline
+```
+
+```{code-cell} ipython3
+pip = empty_pipeline.winsorize(0.05)
+pip
+```
+
+```{code-cell} ipython3
+# empty_pipeline is still as it was
+empty_pipeline
+```
+
+:::{seealso}
+More details and nuances of the call-chain API, having to do with Transforms that group
+and nest other Transforms (possibly sub-pipelines), are covered in {doc}`dataframes` and
+{doc}`branching_and_grouping`
+:::
 
 +++
 
@@ -742,7 +801,7 @@ resulting `FitTransform` to some out-of-sample data, as in:
 
 ```python
 # note the apply data is different than the fitting data
-price_model.fit(train_df).apply(test_df).head()
+price_model.fit(train_df).apply(test_df)
 ```
 
 +++
@@ -778,7 +837,7 @@ as an ordered sequence of Transforms:
 price_model.visualize()
 ```
 
-It's worth noting that `visualize` is in fact a method available on all `Transform` objects, not just `Pipeline`s.
+It's worth noting that `visualize` is in fact a method available on all `Transform` objects, not just `Pipelines`.
 
 ```{code-cell} ipython3
 ff.dataframe.Winsorize(0.05).visualize()
@@ -791,6 +850,86 @@ other Transforms, such as those covered in {doc}`branching_and_grouping`.
 
 ### Concatenating Pipelines
 
+Once defined, Pipelines can be composed together in various ways. The simplest is
+**concatenation**, whereby one Pipeline's sequence of Transforms is followed immediately
+by that of another.
+
+For example, we could break our `price_model` Pipeline up into smaller parts. Along the
+way we'll introduce an additional step,
+[`copy("price", "price_train")`](frankenfit.dataframe.Copy), so that we can prepare
+a training response column while preserving the original unmodified `price` column for
+later evaluation of our predictions:
+
+```{code-cell} ipython3
+prepare_features = (
+    ff.DataFramePipeline()
+    .winsorize(0.05, ["carat", "table", "depth"])
+    .pipe(np.log1p, ["price", "carat"])
+    .z_score(["carat", "table", "depth"])
+)
+
+# we'll fit our regression on a winsorized and log-transformed *copy* of price
+prepare_training_response = (
+    ff.DataFramePipeline()
+    .copy("price", "price_train")
+    .winsorize(0.05, "price_train")
+    .pipe(np.log1p, "price_train")
+)
+
+predict_price = (
+    ff.DataFramePipeline()
+    .sk_learn(
+        sklearn_class=LinearRegression,
+        x_cols=["carat", "table", "depth"],
+        response_col="price_train",
+        hat_col="price_hat",
+        class_params={"fit_intercept": True}
+    )
+    .pipe(np.expm1, "price_hat")
+)
+```
+
+We can concatenate these three smaller Pipelines into a complete model using
+[`then()`](frankenfit.Pipeline.then):
+
+```{code-cell} ipython3
+combined_model = (
+    prepare_features
+    .then(prepare_training_response)
+    .then(predict_price)
+)
+combined_model.visualize()
+```
+
+```{code-cell} ipython3
+combined_model.apply(train_df).head()
+```
+
+`p1.then(p2)` does pretty much what you'd expect: a new `Pipeline` (of the same subclass
+as `p1`, so in our case a `DataFramePipeline`) is returned whose `transforms` parameter
+is `p1.transforms + p2.transforms`.
+
+As a bit of syntactic sugar, the `__add__` operator is overridden so that Pipelines can
+also be concatenated using addition syntax:
+
+```{code-cell} ipython3
+combined_model = prepare_features + prepare_training_response + predict_price
+```
+
+Concatenation enables greater re-usability of our pipelines. For example, a common setup
+might be that we have several different predictive data models for some problem, and
+separately, we have one or more ways of "scoring" their predictions. We can easily pick
+a model, pick a scoring method, and combine them, as in:
+
+```{code-cell} ipython3
+score_predictions = ff.DataFramePipeline().correlation(["price_hat"], ["price"])
+
+(combined_model + score_predictions).apply(train_df)
+```
+
+#### Other uses of `then()`
+
+
 +++
 
 ### Tagging and selecting Transforms
@@ -799,6 +938,10 @@ XXX, later re callchaining: In particular, because we are transforming pandas
 DataFrames, we can use [`DataFramePipeline`](frankenfit.DataFramePipeline). Like all
 
 XXX: another file? reading data (working with data frames?). behavior of pipelines on empty data, and of empty pipelines.
+
+XXX: Mention then() as a method on all Transforms()?
+
+XXX: What about FitTransforms in Pipelines?
 
 +++
 

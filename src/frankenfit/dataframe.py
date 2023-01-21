@@ -342,7 +342,7 @@ class ColumnsTransform(DataFrameTransform):
     Abstract base clase of all Transforms that require a list of columns as a parameter
     (typically ``cols``). Provides a utility method, :meth:`resolve_cols` for resolving
     the list of column names to which such a parameter refers in the case that it has
-    the special :class:`frankenfit.ALL_COLS`.
+    the special type :class:`frankenfit.ALL_COLS`.
     """
 
     def resolve_cols(
@@ -670,7 +670,6 @@ class Select(ColumnsTransform, StatelessDataFrameTransform):
         The names of the source columns. Note that unlike for many other DataFrame
         transforms, ``cols`` **may not** be omitted to indicate all columns. It may,
         however, be a string as short-hand for a length-1 list.
-
     """
 
     cols: list[str] = columns_field()
@@ -685,6 +684,13 @@ class Drop(ColumnsTransform, StatelessDataFrameTransform):
     Drop the given columns from the data.
 
     🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    Parameters
+    ----------
+    cols: list[str] | str
+        The names of the columns to drop. Note that unlike for many other DataFrame
+        transforms, ``cols`` **may not** be omitted to indicate all columns. It may,
+        however, be a string as short-hand for a length-1 list.
     """
 
     cols: list[str] = columns_field()
@@ -1623,7 +1629,7 @@ class DataFrameCallChain(Generic[P_co]):
         self, limit: float | HP, cols: Cols | None = None, *, tag: Optional[str] = None
     ) -> P_co:
         """
-        Append a :class:`~frankenfit.dataframe.Winsorize` transform to this pipeline.
+        Append a :class:`Winsorize` transform to this pipeline.
         """
 
     @callchain(ImputeConstant)

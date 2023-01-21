@@ -200,6 +200,10 @@ Foobar.
 
 ## Transform library
 
+```{eval-rst}
+.. autoclass:: frankenfit.core.IfPipelineIsFitting
+```
+
 (universal-api)=
 ### Universal transforms
 
