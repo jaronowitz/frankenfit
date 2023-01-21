@@ -615,12 +615,10 @@ price_model_corr_fit.apply(train_df)  # correlation on its own training data
 price_model_corr_fit.apply(test_df)  # correlation on test data
 ```
 
-+++
-
 ### The call-chain API
 
-Previously we created the `price_model` [`Pipeline`](frankenfit.Pipeline) by directly
-supplying the `transforms` parameter as a list of `Transform` objects:
+In the previous section we created the `price_model` [`Pipeline`](frankenfit.Pipeline)
+by directly supplying the `transforms` parameter as a list of `Transform` objects:
 
 ```python
 price_model = ff.Pipeline(
@@ -640,6 +638,17 @@ price_model = ff.Pipeline(
 )
 ```
 
+While useful for illustrating how Pipelines work from the ground up, this is generally
+*not* the preferred way to write data-modeling pipelines with Frankenfit. Instead we
+use what we call the **call-chain API**, so named because it involves making a "chain"
+of method calls on Pipeline objects to build up the sequence of Transforms
+incrementally. This style of writing Pipelines is more concise and readable (effectively
+a domain-specific language), taking inspiration from Pandas' own [similar style of
+usage](https://tomaugspurger.github.io/posts/method-chaining/).
+
+Using the call-chain API, our `price_model` pipeline can be written more idiomatically
+as follows:
+
 ```{code-cell} ipython3
 price_model = (
     ff.DataFramePipeline()
@@ -656,6 +665,19 @@ price_model = (
     .pipe(np.expm1, "price_hat")
 )
 ```
+
+One can see two main differences from the previous style of writing a Pipeline:
+
+1. Instead of constructing an instance of [`Pipeline`](frankenfit.Pipeline), we begin by
+   constructing an intance of [`DataFramePipeline`](frankenfit.DataFramePipeline).
+2. Rather than creating a list of `Transform` objects, we make a chain of method-calls;
+   the method names are the [snake_case](https://en.wikipedia.org/wiki/Snake_case)
+   transliterations of the corresponding
+   [CamelCase](https://en.wikipedia.org/wiki/Camel_case) `Tranform` class names.
+
+XXX: Pipeline subclasses and the semantics of the call-chain.
+
++++
 
 ### Fit-and-apply in one go: `Pipeline.apply()`
 
