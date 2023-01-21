@@ -1564,16 +1564,50 @@ class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
                 f"I don't know how to extend a Pipeline with {other}, which is of "
                 f"type {type(other)}, bases = {type(other).__bases__}. "
             )
-        result = copy.copy(self)
-        result.transforms = transforms
-        return result
+        return type(self)(transforms=transforms)
 
     def if_fitting(self: P, transform: Transform) -> P:
+        """
+        Append an :class:`~core.IfPipelineIsFitting` transform to this pipeline.
+        """
         return self + IfPipelineIsFitting(transform)
 
 
 @params
 class IfPipelineIsFitting(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+    """
+    Apply the given child :class:`Transform` only when the :class:`Pipeline` containing
+    this `IfPipelineIsFitting` Transform is being fit. This is useful to avoid running
+    Transforms that are unnecessary when an alread-fit Pipeline is being applied
+    out-fo-sample, for example the preparation of training response columns.
+
+    .. SEEALSO:: The corresponding call-chain method is
+        :meth:`~frankenfit.Pipeline.if_fitting()`.
+
+    Parameters
+    ----------
+    transform: :class:`Transform`
+        The transform whose application to restrict to fit-time in the parent pipeline.
+
+    Example
+    -------
+    Preparing a training response column only at fit-time::
+
+        pipeline = ff.DataFramePipeline()
+        my_model = (
+            pipeline
+            .if_fitting(
+                pipeline.assign(
+                    price_train=pipeline["price"].pipe(np.log1p).winsorize(0.05)
+                )
+            )
+            .sk_learn(
+                ...,
+                response_col="price_train"
+            )
+        )
+    """
+
     transform: Transform[DataIn, DataResult]
 
     def _submit_fit(
