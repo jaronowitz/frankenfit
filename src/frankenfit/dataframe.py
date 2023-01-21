@@ -736,6 +736,7 @@ class Affix(ColumnsTransform, StatelessDataFrameTransform):
     cols: list[str] | str | ALL_COLS, optional
         The names of the columns to rename. If omitted, all columns are renamed.
     """
+
     prefix: str
     suffix: str
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
@@ -765,6 +766,7 @@ class Prefix(Affix):
     cols: list[str] | str | ALL_COLS, optional
         The names of the columns to rename. If omitted, all columns are renamed.
     """
+
     prefix: str
     suffix: str = field(default="", init=False)
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
@@ -788,6 +790,7 @@ class Suffix(Affix):
     cols: list[str] | str | ALL_COLS, optional
         The names of the columns to rename. If omitted, all columns are renamed.
     """
+
     suffix: str
     prefix: str = field(default="", init=False)
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
@@ -929,6 +932,7 @@ class ImputeConstant(ColumnsTransform, StatelessDataFrameTransform):
         The names of the columns in which to replace missing values. If omitted, all
         columns found in the ``DataFrame`` are affected.
     """
+
     value: Any
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
 
@@ -998,6 +1002,7 @@ class ImputeMean(ColumnsTransform):
         computing the mean of each column selected by ``cols``. If omitted, the means
         are unweighted.
     """
+
     cols: list[str] | ALL_COLS = columns_field(factory=ALL_COLS)
     w_col: Optional[str] = None
 
@@ -1238,20 +1243,29 @@ class Assign(DataFrameTransform):
     ::
 
         pipeline = ff.DataFramePipeline().assign(
-            # multi-column assigments
+            # ---multi-column assigments---
             do[["price", "carat"]].de_mean().suffix("_dmn"),  # pipeline
             backend.apply(other_pipeline, diamonds_df),  # future
+
             # lambda is wrapped in a StatelessLambda transform
             lambda df: pd.DataFrame().assign(uppercut=df["cut"].str.upper()),
-            # named column assignments: transforms with 1-column output
+
+            # ---named column assignments: transforms with 1-column output---
             price_dmn2=do["price"].de_mean(),
-            price_win2=backend.apply(other_pipeline["price_win"], diamonds_df),  # future
+
+            # future with 1-column result
+            price_win2=backend.apply(other_pipeline["price_win"], diamonds_df),
+
             # lambda is wrapped in a StatelessLambda transform
-            price_rank=lambda df, price_scale=1.0: price_scale
-            * ((df["price"] - df["price"].min()) / (df["price"].max() - df["price"].min())),
+            price_rank=lambda df, price_scale=1.0: price_scale * (
+                (df["price"] - df["price"].min())
+                / (df["price"].max() - df["price"].min())
+            ),
+
             intercept=1.0,  # scalar
         )
     """
+
     assignments: dict[
         int | str,  # int key indicates multi-column assignment, str indicates named
         (
