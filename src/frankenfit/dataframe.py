@@ -1232,12 +1232,11 @@ class Correlation(StatelessDataFrameTransform):
         return cm.loc[self.left_cols, self.right_cols]
 
 
-A = TypeVar("A", bound="Assign")
-
-
 @params(auto_attribs=False)
 class Assign(DataFrameTransform):
     """
+    Assign the results of other Transforms (or scalar values) to columns.
+
     Examples
     --------
     ::

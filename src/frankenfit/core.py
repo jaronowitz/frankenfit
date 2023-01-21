@@ -1180,6 +1180,11 @@ C = TypeVar("C", bound="Callable[..., Any]")
 def callchain(transform_class: type[R]) -> Callable[[C], C]:
     def inner(f: C) -> C:
         # f.__doc__ = dedent(f.__doc__ or "") + dedent(transform_class.__doc__ or "")
+        if transform_class.__doc__ is not None:
+            transform_class.__doc__ += f"""
+
+    .. SEEALSO:: The corresponding call-chain method is :meth:`~{f.__qualname__}()`
+"""
 
         @wraps(f)
         def wrapper(self, *args, **kwargs):

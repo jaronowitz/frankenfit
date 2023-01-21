@@ -615,36 +615,47 @@ price_model_corr_fit.apply(train_df)  # correlation on its own training data
 price_model_corr_fit.apply(test_df)  # correlation on test data
 ```
 
-### Visualizing pipelines
-
-Because `price_model` is just a Transform, we can query its `params()` like any other
-Transform, and access their values as attributes:
-
-```{code-cell} ipython3
-display(price_model.params())
-display(price_model.transforms)
-```
-
-However, for a complicated `Pipeline`, it can be difficult to figure out what it is
-doing by looking at the raw `transforms` list. The
-[`visualize`](frankenfit.Transform.visualize) method uses the [GraphViz
-library](https://pypi.org/project/graphviz/) to produce a visualization of the Pipeline
-as an ordered sequence of Transforms:
-
-```{code-cell} ipython3
-price_model.visualize()
-```
-
-It's worth noting that `visualize` is in fact a method available on all `Transform` objects, not just `Pipeline`s.
-
-```{code-cell} ipython3
-ff.dataframe.Winsorize(0.05).visualize()
-```
-
-This becomes especially useful for certain complex Transforms that group or combine
-other Transforms, such as those covered in {doc}`branching_and_grouping`.
-
 +++
+
+### The call-chain API
+
+Previously we created the `price_model` [`Pipeline`](frankenfit.Pipeline) by directly
+supplying the `transforms` parameter as a list of `Transform` objects:
+
+```python
+price_model = ff.Pipeline(
+    transforms=[
+        ff.dataframe.Winsorize(0.05),
+        ff.dataframe.Pipe(np.log1p, ["price", "carat"]),
+        ff.dataframe.ZScore(["carat", "table", "depth"]),
+        ff.dataframe.SKLearn(
+            sklearn_class=LinearRegression,
+            x_cols=["carat", "table", "depth"],
+            response_col="price",
+            hat_col="price_hat",
+            class_params={"fit_intercept": True}
+        ),
+        ff.dataframe.Pipe(np.expm1, "price_hat"),
+    ]
+)
+```
+
+```{code-cell} ipython3
+price_model = (
+    ff.DataFramePipeline()
+    .winsorize(0.05)
+    .pipe(np.log1p, ["price", "carat"])
+    .z_score(["carat", "table", "depth"])
+    .sk_learn(
+        sklearn_class=LinearRegression,
+        x_cols=["carat", "table", "depth"],
+        response_col="price",
+        hat_col="price_hat",
+        class_params={"fit_intercept": True}
+    )
+    .pipe(np.expm1, "price_hat")
+)
+```
 
 ### Fit-and-apply in one go: `Pipeline.apply()`
 
@@ -707,9 +718,12 @@ assert (
 In general the only reason to call `Pipeline.fit()` is if one plans to apply the
 resulting `FitTransform` to some out-of-sample data, as in:
 
-```{code-cell} ipython3
+```python
+# note the apply data is different than the fitting data
 price_model.fit(train_df).apply(test_df).head()
 ```
+
++++
 
 The following table summarizes the distribution of `fit()` and `apply()` methods:
 
@@ -722,16 +736,47 @@ The following table summarizes the distribution of `fit()` and `apply()` methods
 
 +++
 
-### The call-chain API
+### Visualizing pipelines
+
+Because `price_model` is just a Transform, we can query its `params()` like any other
+Transform, and access their values as attributes:
+
+```{code-cell} ipython3
+display(price_model.params())
+display(price_model.transforms)
+```
+
+However, for a complicated `Pipeline`, it can be difficult to figure out what it is
+doing by looking at the raw `transforms` list. The
+[`visualize`](frankenfit.Transform.visualize) method uses the [GraphViz
+library](https://pypi.org/project/graphviz/) to produce a visualization of the Pipeline
+as an ordered sequence of Transforms:
+
+```{code-cell} ipython3
+price_model.visualize()
+```
+
+It's worth noting that `visualize` is in fact a method available on all `Transform` objects, not just `Pipeline`s.
+
+```{code-cell} ipython3
+ff.dataframe.Winsorize(0.05).visualize()
+```
+
+This becomes especially useful for certain complex Transforms that group or combine
+other Transforms, such as those covered in {doc}`branching_and_grouping`.
 
 +++
 
 ### Concatenating Pipelines
 
++++
+
 ### Tagging and selecting Transforms
 
 XXX, later re callchaining: In particular, because we are transforming pandas
 DataFrames, we can use [`DataFramePipeline`](frankenfit.DataFramePipeline). Like all
+
+XXX: another file? reading data (working with data frames?). behavior of pipelines on empty data, and of empty pipelines.
 
 +++
 
