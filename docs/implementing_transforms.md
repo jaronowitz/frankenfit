@@ -43,3 +43,21 @@ class DeMean(ff.Transform):
 ```
 
 As authors of a Transform, in most cases we must implement `_fit` and `_apply` methods.
+
+
+## Implementing simple transforms with `_fit()` and `_apply()`
+
+## Declaring parameters
+
+## Using custom Transforms in pipelines
+
+`Pipeline.then()`
+`Pipeline.with_methods()`.
+
+## Implementing complex transforms with `_submit_fit()` and `_submit_apply()`
+
+## Considerations for complex Transforms
+
+Overriding `hyerparams()`, `_visualize()`.
+
+Using parallel backends. Traces.
