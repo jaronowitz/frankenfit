@@ -11,4 +11,4 @@ kernelspec:
   name: python3
 ---
 
-# Parameters and hyperparameters
+# Hyperparameters

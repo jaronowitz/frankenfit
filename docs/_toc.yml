@@ -6,7 +6,7 @@ root: cover
 chapters:
 - file: synopsis
 - file: transforms_and_pipelines
-- file: hyperparams_intro
+- file: hyperparams
 - file: dataframes
 - file: branching_and_grouping
 - file: backends
