@@ -23,9 +23,12 @@ The whole Frankenfit library is meticulously type-annotated and type-checked (wi
 2. Catch logical errors sooner if you type-check your own code (but not obligation to
    do so.)
 
-Call-chain methods are known and auto-completable by IDEs. Return types of `apply()`
-and `result()` are known, so that even complex expressions can be auto-completed. Base
-and universal transforms are generic, `Identity[str]` example.
+Call-chain methods are known and auto-completable by IDEs.
+
+![screenshot-pipeline](_static/sshot-vscode-intellisense-frankenfit-pipeline.png)
+
+Return types of `apply()` and `result()` are known, so that even complex expressions can
+be auto-completed. Base and universal transforms are generic, `Identity[str]` example.
 
 ## Debug your pipelines with `print()` or `log_message()`
 
