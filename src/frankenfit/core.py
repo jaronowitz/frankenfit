@@ -413,6 +413,10 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
 
     @property
     def name(self) -> str:
+        """
+        The ``name`` of a ``FitTransform`` is the same as that of the ``Transform`` that
+        was fit to obtain it.
+        """
         return self.__resolved_transform.name
 
     def __str__(self) -> str:
@@ -498,13 +502,20 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
         return type(self)(self.resolved_transform(), state, self.bindings())
 
     def find_by_name(self, name: str):
+        """
+        Recurse through the :meth:`state()` of this ``FitTransform`` searching for any
+        child ``FitTransforms``, and return the first one with the given ``name``. If
+        not found, raise ``KeyError``.
+        """
+        # TODO: automatically materialize state? how can subclasses provide alternate
+        # recursion strategies?
         if self.name == name:
             return self
 
         val = self.state()
         if isinstance(val, Future):
             raise ValueError(
-                "FitTransform.find_by_tag: impossible on Future state. "
+                "FitTransform.find_by_name: impossible on Future state. "
                 "Try materialize_state() first."
             )
         if isinstance(val, FitTransform):
@@ -641,13 +652,12 @@ class Transform(ABC, Generic[DataIn, DataResult]):
     The ``tag`` attribute is the one parameter common to all ``Transforms``. used for
     identifying and selecting Transform instances within Pipelines. Ignored when
     comparing Transforms. It is an optional kwarg to the constructor of ``Transform``
-    and all of its subclasses. If not provided, a default value is derived from the
-    subclass's ``__qualname__``. It's up to the user to keep tags unique.
+    and all of its subclasses. If not provided, a default numeral value is assigned.
+    It's up to the user to keep tags unique within a ``Pipeline``, but the default value
+    should generall ensure this.
 
     .. SEEALSO::
-        :meth:`find_by_tag`, :meth:`FitTransform.find_by_tag`.
-
-    :type: ``str``
+        :data:`name`, :meth:`find_by_name`, :meth:`FitTransform.find_by_name`.
     """
 
     @tag.validator
@@ -659,6 +669,17 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     @property
     def name(self) -> str:
+        """
+        The ``name`` of a ``Transform`` is its class name joined by a "``#``" with its
+        ``tag`` parameter. For example, a :class:`~frankenfit.dataframe.DeMean` object
+        with tag ``"foo"`` has ``name`` ``"DeMean#foo"``. The method
+        :meth:`find_by_name` is used to select child ``Transforms`` by ``name``, and
+        therefore every ``Transform``'s ``name`` ought to be unique within a
+        ``Pipeline``.
+
+        .. SEEALSO:: :data:`tag`, :meth:`find_by_name()`,
+            :meth:`FitTransform.find_by_name()`.
+        """
         class_name = self.__class__.__qualname__
         return f"{class_name}#{self.tag}"
 
@@ -912,6 +933,8 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         # TODO: address implementation on FitTransform. we need a _children()
         # method that can be overridden like _apply().  ... or actually
         # _children() and _fit_children()... the latter needs to iterate through state
+        # Also, Pipeline.transforms can contain FitTransforms now, how should we handle
+        # that?
         yield self
         for name in self.params():
             val = getattr(self, name)
@@ -924,9 +947,29 @@ class Transform(ABC, Generic[DataIn, DataResult]):
 
     def find_by_name(self, name: str) -> Transform:
         """
-        Recurse through child transforms (i.e., transforms that are, or are
-        contained in, this transform's params) and return the first one with the
-        given tag. If not found, raise KeyError.
+        Recurse through child ``Transforms`` (i.e., ``Transforms`` that are, or are
+        contained in, this transform's params) and return the first one with the given
+        ``name``. If not found, raise ``KeyError``.
+
+        .. SEEALSO:: :meth:`FitTransform.find_by_name()`
+
+        Note
+        ----
+        The base implementation looks in parameters (as returned by :meth:`params()`)
+        that are either ``Transform`` instances, or iterables of ``Transform``
+        instances. Subclasses with other ways of storing child ``Transforms`` must
+        override ``_children()`` for those ``Transforms`` to be discoverable by
+        ``find_by_name()``.
+
+        Parameters
+        ----------
+        name:
+            The ``name`` of the desired child ``Transform``, e.g., ``"DeMean#5"``.
+
+        Raises
+        ------
+        KeyError
+            No child ``Transform`` was found with the given ``name``.
         """
         for child in self._children():
             if child.name == name:
@@ -940,6 +983,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         # - we have one or more child transforms as elements of a list-valued param
         # Subclasses override for their own cases not covered by the above
         # TODO: this function has gotten too big and needs refactoring
+        # TODO: Pipelines containing FitTransforms
         children_as_params: dict[str, Transform] = {}
         children_as_elements_of_params: dict[str, list[Transform]] = {}
         param_reprs: dict[str, str] = {}
