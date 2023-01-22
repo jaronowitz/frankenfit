@@ -151,6 +151,9 @@ The default keyword arguments passed to the ``graphviz.Digraph()`` constructor b
 :meth:`Transform.visualize() <frankenfit.Transform.visualize>`.
 """
 
+#######################################################################
+# Computational backend logic
+
 
 class Future(Generic[T_co], ABC):
     @abstractmethod
@@ -228,7 +231,7 @@ class Backend(ABC):
         data_fit = cast(Union[DataIn, Future[DataIn], None], data_fit)
         transform = transform.resolve(bindings).on_backend(self)
         state = transform._submit_fit(data_fit, bindings)
-        return type(transform).FitTransformClass(transform, state, bindings)
+        return type(transform).fit_transform_class(transform, state, bindings)
 
     @overload
     def apply(
@@ -378,7 +381,38 @@ class LocalBackend(Backend):
 LOCAL_BACKEND = LocalBackend()
 
 
-class FitTransform(Generic[R_co, DataIn, DataResult]):
+#######################################################################
+# Core base classes
+
+
+class PipelineMember:
+    """
+    Base class of objects that can belong to a :class:`Pipeline`.
+    """
+
+    def then(
+        self,
+        other: PipelineMember | list[PipelineMember] | None = None,
+    ) -> Pipeline:
+        transforms: Sequence[PipelineMember]
+        if other is None:
+            transforms = [self]
+        elif isinstance(other, list):
+            transforms = [self] + other
+        elif isinstance(other, PipelineMember):
+            transforms = [self, other]
+        else:
+            raise TypeError(
+                f"then(): other must be PipelineMember or list, got: {other!r}"
+            )
+
+        return Pipeline(transforms=transforms)
+
+    def __add__(self, other: PipelineMember | list[PipelineMember] | None) -> Pipeline:
+        return self.then(other)
+
+
+class FitTransform(Generic[R_co, DataIn, DataResult], PipelineMember):
     """
     The result of fitting a :class:`Transform`. Call this object's
     :meth:`apply()` method on some data to get the result of applying the
@@ -535,7 +569,7 @@ class FitTransform(Generic[R_co, DataIn, DataResult]):
 
 
 @params
-class Transform(ABC, Generic[DataIn, DataResult]):
+class Transform(ABC, Generic[DataIn, DataResult], PipelineMember):
     """
     The abstract base class of all (unfit) Transforms. Subclasses must implement the
     :meth:`_fit()` and :meth:`_apply()` methods (but see :class:`StatelessTransform`,
@@ -620,7 +654,7 @@ class Transform(ABC, Generic[DataIn, DataResult]):
                 return df_apply[self.cols]
     """
 
-    FitTransformClass: ClassVar[Type[FitTransform]] = FitTransform
+    fit_transform_class: ClassVar[Type[FitTransform]] = FitTransform
     """
     Class variable pointing to the class object (which should be a subclass of
     :class:`FitTransform`) to use when constructing the result of :meth:`fit()`.
@@ -820,9 +854,6 @@ class Transform(ABC, Generic[DataIn, DataResult]):
         """
         # TODO: is there some way to report what type each hyperparam is expected to
         # have?
-        # TODO: is there some way to determine automatically which of our params() are,
-        # or contain, Transforms, and thereby handle the recursion here rather than
-        # expecting subclasses to implement it correctly?
 
         sd = SentinelDict()
         sub_transform_results = set()
@@ -885,31 +916,6 @@ class Transform(ABC, Generic[DataIn, DataResult]):
     def parallel_backend(self) -> Iterator[Backend]:
         with self.backend.submitting_from_transform(self.name) as backend:
             yield backend
-
-    def then(
-        self: Transform,
-        other: Optional[
-            Transform | list[Transform | FitTransform] | FitTransform
-        ] = None,
-    ) -> Pipeline:
-        transforms: Sequence[Transform | FitTransform]
-        if other is None:
-            transforms = [self]
-        elif isinstance(other, list):
-            transforms = [self] + other
-        elif isinstance(other, (Transform, FitTransform)):
-            transforms = [self, other]
-        else:
-            raise TypeError(
-                f"then(): other must be (Fit)Transform or list, got: {other!r}"
-            )
-
-        return Pipeline(transforms=transforms)
-
-    def __add__(
-        self, other: Optional[Transform | list[Transform | FitTransform]] | FitTransform
-    ) -> Pipeline:
-        return self.then(other)
 
     def __eq__(self, other: object) -> bool:
         if type(self) is not type(other):
@@ -1313,9 +1319,7 @@ class Grouper(Generic[P_co]):
         self._wrapper_kwarg_name_for_wrappee = wrapper_kwarg_name_for_wrappee
         self._wrapper_other_kwargs = wrapper_other_kwargs
 
-    def then(
-        self, other: Optional[Transform | FitTransform | list[Transform | FitTransform]]
-    ) -> P_co:
+    def then(self, other: PipelineMember | list[PipelineMember] | None) -> P_co:
         if not isinstance(self._pipeline_upstream, Pipeline):  # pragma: no cover
             raise TypeError(
                 f"Grouper cannot be applied to non-Pipeline upstream: "
@@ -1333,9 +1337,7 @@ class Grouper(Generic[P_co]):
         wrapping_transform = self._wrapper_class(**wrapping_kwargs)
         return self._pipeline_upstream + cast(Transform, wrapping_transform)
 
-    def __add__(
-        self, other: Optional[Transform | FitTransform | list[Transform | FitTransform]]
-    ) -> P_co:
+    def __add__(self, other: PipelineMember | list[PipelineMember] | None) -> P_co:
         return self.then(other)
 
 
@@ -1344,7 +1346,7 @@ DataInOut = TypeVar("DataInOut")
 
 @params(auto_attribs=False)
 class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
-    transforms: list[Transform[DataInOut, DataInOut] | FitTransform] = field(
+    transforms: list[PipelineMember] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
 
@@ -1352,10 +1354,10 @@ class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
     def _check_transforms(self, attribute, value):
         t_is_first = True
         for t in value:
-            if not isinstance(t, (Transform, FitTransform)):
+            if not isinstance(t, PipelineMember):
                 raise TypeError(
-                    "Pipeline sequence must comprise Transform instances; found "
-                    f"non-Transform {t!r} (type {type(t)})"
+                    "Pipeline sequence must comprise PipelineMember instances; found "
+                    f"non-PipelineMember (type {type(t)}): {t!r} "
                 )
             # warning if a ConstantTransform is non-initial
             if (not t_is_first) and isinstance(t, ConstantTransform):
@@ -1517,23 +1519,12 @@ class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
         mat_state = [sub_ft.materialize_state() for sub_ft in fit_transforms]
         return mat_state
 
-    def __add__(
-        self: P,
-        other: Optional[
-            Transform[DataInOut, DataInOut]
-            | FitTransform
-            | list[Transform[DataInOut, DataInOut] | FitTransform]
-        ],
-    ) -> P:
+    def __add__(self: P, other: PipelineMember | list[PipelineMember] | None) -> P:
         return self.then(other)
 
     def then(
         self: P,
-        other: Optional[
-            Transform[DataInOut, DataInOut]
-            | FitTransform
-            | list[Transform[DataInOut, DataInOut] | FitTransform]
-        ] = None,
+        other: PipelineMember | list[PipelineMember] | None = None,
     ) -> P:
         """
         Return the result of appending the given :class:`Transform` instance(s) to this

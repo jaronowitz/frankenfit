@@ -56,11 +56,13 @@ import logging
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Generic,
     Iterable,
     Optional,
     Sequence,
     TextIO,
+    Type,
     TypeVar,
     cast,
 )
@@ -77,6 +79,8 @@ from .core import (
     Grouper,
     P_co,
     Pipeline,
+    PipelineMember,
+    R_co,
     SentinelDict,
     StatelessTransform,
     Transform,
@@ -90,13 +94,24 @@ U = TypeVar("U", bound="UniversalTransform")
 T = TypeVar("T")
 
 
-@params
-class UniversalTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+class FitUniversalTransform(
+    Generic[R_co, DataIn, DataResult], FitTransform[R_co, DataIn, DataResult]
+):
     def then(
         self,
-        other: Optional[
-            Transform | FitTransform | list[Transform | FitTransform]
-        ] = None,
+        other: PipelineMember | list[PipelineMember] | None = None,
+    ) -> "UniversalPipeline":
+        result = super().then(other)
+        return UniversalPipeline(transforms=result.transforms)
+
+
+@params
+class UniversalTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+    fit_transform_class: ClassVar[Type[FitTransform]] = FitUniversalTransform
+
+    def then(
+        self,
+        other: PipelineMember | list[PipelineMember] | None = None,
     ) -> "UniversalPipeline":
         result = super().then(other)
         return UniversalPipeline(transforms=result.transforms)
@@ -138,7 +153,7 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
 
 @params
 class StateOf(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
-    transform: Transform | FitTransform
+    transform: PipelineMember
 
     def _submit_fit(
         self,
@@ -147,6 +162,7 @@ class StateOf(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
     ) -> Any:
         if isinstance(self.transform, FitTransform):
             return self.transform
+        assert isinstance(self.transform, Transform)
         with self.parallel_backend() as backend:
             return backend.fit(self.transform, data_fit, bindings)
 
@@ -859,4 +875,4 @@ class UniversalPipeline(
         DataInOut, UniversalGrouper["UniversalPipeline"], "UniversalPipeline"
     ],
 ):
-    ...
+    fit_transform_class: ClassVar[Type[FitTransform]] = FitUniversalTransform

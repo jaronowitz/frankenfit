@@ -319,7 +319,7 @@ def test_override_fit_apply(
 
         cols: list[str]
 
-        FitTransformClass: ClassVar[Type[ff.FitTransform]] = FitDeMean
+        fit_transform_class: ClassVar[Type[ff.FitTransform]] = FitDeMean
 
         def _fit(self, data_fit: pd.DataFrame, bindings=None) -> pd.Series:
             return data_fit[self.cols].mean()
@@ -717,5 +717,8 @@ def test_pipeline_with_FitTransform(diamonds_df: pd.DataFrame):
 
     pip = ff.DataFramePipeline().read_data_frame(diamonds_df).then(fit)
     assert pip.apply().equals(target)
+
+    # pip_fit = pip.fit()
+    # pip_fit.then(ff.universal.Identity()).apply().equals(target)
 
     # TODO: find_by_name(), visualize()

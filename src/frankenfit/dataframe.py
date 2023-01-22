@@ -60,6 +60,7 @@ from functools import partial, reduce
 from typing import (
     Any,
     Callable,
+    ClassVar,
     Generic,
     Iterable,
     List,
@@ -67,6 +68,7 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
+    Type,
     TypeVar,
     Union,
     cast,
@@ -84,6 +86,8 @@ from .core import (
     FitTransform,
     Future,
     P_co,
+    PipelineMember,
+    R_co,
     StatelessTransform,
     Transform,
     callchain,
@@ -112,18 +116,29 @@ _LOG = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
+class FitDataFrameTransform(
+    Generic[R_co], FitTransform[R_co, pd.DataFrame, pd.DataFrame]
+):
     def then(
         self,
-        other: Optional[
-            Transform | FitTransform | list[Transform | FitTransform]
-        ] = None,
+        other: PipelineMember | list[PipelineMember] | None = None,
+    ) -> "DataFramePipeline":
+        result = super().then(other)
+        return DataFramePipeline(transforms=result.transforms)
+
+
+class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
+    fit_transform_class: ClassVar[Type[FitTransform]] = FitDataFrameTransform
+
+    def then(
+        self,
+        other: PipelineMember | list[PipelineMember] | None = None,
     ) -> "DataFramePipeline":
         result = super().then(other)
         return DataFramePipeline(transforms=result.transforms)
 
     # Stubs below are purely for convenience of autocompletion when the user
-    # implements subclasses
+    # implements subclasses (type annotations)
 
     def _fit(self, data_fit: pd.DataFrame) -> Any:
         raise NotImplementedError  # pragma: no cover
@@ -1839,5 +1854,7 @@ class DataFramePipeline(
     ],
     UniversalPipeline,
 ):
+    fit_transform_class: ClassVar[Type[FitTransform]] = FitDataFrameTransform
+
     def _empty_constructor(self) -> pd.DataFrame:
         return pd.DataFrame()

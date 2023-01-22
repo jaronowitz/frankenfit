@@ -903,3 +903,24 @@ def test_ALL_COLS(diamonds_df: pd.DataFrame):
     assert dmn_w.resolve_cols(dmn_w.cols, diamonds_df, ignore=dmn_w.w_col) == list(
         c for c in diamonds_df.columns if c != "carat"
     )
+
+
+def test_FitTransform_in_Pipeline(diamonds_df: pd.DataFrame):
+    pip = ff.DataFramePipeline().de_mean("price")
+    train_df = diamonds_df.sample(10_000)
+    fit_pip = pip.fit(train_df)
+
+    assert (
+        (ff.DataFramePipeline().read_data_frame(diamonds_df).then(fit_pip))
+        .apply()["price"]
+        .equals(diamonds_df["price"] - train_df["price"].mean())
+    )
+
+    assert isinstance(fit_pip.then(), ff.DataFramePipeline)
+
+    # FIXME: type checkers don't know that fit_pip is a FitDataFrameTransform
+    assert (
+        (fit_pip.then()["price"].clip(lower=-100, upper=100))  # type: ignore
+        .apply(diamonds_df)
+        .equals((diamonds_df[["price"]] - train_df["price"].mean()).clip(-100, 100))
+    )
