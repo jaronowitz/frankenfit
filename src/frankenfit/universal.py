@@ -78,6 +78,7 @@ from .core import (
     P_co,
     Pipeline,
     PipelineMember,
+    R,
     R_co,
     SentinelDict,
     StatelessTransform,
@@ -112,6 +113,18 @@ class UniversalTransform(Generic[DataType], Transform[DataType]):
         result = super().then(other)
         return UniversalPipeline(transforms=result.transforms)
 
+    def fit(
+        self: R,
+        data_fit: Optional[DataType | Future[DataType]] = None,
+        bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
+    ) -> FitUniversalTransform[R, DataType]:
+        return cast(
+            FitUniversalTransform[R, DataType],
+            super().fit(data_fit, bindings, **kwargs),
+        )
+
 
 class Identity(Generic[T], StatelessTransform[T], UniversalTransform[T]):
     """
@@ -134,7 +147,7 @@ class Identity(Generic[T], StatelessTransform[T], UniversalTransform[T]):
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> FitTransform[_Self, T]:
+    ) -> FitUniversalTransform[_Self, T]:
         return super().fit(data_fit, bindings)
 
     def apply(
@@ -872,3 +885,15 @@ class UniversalPipeline(
     ],
 ):
     fit_transform_class: ClassVar[Type[FitTransform]] = FitUniversalTransform
+
+    def fit(
+        self: R,
+        data_fit: Optional[DataType | Future[DataType]] = None,
+        bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
+    ) -> FitUniversalTransform[R, DataType]:
+        return cast(
+            FitUniversalTransform[R, DataType],
+            super().fit(data_fit, bindings, **kwargs),
+        )

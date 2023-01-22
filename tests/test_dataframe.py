@@ -918,9 +918,8 @@ def test_FitTransform_in_Pipeline(diamonds_df: pd.DataFrame):
 
     assert isinstance(fit_pip.then(), ff.DataFramePipeline)
 
-    # FIXME: type checkers don't know that fit_pip is a FitDataFrameTransform
     assert (
-        (fit_pip.then()["price"].clip(lower=-100, upper=100))  # type: ignore
+        (fit_pip.then()["price"].clip(lower=-100, upper=100))
         .apply(diamonds_df)
         .equals((diamonds_df[["price"]] - train_df["price"].mean()).clip(-100, 100))
     )

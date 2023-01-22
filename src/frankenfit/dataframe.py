@@ -87,6 +87,7 @@ from .core import (
     Future,
     P_co,
     PipelineMember,
+    R,
     R_co,
     StatelessTransform,
     Transform,
@@ -102,6 +103,7 @@ from .params import (
     params,
 )
 from .universal import (
+    FitUniversalTransform,
     ForBindings,
     Identity,
     StatelessLambda,
@@ -116,7 +118,7 @@ _LOG = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class FitDataFrameTransform(Generic[R_co], FitTransform[R_co, pd.DataFrame]):
+class FitDataFrameTransform(Generic[R_co], FitUniversalTransform[R_co, pd.DataFrame]):
     def then(
         self,
         other: PipelineMember | list[PipelineMember] | None = None,
@@ -135,8 +137,17 @@ class DataFrameTransform(Transform[pd.DataFrame]):
         result = super().then(other)
         return DataFramePipeline(transforms=result.transforms)
 
-    # Stubs below are purely for convenience of autocompletion when the user
-    # implements subclasses (type annotations)
+    # Stubs below are purely for type specialization, convenience of autocompletion when
+    # the user implements subclasses (type annotations)
+
+    def fit(
+        self: R,
+        data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
+    ) -> FitDataFrameTransform[R]:
+        return cast(FitDataFrameTransform[R], super().fit(data_fit, bindings, **kwargs))
 
     def _fit(self, data_fit: pd.DataFrame) -> Any:
         raise NotImplementedError  # pragma: no cover
@@ -216,6 +227,7 @@ class WritePandasCSV(StatelessDataFrameTransform, Identity[pd.DataFrame]):
     # Because Identity derives from UniversalTransform, we have to say which
     # then() to use on instances of WritePandasCSV
     then = DataFrameTransform.then
+    fit = DataFrameTransform.fit
 
 
 @params
@@ -530,6 +542,7 @@ class GroupByBindings(ForBindings[pd.DataFrame], DataFrameTransform):
         return result
 
     then = DataFrameTransform.then
+    fit = DataFrameTransform.fit
 
 
 F = TypeVar("F", bound="Filter")
@@ -1852,3 +1865,12 @@ class DataFramePipeline(
 
     def _empty_constructor(self) -> pd.DataFrame:
         return pd.DataFrame()
+
+    def fit(
+        self: R,
+        data_fit: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
+        bindings: Optional[Bindings] = None,
+        /,
+        **kwargs,
+    ) -> FitDataFrameTransform[R]:
+        return cast(FitDataFrameTransform[R], super().fit(data_fit, bindings, **kwargs))

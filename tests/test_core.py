@@ -718,7 +718,7 @@ def test_pipeline_with_FitTransform(diamonds_df: pd.DataFrame):
     pip = ff.DataFramePipeline().read_data_frame(diamonds_df).then(fit)
     assert pip.apply().equals(target)
 
-    # pip_fit = pip.fit()
-    # pip_fit.then(ff.universal.Identity()).apply().equals(target)
+    pip_fit = pip.fit()
+    pip_fit.then(ff.universal.Identity()).apply().equals(target)
 
     # TODO: find_by_name(), visualize()
