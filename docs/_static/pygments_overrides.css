@@ -24,3 +24,8 @@ div.cell_output tbody tr:nth-child(2n+1) {
 div.cell_output tbody tr:hover {
     background-color: var(--color-background-hover);
 }
+
+/* Scroll too-wide outputs */
+div.cell_output .output {
+    overflow-x: scroll;
+}
