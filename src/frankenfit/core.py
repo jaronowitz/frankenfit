@@ -96,8 +96,7 @@ B = TypeVar("B", bound="Backend")
 R_co = TypeVar("R_co", covariant=True, bound="Transform")
 State = TypeVar("State")
 State_co = TypeVar("State_co", covariant=True)
-DataIn = TypeVar("DataIn", contravariant=True)
-DataResult = TypeVar("DataResult", covariant=True)
+DataType = TypeVar("DataType")
 
 Bindings = Dict[str, Any]
 
@@ -211,12 +210,12 @@ class Backend(ABC):
 
     def fit(
         self,
-        transform: Transform[DataIn, DataResult],
-        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        transform: Transform[DataType],
+        data_fit: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> FitTransform[Transform[DataIn, DataResult], DataIn, DataResult]:
+    ) -> FitTransform[Transform[DataType], DataType]:
         bindings = {**(bindings or {}), **kwargs}
         if isinstance(data_fit, Sized):
             data_len = len(data_fit)
@@ -228,7 +227,7 @@ class Backend(ABC):
             f"with bindings={bindings!r}."
         )
 
-        data_fit = cast(Union[DataIn, Future[DataIn], None], data_fit)
+        data_fit = cast(Union[DataType, Future[DataType], None], data_fit)
         transform = transform.resolve(bindings).on_backend(self)
         state = transform._submit_fit(data_fit, bindings)
         return type(transform).fit_transform_class(transform, state, bindings)
@@ -236,48 +235,46 @@ class Backend(ABC):
     @overload
     def apply(
         self,
-        what: FitTransform[R, DataIn, DataResult],
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        what: FitTransform[R, DataType],
+        data_apply: Optional[DataType | Future[DataType]] = None,
         /,
-    ) -> Future[DataResult]:
+    ) -> Future[DataType]:
         ...  # pragma: no cover
 
     @overload
     def apply(
         self,
-        what: StatelessTransform[DataIn, DataResult],
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        what: StatelessTransform[DataType],
+        data_apply: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> Future[DataResult]:
+    ) -> Future[DataType]:
         ...  # pragma: no cover
 
     @overload
     def apply(
         self,
-        what: Pipeline[DataInOut],
-        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
+        what: Pipeline[DataType],
+        data_apply: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> Future[DataInOut]:
+    ) -> Future[DataType]:
         ...  # pragma: no cover
 
     def apply(
         self,
         what: (
-            FitTransform[R, DataIn, DataResult]
-            | StatelessTransform[DataIn, DataResult]
-            | Pipeline[DataInOut]
+            FitTransform[R, DataType]
+            | StatelessTransform[DataType]
+            | Pipeline[DataType]
         ),
-        data_apply: Optional[
-            DataIn | Future[DataIn] | DataInOut | Future[DataInOut]
-        ] = None,
+        data_apply: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> Future[DataResult] | Future[DataInOut]:
+    ) -> Future[DataType]:
         bindings = {**(bindings or {}), **kwargs}
         data: Any = data_apply
         if isinstance(data, Sized):
@@ -319,7 +316,7 @@ class Backend(ABC):
             )
         data_result = what.on_backend(self)._submit_apply(data)
         if data_result is None:  # pragma: no cover
-            return self.put(None)  # type: ignore [return-value]
+            return self.put(None)  # type: ignore [arg-type]
         return data_result
 
 
@@ -412,7 +409,7 @@ class PipelineMember:
         return self.then(other)
 
 
-class FitTransform(Generic[R_co, DataIn, DataResult], PipelineMember):
+class FitTransform(Generic[R_co, DataType], PipelineMember):
     """
     The result of fitting a :class:`Transform`. Call this object's
     :meth:`apply()` method on some data to get the result of applying the
@@ -485,15 +482,15 @@ class FitTransform(Generic[R_co, DataIn, DataResult], PipelineMember):
 
     def _submit_apply(
         self,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
-    ) -> Future[DataResult] | None:
+        data_apply: Optional[DataType | Future[DataType]] = None,
+    ) -> Future[DataType] | None:
         tf = self.resolved_transform().on_backend(self.backend)
         return tf._submit_apply(data_apply, self.state())
 
     def apply(
         self,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
-    ) -> DataResult:
+        data_apply: Optional[DataType | Future[DataType]] = None,
+    ) -> DataType:
         """
         Return the result of applying this FitTransform to the given data.
         """
@@ -569,7 +566,7 @@ class FitTransform(Generic[R_co, DataIn, DataResult], PipelineMember):
 
 
 @params
-class Transform(ABC, Generic[DataIn, DataResult], PipelineMember):
+class Transform(ABC, Generic[DataType], PipelineMember):
     """
     The abstract base class of all (unfit) Transforms. Subclasses must implement the
     :meth:`_fit()` and :meth:`_apply()` methods (but see :class:`StatelessTransform`,
@@ -720,7 +717,7 @@ class Transform(ABC, Generic[DataIn, DataResult], PipelineMember):
     def __str__(self) -> str:
         return self.name
 
-    def _fit(self, data_fit: DataIn) -> Any:
+    def _fit(self, data_fit: DataType) -> Any:
         """
         Implements subclass-specific fitting logic.
 
@@ -753,7 +750,7 @@ class Transform(ABC, Generic[DataIn, DataResult], PipelineMember):
 
     def _submit_fit(
         self,
-        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        data_fit: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
     ) -> Any:
         # default implementation of _submit_fit: submit _fit on data_fit (and possibly
@@ -781,11 +778,11 @@ class Transform(ABC, Generic[DataIn, DataResult], PipelineMember):
 
     def fit(
         self: R,
-        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        data_fit: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> FitTransform[R, DataIn, DataResult]:
+    ) -> FitTransform[R, DataType]:
         """
         Fit this Transform on some data and hyperparam bindings, and return a
         :class:`FitTransform` object. The actual return value will be some
@@ -796,11 +793,11 @@ class Transform(ABC, Generic[DataIn, DataResult], PipelineMember):
         # Convenience method that fits this transform on a local backend and
         # materializes the state
         return cast(
-            FitTransform[R, DataIn, DataResult],
+            FitTransform[R, DataType],
             self.backend.fit(self, data_fit, bindings, **kwargs),
         ).materialize_state()
 
-    def _apply(self, data_apply: DataIn, state: Any) -> DataResult:
+    def _apply(self, data_apply: DataType, state: Any) -> DataType:
         """
         Implements subclass-specific logic to apply the tansformation after being fit.
 
@@ -814,9 +811,9 @@ class Transform(ABC, Generic[DataIn, DataResult], PipelineMember):
 
     def _submit_apply(
         self,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        data_apply: Optional[DataType | Future[DataType]] = None,
         state: Any = None,
-    ) -> Future[DataResult] | None:
+    ) -> Future[DataType] | None:
         sig = inspect.signature(self._apply).parameters
         if len(sig) < 2:
             raise TypeError(
@@ -1104,7 +1101,7 @@ class SentinelDict(dict):
         return default
 
 
-class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+class StatelessTransform(Generic[DataType], Transform[DataType]):
     """
     Abstract base class of Transforms that have no state to fit.
     :meth:`~Transform.fit()` is a null op on a ``StatelessTransform``, and the
@@ -1133,16 +1130,16 @@ class StatelessTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
 
     _Self = TypeVar("_Self", bound="StatelessTransform")
 
-    def _fit(self, data_fit: DataIn) -> None:
+    def _fit(self, data_fit: DataType) -> None:
         return None
 
     def apply(
         self,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        data_apply: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> DataResult:
+    ) -> DataType:
         """
         Convenience function allowing one to apply a ``StatelessTransform`` without an
         Explicit preceding call to :meth:`~Transform.fit`. Equivalent to calling
@@ -1164,9 +1161,7 @@ class NonInitialConstantTransformWarning(RuntimeWarning):
     """
 
 
-class ConstantTransform(
-    Generic[DataIn, DataResult], StatelessTransform[DataIn, DataResult]
-):
+class ConstantTransform(Generic[DataType], StatelessTransform[DataType]):
     """
     Abstract base class of :class:`StatelessTransforms <StatelessTransform>` that have
     no state to fit, and furthermore, at apply time, produce output data that is
@@ -1185,7 +1180,7 @@ class ConstantTransform(
 
     def _submit_fit(
         self: _Self,
-        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        data_fit: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
     ) -> Any:
         if data_fit is not None:
@@ -1205,9 +1200,9 @@ class ConstantTransform(
 
     def _submit_apply(
         self,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        data_apply: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
-    ) -> Future[DataResult] | None:
+    ) -> Future[DataType] | None:
         if data_apply is not None:
             warning_msg = (
                 "A ConstantTransform's apply method received non-null input data. "
@@ -1341,11 +1336,8 @@ class Grouper(Generic[P_co]):
         return self.then(other)
 
 
-DataInOut = TypeVar("DataInOut")
-
-
 @params(auto_attribs=False)
-class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
+class Pipeline(Generic[DataType], Transform[DataType]):
     transforms: list[PipelineMember] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
@@ -1433,10 +1425,10 @@ class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
 
     def _submit_fit(
         self,
-        data_fit: DataInOut | Future[DataInOut] | None = None,
+        data_fit: DataType | Future[DataType] | None = None,
         bindings: Optional[Bindings] = None,
         return_what: Literal["state", "result"] = "state",
-    ) -> list[FitTransform] | Future[DataInOut]:
+    ) -> list[FitTransform] | Future[DataType]:
         fit_transforms: list[FitTransform] = []
         with self.parallel_backend() as backend:
             data_fit = backend.maybe_put(data_fit)
@@ -1462,13 +1454,13 @@ class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
             if return_what == "state":
                 return fit_transforms
             else:
-                return cast(Future[DataInOut], data_fit)
+                return cast(Future[DataType], data_fit)
 
     def _submit_apply(
         self,
-        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
+        data_apply: Optional[DataType | Future[DataType]] = None,
         state: list[FitTransform] | None = None,
-    ) -> Future[DataInOut] | None:
+    ) -> Future[DataType] | None:
         fit_transforms = state
         assert fit_transforms is not None
         with self.parallel_backend() as backend:
@@ -1486,15 +1478,15 @@ class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
                 data_apply = backend.push_trace(f"[{i}]").apply(
                     fit_transform, data_apply
                 )
-        return cast(Future[DataInOut], data_apply)
+        return cast(Future[DataType], data_apply)
 
     def apply(
         self,
-        data_apply: Optional[DataInOut | Future[DataInOut]] = None,
+        data_apply: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> DataInOut:
+    ) -> DataType:
         """
         An efficient alternative to ``Pipeline.fit(...).apply(...)``.  When the
         fit-time data and apply-time data are identical, it is more efficient to
@@ -1609,7 +1601,7 @@ class Pipeline(Generic[DataInOut], Transform[DataInOut, DataInOut]):
 
 
 @params
-class IfPipelineIsFitting(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+class IfPipelineIsFitting(Generic[DataType], Transform[DataType]):
     """
     Apply the given child :class:`Transform` only when the :class:`Pipeline` containing
     this `IfPipelineIsFitting` Transform is being fit. This is useful to avoid running
@@ -1643,19 +1635,21 @@ class IfPipelineIsFitting(Generic[DataIn, DataResult], Transform[DataIn, DataRes
         )
     """
 
-    transform: Transform[DataIn, DataResult]
+    transform: Transform[DataType]
 
     def _submit_fit(
         self,
-        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        data_fit: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
     ) -> Any:
         with self.parallel_backend() as backend:
             return backend.push_trace("then").fit(self.transform, data_fit, bindings)
 
     def _submit_apply(
-        self, data_apply: Optional[DataIn | Future[DataIn]] = None, state: Any = None
-    ) -> Future[DataResult] | None:
+        self,
+        data_apply: Optional[DataType | Future[DataType]] = None,
+        state: Any = None,
+    ) -> Future[DataType] | None:
         assert isinstance(state, FitTransform)
         with self.parallel_backend() as backend:
             return backend.push_trace("then").apply(state, data_apply)

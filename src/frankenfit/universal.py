@@ -71,9 +71,7 @@ from attrs import NOTHING, define, field
 
 from .core import (
     Bindings,
-    DataIn,
-    DataInOut,
-    DataResult,
+    DataType,
     FitTransform,
     Future,
     Grouper,
@@ -94,9 +92,7 @@ U = TypeVar("U", bound="UniversalTransform")
 T = TypeVar("T")
 
 
-class FitUniversalTransform(
-    Generic[R_co, DataIn, DataResult], FitTransform[R_co, DataIn, DataResult]
-):
+class FitUniversalTransform(Generic[R_co, DataType], FitTransform[R_co, DataType]):
     def then(
         self,
         other: PipelineMember | list[PipelineMember] | None = None,
@@ -106,7 +102,7 @@ class FitUniversalTransform(
 
 
 @params
-class UniversalTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+class UniversalTransform(Generic[DataType], Transform[DataType]):
     fit_transform_class: ClassVar[Type[FitTransform]] = FitUniversalTransform
 
     def then(
@@ -117,7 +113,7 @@ class UniversalTransform(Generic[DataIn, DataResult], Transform[DataIn, DataResu
         return UniversalPipeline(transforms=result.transforms)
 
 
-class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
+class Identity(Generic[T], StatelessTransform[T], UniversalTransform[T]):
     """
     The stateless Transform that, at apply-time, simply returns the input data
     unaltered.
@@ -138,7 +134,7 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
         bindings: Optional[Bindings] = None,
         /,
         **kwargs,
-    ) -> FitTransform[_Self, T, T]:
+    ) -> FitTransform[_Self, T]:
         return super().fit(data_fit, bindings)
 
     def apply(
@@ -152,12 +148,12 @@ class Identity(Generic[T], StatelessTransform[T, T], UniversalTransform[T, T]):
 
 
 @params
-class StateOf(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
+class StateOf(Generic[DataType], Transform[DataType]):
     transform: PipelineMember
 
     def _submit_fit(
         self,
-        data_fit: Optional[DataIn | Future[DataIn]] = None,
+        data_fit: Optional[DataType | Future[DataType]] = None,
         bindings: Optional[Bindings] = None,
     ) -> Any:
         if isinstance(self.transform, FitTransform):
@@ -166,8 +162,8 @@ class StateOf(Generic[DataIn, DataResult], Transform[DataIn, DataResult]):
         with self.parallel_backend() as backend:
             return backend.fit(self.transform, data_fit, bindings)
 
-    def _apply(self, data_apply: DataIn, state: Any) -> DataResult:
-        state = cast(FitTransform[Any, DataIn, DataResult], state)
+    def _apply(self, data_apply: DataType, state: Any) -> DataType:
+        state = cast(FitTransform[Any, DataType], state)
         return state.materialize_state().state()
 
 
@@ -304,10 +300,10 @@ class IfFittingDataHasProperty(BranchTransform):
 
 
 @params
-class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataResult]):
+class ForBindings(Generic[DataType], UniversalTransform[DataType]):
     bindings_sequence: Sequence[Bindings]
     transform: Transform
-    combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataResult]
+    combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataType]
 
     @define
     class FitResult:
@@ -317,11 +313,11 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
     @define
     class ApplyResult:
         bindings: Bindings
-        result: Any  # TODO: make this generic in DataResult type?
+        result: Any  # TODO: make this generic in DataType type?
 
     def _submit_fit(
         self,
-        data_fit: DataIn | Future[DataIn] | None = None,
+        data_fit: DataType | Future[DataType] | None = None,
         bindings: Optional[Bindings] = None,
     ) -> list[ForBindings.FitResult]:
         base_bindings = bindings or {}
@@ -347,7 +343,7 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
             #     fit_result.fit = fit_result.fit.materialize_state()
         return fits
 
-    def _combine_results(self, bindings_seq, *results) -> DataResult:
+    def _combine_results(self, bindings_seq, *results) -> DataType:
         assert len(bindings_seq) == len(results)
         return self.combine_fun(
             [
@@ -358,15 +354,15 @@ class ForBindings(Generic[DataIn, DataResult], UniversalTransform[DataIn, DataRe
 
     def _submit_apply(
         self,
-        data_apply: Optional[DataIn | Future[DataIn]] = None,
+        data_apply: Optional[DataType | Future[DataType]] = None,
         state: list[ForBindings.FitResult] | None = None,
-    ) -> Future[DataResult]:
+    ) -> Future[DataType]:
         assert state is not None
         with self.parallel_backend() as backend:
             if len(self.bindings_sequence) > 0:
                 data_apply = backend.maybe_put(data_apply)
             bindings = []
-            results: list[Future[DataResult]] = []
+            results: list[Future[DataType]] = []
             for i, fit_result in enumerate(state):
                 bindings.append(fit_result.bindings)
                 results.append(
@@ -445,9 +441,9 @@ class UserLambdaHyperparams:
 
 @params(auto_attribs=False)
 class StatelessLambda(
-    Generic[DataIn, DataResult],
-    UniversalTransform[DataIn, DataResult],
-    StatelessTransform[DataIn, DataResult],
+    Generic[DataType],
+    UniversalTransform[DataType],
+    StatelessTransform[DataType],
 ):
     """
     Generically wrap a user-supplied function as a :class:`StatelessTransform`. At
@@ -802,7 +798,7 @@ SelfUPI = TypeVar("SelfUPI", bound="UniversalPipelineInterface")
 
 
 class UniversalPipelineInterface(
-    Generic[DataInOut, G_co, P_co], UniversalCallChain[P_co], Pipeline[DataInOut]
+    Generic[DataType, G_co, P_co], UniversalCallChain[P_co], Pipeline[DataType]
 ):
 
     _Grouper: type[UniversalGrouper[P_co]] = UniversalGrouper[P_co]
@@ -810,7 +806,7 @@ class UniversalPipelineInterface(
     def for_bindings(
         self,
         bindings_sequence: Iterable[Bindings],
-        combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataInOut],
+        combine_fun: Callable[[Sequence[ForBindings.ApplyResult]], DataType],
         *,
         tag: str | None = None,
     ) -> G_co:
@@ -870,9 +866,9 @@ class UniversalPipelineInterface(
 
 
 class UniversalPipeline(
-    Generic[DataInOut],
+    Generic[DataType],
     UniversalPipelineInterface[
-        DataInOut, UniversalGrouper["UniversalPipeline"], "UniversalPipeline"
+        DataType, UniversalGrouper["UniversalPipeline"], "UniversalPipeline"
     ],
 ):
     fit_transform_class: ClassVar[Type[FitTransform]] = FitUniversalTransform

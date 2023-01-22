@@ -302,7 +302,7 @@ def test_Transform_signatures() -> None:
 def test_override_fit_apply(
     diamonds_df: pd.DataFrame, capsys: pytest.CaptureFixture
 ) -> None:
-    class FitDeMean(ff.FitTransform["DeMean", pd.DataFrame, pd.DataFrame]):
+    class FitDeMean(ff.FitTransform["DeMean", pd.DataFrame]):
         def apply(
             self,
             data_apply: Optional[pd.DataFrame | Future[pd.DataFrame]] = None,
@@ -312,7 +312,7 @@ def test_override_fit_apply(
             return super().apply(data_apply=data_apply)
 
     @ff.params
-    class DeMean(ff.Transform[pd.DataFrame, pd.DataFrame]):
+    class DeMean(ff.Transform[pd.DataFrame]):
         """
         De-mean some columns.
         """
@@ -694,7 +694,7 @@ def test_IfPipelineIsFitting(diamonds_df: pd.DataFrame):
 
 def test_pipeline_with_FitTransform(diamonds_df: pd.DataFrame):
     @ff.params
-    class DeMean(ff.Transform[pd.DataFrame, pd.DataFrame]):
+    class DeMean(ff.Transform[pd.DataFrame]):
         """
         De-mean some columns.
         """

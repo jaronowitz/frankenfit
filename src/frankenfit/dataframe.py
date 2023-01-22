@@ -116,9 +116,7 @@ _LOG = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-class FitDataFrameTransform(
-    Generic[R_co], FitTransform[R_co, pd.DataFrame, pd.DataFrame]
-):
+class FitDataFrameTransform(Generic[R_co], FitTransform[R_co, pd.DataFrame]):
     def then(
         self,
         other: PipelineMember | list[PipelineMember] | None = None,
@@ -127,7 +125,7 @@ class FitDataFrameTransform(
         return DataFramePipeline(transforms=result.transforms)
 
 
-class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
+class DataFrameTransform(Transform[pd.DataFrame]):
     fit_transform_class: ClassVar[Type[FitTransform]] = FitDataFrameTransform
 
     def then(
@@ -161,9 +159,7 @@ class DataFrameTransform(Transform[pd.DataFrame, pd.DataFrame]):
         return super()._submit_apply(data_apply, state)
 
 
-class StatelessDataFrameTransform(
-    StatelessTransform[pd.DataFrame, pd.DataFrame], DataFrameTransform
-):
+class StatelessDataFrameTransform(StatelessTransform[pd.DataFrame], DataFrameTransform):
     def _fit(self, data_fit: pd.DataFrame) -> None:
         return None
 
@@ -177,9 +173,7 @@ class StatelessDataFrameTransform(
         return None
 
 
-class ConstantDataFrameTransform(
-    ConstantTransform[pd.DataFrame, pd.DataFrame], DataFrameTransform
-):
+class ConstantDataFrameTransform(ConstantTransform[pd.DataFrame], DataFrameTransform):
     pass
 
 
@@ -298,8 +292,8 @@ class WriteDataset(Identity[pd.DataFrame]):
 
 @params
 class Join(DataFrameTransform):
-    left: Transform[pd.DataFrame, pd.DataFrame]
-    right: Transform[pd.DataFrame, pd.DataFrame]
+    left: Transform[pd.DataFrame]
+    right: Transform[pd.DataFrame]
     how: Literal["left", "right", "outer", "inner"]
 
     on: Optional[str] = None
@@ -450,7 +444,7 @@ class GroupByCols(DataFrameTransform):
     """
 
     cols: str | list[str] = columns_field()
-    transform: Transform[pd.DataFrame, pd.DataFrame] = field()
+    transform: Transform[pd.DataFrame] = field()
     # TODO: what about hyperparams in the fitting schedule? that's a thing.
     fitting_schedule: Callable[[dict[str, Any]], DfLocIndex | DfLocPredicate] = field(
         default=fit_group_on_self
@@ -508,9 +502,9 @@ class GroupByCols(DataFrameTransform):
 
 
 @params
-class GroupByBindings(ForBindings[pd.DataFrame, pd.DataFrame], DataFrameTransform):
+class GroupByBindings(ForBindings[pd.DataFrame], DataFrameTransform):
     bindings_sequence: Sequence[Bindings]
-    transform: Transform[pd.DataFrame, pd.DataFrame]
+    transform: Transform[pd.DataFrame]
     as_index: bool = True
     # TODO: the proper way to do this would be with an AbstractForBindings that both
     # ForBindings and GroupByBindings derive from
@@ -1289,7 +1283,7 @@ class Assign(DataFrameTransform):
     assignments: dict[
         int | str,  # int key indicates multi-column assignment, str indicates named
         (
-            Transform[pd.DataFrame, pd.DataFrame]
+            Transform[pd.DataFrame]
             | Future[pd.DataFrame]
             | Callable
             | float  # scalars...
@@ -1299,13 +1293,13 @@ class Assign(DataFrameTransform):
     ]
 
     multi_column_assignments: Sequence[
-        Transform[pd.DataFrame, pd.DataFrame] | Future[pd.DataFrame] | Callable
+        Transform[pd.DataFrame] | Future[pd.DataFrame] | Callable
     ] = field(factory=list)
 
     named_column_assignments: Mapping[
         str,
         (
-            Transform[pd.DataFrame, pd.DataFrame]
+            Transform[pd.DataFrame]
             | Future[pd.DataFrame]
             | Callable
             | float  # scalars...
@@ -1327,12 +1321,12 @@ class Assign(DataFrameTransform):
         self.assignments = {}
         for i, ass in enumerate(self.multi_column_assignments):
             if callable(ass):
-                self.assignments[i] = StatelessLambda[pd.DataFrame, pd.DataFrame](ass)
+                self.assignments[i] = StatelessLambda[pd.DataFrame](ass)
             else:
                 self.assignments[i] = ass
         for k, ass in self.named_column_assignments.items():
             if callable(ass):
-                self.assignments[k] = StatelessLambda[pd.DataFrame, pd.DataFrame](ass)
+                self.assignments[k] = StatelessLambda[pd.DataFrame](ass)
             else:
                 self.assignments[k] = ass
 
@@ -1598,11 +1592,11 @@ class DataFrameCallChain(Generic[P_co]):
     def assign(  # type: ignore [empty-body]
         self,
         # Multi-column assignments
-        *args: Transform[pd.DataFrame, pd.DataFrame] | Future[pd.DataFrame] | Callable,
+        *args: Transform[pd.DataFrame] | Future[pd.DataFrame] | Callable,
         tag: Optional[str] = None,
         # Named-column assignments
         **kwargs: (
-            Transform[pd.DataFrame, pd.DataFrame]
+            Transform[pd.DataFrame]
             | Future[pd.DataFrame]
             | Callable
             | float  # scalars...
@@ -1754,7 +1748,7 @@ class DataFramePipelineInterface(
 
     def join(
         self: SelfDPI,
-        right: Transform[pd.DataFrame, pd.DataFrame],
+        right: Transform[pd.DataFrame],
         how: Literal["left", "right", "outer", "inner"] | HP,
         on: Optional[str | HP] = None,
         left_on: Optional[str | HP] = None,

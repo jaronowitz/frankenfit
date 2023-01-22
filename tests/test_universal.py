@@ -331,21 +331,21 @@ def test_StatefulLambda(diamonds_df: pd.DataFrame):
 def test_ForBindings(diamonds_df: pd.DataFrame):
     df = diamonds_df.head()
     result = (
-        ff.universal.ForBindings[pd.DataFrame, list](
+        ff.universal.ForBindings[pd.DataFrame](
             [
                 {"target_col": "price"},
                 {"target_col": "depth"},
                 {"target_col": "table"},
             ],
             ff.dataframe.Select(["{target_col}"]),
-            combine_fun=list,
+            combine_fun=list,  # type: ignore [arg-type]
         )
         .fit(df)
         .apply(df)
     )
 
     for x in result:
-        assert x.result.equals(df[[x.bindings["target_col"]]])
+        assert x.result.equals(df[[x.bindings["target_col"]]])  # type: ignore
 
     result = (
         ff.UniversalPipeline[Any]()
@@ -361,12 +361,12 @@ def test_ForBindings(diamonds_df: pd.DataFrame):
     ).apply(df)
 
     for x in result:
-        assert x.result.equals(df[[x.bindings["target_col"]]])
+        assert x.result.equals(df[[x.bindings["target_col"]]])  # type: ignore
 
 
 def test_StateOf(diamonds_df: pd.DataFrame) -> None:
     @ff.params
-    class MyDeMean(ff.Transform[pd.DataFrame, pd.DataFrame]):
+    class MyDeMean(ff.Transform[pd.DataFrame]):
         col: str
 
         def _fit(self, data_fit: pd.DataFrame) -> Any:
