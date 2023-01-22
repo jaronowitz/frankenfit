@@ -214,6 +214,7 @@ display(dmn_2cols)
 display(ff.dataframe.Winsorize(0.01, "price"))
 ```
 
+(transform-tags)=
 #### Tags
 
 The observant reader doubtlessly noticed the presence of a parameter named `"tag"` in
@@ -237,7 +238,8 @@ dmn_2cols.name
 ```
 
 This will come in handy later when we wish to refer to specific Transforms embedded in
-larger pipelines, as described in [Tagging and selecting Transforms].
+larger pipelines, as described in [Tagging and selecting
+Transforms](tagging-selecting-transforms).
 
 :::{important}
 While `tag` is a parameter, whose value may optionally be supplied when creating a
@@ -929,19 +931,74 @@ score_predictions = ff.DataFramePipeline().correlation(["price_hat"], ["price"])
 
 #### Other uses of `then()`
 
+TODO.
 
 +++
 
+(tagging-selecting-transforms)=
 ### Tagging and selecting Transforms
 
-XXX, later re callchaining: In particular, because we are transforming pandas
-DataFrames, we can use [`DataFramePipeline`](frankenfit.DataFramePipeline). Like all
+As mentioned [above](transform-tags), every `Transform` has an optional
+[`tag`](frankenfit.Transform.tag) parameter, which determines the
+[`name`](frankenfit.Transform.name) of the `Transform` instance. The purpose of `name`
+is to make it more convenient to identify and select individual `Transforms` when
+embedded in larger `Pipelines`. For example, revisiting the `combined_model` from the
+previous section, we might add a custom tag like `"price_regression"` to the
+`sk_learn()` Transform that performs the linear regression:
+
+```{code-cell} ipython3
+predict_price_tagged = (
+    ff.DataFramePipeline()
+    .sk_learn(
+        sklearn_class=LinearRegression,
+        x_cols=["carat", "table", "depth"],
+        response_col="price_train",
+        hat_col="price_hat",
+        class_params={"fit_intercept": True},
+        tag="price_regression"  # <---
+    )
+    .pipe(np.expm1, "price_hat")
+)
+```
+
+The resulting [`SKLearn`](frankenfit.dataframe.SKLearn) `Transform` object will have the
+name `"SKLearn#price_regression"`, and with this tagged Transform in our
+`combined_model`, we can now pull it back out for inspection by using the method
+[`find_by_name()`](frankenfit.Transform.find_by_name):
+
+```{code-cell} ipython3
+combined_model = (prepare_features + prepare_training_response + predict_price_tagged)
+combined_model.find_by_name("SKLearn#price_regression")
+```
+
+The [`FitTransform`](frankenfit.FitTransform) class also provides a similar
+[`find_by_name()`](frankenfit.FitTransform.find_by_name) method, which searches through
+the [`state()`](frankenfit.FitTransform.state) of the `FitTransform`. This means that
+after fitting the `combined_model` Pipeline on some data, which yields a `FitTransform`
+representing the state of the entire fit Pipeline, we can easily pull out the
+sub-`FitTransform` corresponding to the regression:
+
+```{code-cell} ipython3
+fit_model = combined_model.fit(train_df)
+fit_regression = fit_model.find_by_name("SKLearn#price_regression")
+fit_regression
+```
+
+This is useful, for example, if we want to inspect the fit betas of the regression:
+
+```{code-cell} ipython3
+fit_regression.state().coef_  # coef_ attribute of sklearn.linear_model.LinearRegression
+```
+
+
+## Draft notes
 
 XXX: another file? reading data (working with data frames?). behavior of pipelines on empty data, and of empty pipelines.
 
 XXX: Mention then() as a method on all Transforms()?
 
-XXX: What about FitTransforms in Pipelines?
+XXX: What about FitTransforms in Pipelines? Motivating: feed new data reader to an
+already-fit model.
 
 +++
 
