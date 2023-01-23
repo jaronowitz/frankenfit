@@ -195,7 +195,7 @@ class BranchTransform(UniversalTransform):
 
             return backend.apply(state, data_apply)
 
-    def _visualize(self, digraph, bg_fg: tuple[str, str]):
+    def _visualize(self, digraph, bg_fg: tuple[str, str]) -> tuple[list, list]:
         entries, exits = super()._visualize(digraph, bg_fg)
         if getattr(self, "otherwise", None) is None:
             exits = exits + [(self.name, "otherwise")]

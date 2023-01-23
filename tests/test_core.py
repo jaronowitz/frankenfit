@@ -741,4 +741,5 @@ def test_pipeline_with_FitTransform(diamonds_df: pd.DataFrame):
     assert isinstance(pip.find_by_name("DeMean#dmn_price"), ff.FitTransform)
     assert isinstance(pip.find_by_name("Select#select_price"), ff.Transform)
 
-    # TODO: visualize()
+    # don't crash!
+    pip.visualize()

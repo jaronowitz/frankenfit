@@ -446,6 +446,10 @@ class PipelineMember:
                 return child
         raise KeyError(f"No child found with name: {name}")
 
+    @abstractmethod
+    def _visualize(self, digraph, bg_fg: tuple[str, str]) -> tuple[list, list]:
+        raise NotImplementedError
+
 
 class FitTransform(Generic[R_co, DataType], PipelineMember):
     """
@@ -587,6 +591,12 @@ class FitTransform(Generic[R_co, DataType], PipelineMember):
             for x in val:
                 if isinstance(x, PipelineMember):
                     yield from x._children()
+
+    def _visualize(self, digraph, bg_fg: tuple[str, str]) -> tuple[list, list]:
+        # TODO: flesh out more
+        self_label = f"FitTransform: {self.name}"
+        digraph.node(self.name, label=self_label)
+        return ([self.name], [(self.name, "")])
 
 
 @params
@@ -968,16 +978,15 @@ class Transform(ABC, Generic[DataType], PipelineMember):
                     if isinstance(x, PipelineMember):
                         yield from x._children()
 
-    def _visualize(self, digraph, bg_fg: tuple[str, str]):
+    def _visualize(self, digraph, bg_fg: tuple[str, str]) -> tuple[list, list]:
         # out of the box, handle three common cases:
         # - we are a simple transform with no child transforms
         # - we have one or more child transforms as Transform-valued params
         # - we have one or more child transforms as elements of a list-valued param
         # Subclasses override for their own cases not covered by the above
         # TODO: this function has gotten too big and needs refactoring
-        # TODO: Pipelines containing FitTransforms
-        children_as_params: dict[str, Transform] = {}
-        children_as_elements_of_params: dict[str, list[Transform]] = {}
+        children_as_params: dict[str, PipelineMember] = {}
+        children_as_elements_of_params: dict[str, list[PipelineMember]] = {}
         param_reprs: dict[str, str] = {}
 
         for name in self.params():
@@ -987,13 +996,13 @@ class Transform(ABC, Generic[DataType], PipelineMember):
             tvals = []
             has_children = False
             # collect each Transform-type param
-            if isinstance(val, Transform):
+            if isinstance(val, PipelineMember):
                 children_as_params[name] = val
                 has_children = True
             # same for each Transform-type element of a list param
             elif isinstance(val, list) and len(val) > 0:
                 for x in val:
-                    if isinstance(x, Transform):
+                    if isinstance(x, PipelineMember):
                         tvals.append(x)
                         has_children = True
             if tvals:
