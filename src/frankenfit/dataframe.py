@@ -121,7 +121,7 @@ T = TypeVar("T")
 class FitDataFrameTransform(Generic[R_co], FitUniversalTransform[R_co, pd.DataFrame]):
     def then(
         self,
-        other: PipelineMember | list[PipelineMember] | None = None,
+        other: PipelineMember | Sequence[PipelineMember] | None = None,
     ) -> "DataFramePipeline":
         result = super().then(other)
         return DataFramePipeline(transforms=result.transforms)
@@ -132,7 +132,7 @@ class DataFrameTransform(Transform[pd.DataFrame]):
 
     def then(
         self,
-        other: PipelineMember | list[PipelineMember] | None = None,
+        other: PipelineMember | Sequence[PipelineMember] | None = None,
     ) -> "DataFramePipeline":
         result = super().then(other)
         return DataFramePipeline(transforms=result.transforms)
@@ -180,7 +180,7 @@ class StatelessDataFrameTransform(StatelessTransform[pd.DataFrame], DataFrameTra
         bindings: Optional[Bindings] = None,
     ) -> Any:
         # optimize away the fitting of StatelessDataFrameTransforms
-        # N.B. this means we cannot have any side effects.
+        # N.B. this means we cannot have any fit-time side effects.
         return None
 
 
@@ -225,7 +225,7 @@ class WritePandasCSV(StatelessDataFrameTransform, Identity[pd.DataFrame]):
         return data_apply
 
     # Because Identity derives from UniversalTransform, we have to say which
-    # then() to use on instances of WritePandasCSV
+    # then() and fit() to use on instances of WritePandasCSV
     then = DataFrameTransform.then
     fit = DataFrameTransform.fit
 

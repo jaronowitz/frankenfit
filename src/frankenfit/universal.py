@@ -94,9 +94,10 @@ T = TypeVar("T")
 
 
 class FitUniversalTransform(Generic[R_co, DataType], FitTransform[R_co, DataType]):
+    # The point of this is just to specialize the type signature to help IDEs
     def then(
         self,
-        other: PipelineMember | list[PipelineMember] | None = None,
+        other: PipelineMember | Sequence[PipelineMember] | None = None,
     ) -> "UniversalPipeline":
         result = super().then(other)
         return UniversalPipeline(transforms=result.transforms)
@@ -106,9 +107,10 @@ class FitUniversalTransform(Generic[R_co, DataType], FitTransform[R_co, DataType
 class UniversalTransform(Generic[DataType], Transform[DataType]):
     fit_transform_class: ClassVar[Type[FitTransform]] = FitUniversalTransform
 
+    # The point of this is just to specialize the type signature to help IDEs
     def then(
         self,
-        other: PipelineMember | list[PipelineMember] | None = None,
+        other: PipelineMember | Sequence[PipelineMember] | None = None,
     ) -> "UniversalPipeline":
         result = super().then(other)
         return UniversalPipeline(transforms=result.transforms)

@@ -389,7 +389,7 @@ class PipelineMember:
 
     def then(
         self,
-        other: PipelineMember | list[PipelineMember] | None = None,
+        other: PipelineMember | Sequence[PipelineMember] | None = None,
     ) -> Pipeline:
         transforms: Sequence[PipelineMember]
         if other is None:
@@ -405,7 +405,9 @@ class PipelineMember:
 
         return Pipeline(transforms=transforms)
 
-    def __add__(self, other: PipelineMember | list[PipelineMember] | None) -> Pipeline:
+    def __add__(
+        self, other: PipelineMember | Sequence[PipelineMember] | None
+    ) -> Pipeline:
         return self.then(other)
 
     @property
@@ -1123,7 +1125,7 @@ class StatelessTransform(Generic[DataType], Transform[DataType]):
     .. TIP::
 
         In the Frankenfit API documentation, stateless Transforms are marked by the
-        symbol "🏳️" with a link back to this class.
+        symbol "🏳️" (unicode "white flag" emoji) with a link back to this class.
     """
 
     _Self = TypeVar("_Self", bound="StatelessTransform")
@@ -1163,15 +1165,21 @@ class ConstantTransform(Generic[DataType], StatelessTransform[DataType]):
     """
     Abstract base class of :class:`StatelessTransforms <StatelessTransform>` that have
     no state to fit, and furthermore, at apply time, produce output data that is
-    independent of the input data.  Usually, a ``ConstantTransform`` is some kind of
+    **independent** of the input data. Usually, a ``ConstantTransform`` is some kind of
     data reader or data generator. Its parameters and bindings may influence its output,
     but it takes no input data to be transformed per se.
 
-    Because it has the effect of discarding the output of all preceding
-    computations in a :class:`Pipeline`, a warning is emited
-    (:class:`NonInitialConstantTransformWarning`) whenever a
-    ``ConstantTransform`` is fit on non-empty input data, or found to be
-    non-initial in a :class:`Pipeline`.
+    Because it has the effect of discarding the output of all preceding computations in
+    a :class:`Pipeline`, a warning is emited
+    (:class:`NonInitialConstantTransformWarning`) whenever a ``ConstantTransform`` is
+    fit on non-empty input data, or found to be non-initial in a :class:`Pipeline`.
+
+    In many cases, a subclass of :class:`ConstantTransform` may want to set its
+    :data:`~Transform.pure` attrbute to ``False`` to ensure that backends do not cache
+    its output. For example, a data-reading Transform may need to re-read a file on
+    every application in case the file has changed since the last application.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
     """
 
     _Self = TypeVar("_Self", bound="ConstantTransform")
@@ -1288,8 +1296,11 @@ def _convert_pipeline_transforms(value):
         if isinstance(tf_elem, Pipeline):
             # "coalesce" Pipelines
             result.extend(tf_elem.transforms)
-        elif isinstance(tf_elem, (Transform, FitTransform)):
+        elif isinstance(tf_elem, Transform):
             result.append(tf_elem)
+        elif isinstance(tf_elem, FitTransform):
+            # wrap FitTransforms
+            result.append(ApplyFitTransform(tf_elem))
         else:
             raise TypeError(f"Pipeline cannot contain a non-Transform: {tf_elem!r}")
 
@@ -1312,7 +1323,7 @@ class Grouper(Generic[P_co]):
         self._wrapper_kwarg_name_for_wrappee = wrapper_kwarg_name_for_wrappee
         self._wrapper_other_kwargs = wrapper_other_kwargs
 
-    def then(self, other: PipelineMember | list[PipelineMember] | None) -> P_co:
+    def then(self, other: PipelineMember | Sequence[PipelineMember] | None) -> P_co:
         if not isinstance(self._pipeline_upstream, Pipeline):  # pragma: no cover
             raise TypeError(
                 f"Grouper cannot be applied to non-Pipeline upstream: "
@@ -1330,13 +1341,13 @@ class Grouper(Generic[P_co]):
         wrapping_transform = self._wrapper_class(**wrapping_kwargs)
         return self._pipeline_upstream + cast(Transform, wrapping_transform)
 
-    def __add__(self, other: PipelineMember | list[PipelineMember] | None) -> P_co:
+    def __add__(self, other: PipelineMember | Sequence[PipelineMember] | None) -> P_co:
         return self.then(other)
 
 
 @params(auto_attribs=False)
 class Pipeline(Generic[DataType], Transform[DataType]):
-    transforms: list[PipelineMember] = field(
+    transforms: list[Transform] = field(
         factory=list, converter=_convert_pipeline_transforms
     )
 
@@ -1344,10 +1355,10 @@ class Pipeline(Generic[DataType], Transform[DataType]):
     def _check_transforms(self, attribute, value):
         t_is_first = True
         for t in value:
-            if not isinstance(t, PipelineMember):
+            if not isinstance(t, Transform):
                 raise TypeError(
-                    "Pipeline sequence must comprise PipelineMember instances; found "
-                    f"non-PipelineMember (type {type(t)}): {t!r} "
+                    "Pipeline sequence must comprise Transform instances; found "
+                    f"non-Transform (type {type(t)}): {t!r} "
                 )
             # warning if a ConstantTransform is non-initial
             if (not t_is_first) and isinstance(t, ConstantTransform):
@@ -1435,13 +1446,7 @@ class Pipeline(Generic[DataType], Transform[DataType]):
                 return backend.put(self._empty_constructor())
             for (i, t) in enumerate(self.transforms):
                 trace = f"[{i}]"
-
-                # skip fitting of already-fit FitTransforms
-                if isinstance(t, FitTransform):
-                    ft = t
-                else:
-                    assert isinstance(t, Transform)
-                    ft = backend.push_trace(trace).fit(t, data_fit, bindings)
+                ft = backend.push_trace(trace).fit(t, data_fit, bindings)
                 fit_transforms.append(ft)
                 if i < n - 1 or return_what == "result":
                     data_fit = backend.push_trace(trace).apply(ft, data_fit)
@@ -1509,12 +1514,12 @@ class Pipeline(Generic[DataType], Transform[DataType]):
         mat_state = [sub_ft.materialize_state() for sub_ft in fit_transforms]
         return mat_state
 
-    def __add__(self: P, other: PipelineMember | list[PipelineMember] | None) -> P:
+    def __add__(self: P, other: PipelineMember | Sequence[PipelineMember] | None) -> P:
         return self.then(other)
 
     def then(
         self: P,
-        other: PipelineMember | list[PipelineMember] | None = None,
+        other: PipelineMember | Sequence[PipelineMember] | None = None,
     ) -> P:
         """
         Return the result of appending the given :class:`Transform` instance(s) to this
@@ -1581,7 +1586,10 @@ class Pipeline(Generic[DataType], Transform[DataType]):
             # coalesce pass-through pipeline
             transforms = self.transforms + other.transforms
         elif isinstance(other, (Transform, FitTransform)):
-            transforms = self.transforms + [other]
+            # we can ignore the type-checker here because we know that
+            # _convert_pipeline_transforms() will wrap FitTransform with
+            # ApplyFitTransform
+            transforms = self.transforms + [other]  # type: ignore [list-item]
         elif isinstance(other, list):
             transforms = self.transforms + other
         else:
@@ -1596,6 +1604,12 @@ class Pipeline(Generic[DataType], Transform[DataType]):
         Append an :class:`~core.IfPipelineIsFitting` transform to this pipeline.
         """
         return self + IfPipelineIsFitting(transform)
+
+    def apply_fit_transform(self: P, fit_transform: FitTransform) -> P:
+        """
+        Append an :class:`~core.ApplyFitTransform` transform to this pipeline.
+        """
+        return self + ApplyFitTransform(fit_transform)
 
 
 @params
@@ -1651,3 +1665,55 @@ class IfPipelineIsFitting(Generic[DataType], Transform[DataType]):
         assert isinstance(state, FitTransform)
         with self.parallel_backend() as backend:
             return backend.push_trace("then").apply(state, data_apply)
+
+
+@params
+class ApplyFitTransform(Generic[R_co, DataType], StatelessTransform[DataType]):
+    """
+    Wrap an already fit :class:`FitTransform` instance as a stateless Transform.  At
+    fit-time, ``ApplyFitTransform`` does nothing; at apply-time, it applies the given
+    ``fit_transform`` instance. ``ApplyFitTransform`` therefore serves as a utility
+    class for embedding :class:`FitTransform` objects wherever ``Transform`` is
+    ordinarily required, for example in a :class:`Pipeline` or as one of the child
+    transforms of :class:`~frankenfit.dataframe.Join`,
+    :class:`~frankenfit.dataframe.GroupByCols`, etc.
+
+    This is particularly useful in situations where the user has already fit some
+    predictive pipeline, and now wants to layer some additional transformations onto its
+    input or output. Because those transformations may be stateful themselves, one can
+    even create "heterogeneously fit" Pipelines, wherein different parts of the Pipeline
+    have been fit on different datasets.
+
+    🏳️ :class:`Stateless <frankenfit.StatelessTransform>`
+
+    .. SEEALSO:: The corresponding call-chain method is
+        :meth:`~frankenfit.Pipeline.apply_fit_transform()`.
+
+    Note
+    ----
+    As a syntactic convenience, calling :meth:`Transform.fit()` or
+    :meth:`Pipeline.fit()` on a ``FitTransform``-type argument automatically wraps the
+    argument in ``ApplyFitTransform``.
+
+    Likewise, :meth:`FitTransform.then(...)` is sugar for
+    ``ApplyFitTransform(self).then(...)``.
+
+    Furthermore, if a :class:`Pipeline` instance is constructed with any
+    :class:`FitTransform` instances in its ``transforms`` parameter, they are
+    automatically wrapped in ``ApplyFitTransform``.
+
+    Parameters
+    ----------
+    fit_transform: FitTransform
+        The :class:`FitTransform` object to wrap.
+    """
+
+    fit_transform: FitTransform[R_co, DataType]
+
+    def _submit_apply(
+        self,
+        data_apply: DataType | Future[DataType] | None = None,
+        state: Any = None,
+    ) -> Future[DataType] | None:
+        with self.parallel_backend() as backend:
+            return backend.apply(self.fit_transform, data_apply)

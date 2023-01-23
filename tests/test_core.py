@@ -743,3 +743,13 @@ def test_pipeline_with_FitTransform(diamonds_df: pd.DataFrame):
 
     # don't crash!
     pip.visualize()
+
+
+def test_ApplyFitTransform(diamonds_df: pd.DataFrame):
+    dmn = ff.dataframe.DeMean(["price"])
+    df1 = diamonds_df.sample(10_000)
+    fit = dmn.fit(df1)
+
+    pip = ff.Pipeline[pd.DataFrame](transforms=[core.ApplyFitTransform(fit)])
+    target = diamonds_df.assign(price=diamonds_df["price"] - df1["price"].mean())
+    assert pip.apply(diamonds_df).equals(target)
