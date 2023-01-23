@@ -12,3 +12,6 @@ kernelspec:
 ---
 
 # Working with DataFrames and `DataFramePipelines`
+
+XXX: another file? reading data (working with data frames?). behavior of pipelines on
+empty data, and of empty pipelines.

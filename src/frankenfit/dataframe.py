@@ -450,7 +450,7 @@ class GroupByCols(DataFrameTransform):
     :type fitting_schedule: Callable[[dict[str, object]], np.array[bool]]
 
     .. SEEALSO::
-        :meth:`DataFramePipeline.group_by_cols()
+        The corresponding call-chain method is :meth:`group_by_cols()
         <frankenfit.dataframe.DataFramePipelineInterface.group_by_cols>`
 
     """

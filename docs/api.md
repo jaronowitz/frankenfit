@@ -200,8 +200,12 @@ Foobar.
 
 ## Transform library
 
+### Core transforms
+
 ```{eval-rst}
 .. autoclass:: frankenfit.core.IfPipelineIsFitting
+
+.. autoclass:: frankenfit.core.ApplyFitTransform
 ```
 
 (universal-api)=

@@ -707,7 +707,8 @@ One can see two main differences from the previous style of writing a Pipeline:
    pipeline with that `Transform` appended, ready for the next method call.
 
 [^footnote-if-fitting]: *Well actually,* the `Pipeline` base class does include
-[`then()`](frankenfit.Pipeline.then) and
+[`then()`](frankenfit.Pipeline.then),
+[`apply_fit_transform()`](frankenfit.Pipeline.apply_fit_transform), and
 [`if_fitting()`](frankenfit.Pipeline.if_fitting), which act as call-chain methods,
 though not specific to any particular data operations.
 
@@ -863,13 +864,6 @@ a training response column while preserving the original unmodified `price` colu
 later evaluation of our predictions:
 
 ```{code-cell} ipython3
-prepare_features = (
-    ff.DataFramePipeline()
-    .winsorize(0.05, ["carat", "table", "depth"])
-    .pipe(np.log1p, ["price", "carat"])
-    .z_score(["carat", "table", "depth"])
-)
-
 # we'll fit our regression on a winsorized and log-transformed *copy* of price
 prepare_training_response = (
     ff.DataFramePipeline()
@@ -878,13 +872,20 @@ prepare_training_response = (
     .pipe(np.log1p, "price_train")
 )
 
+prepare_features = (
+    ff.DataFramePipeline()
+    .winsorize(0.05, ["carat", "table", "depth"])
+    .pipe(np.log1p, "carat")
+    .z_score(["carat", "table", "depth"])
+)
+
 predict_price = (
     ff.DataFramePipeline()
     .sk_learn(
         sklearn_class=LinearRegression,
         x_cols=["carat", "table", "depth"],
         response_col="price_train",
-        hat_col="price_hat",
+        hat_col="price_hat",  # <---
         class_params={"fit_intercept": True}
     )
     .pipe(np.expm1, "price_hat")
@@ -896,15 +897,16 @@ We can concatenate these three smaller Pipelines into a complete model using
 
 ```{code-cell} ipython3
 combined_model = (
-    prepare_features
-    .then(prepare_training_response)
+    prepare_training_response
+    .then(prepare_features)
     .then(predict_price)
 )
 combined_model.visualize()
 ```
 
 ```{code-cell} ipython3
-combined_model.apply(train_df).head()
+fit_model = combined_model.fit(train_df)
+fit_model.apply(test_df).head()
 ```
 
 `p1.then(p2)` does pretty much what you'd expect: a new `Pipeline` (of the same subclass
@@ -915,7 +917,7 @@ As a bit of syntactic sugar, the `__add__` operator is overridden so that Pipeli
 also be concatenated using addition syntax:
 
 ```{code-cell} ipython3
-combined_model = prepare_features + prepare_training_response + predict_price
+combined_model = prepare_training_response + prepare_features + predict_price
 ```
 
 Concatenation enables greater re-usability of our pipelines. For example, a common setup
@@ -926,14 +928,156 @@ a model, pick a scoring method, and combine them, as in:
 ```{code-cell} ipython3
 score_predictions = ff.DataFramePipeline().correlation(["price_hat"], ["price"])
 
-(combined_model + score_predictions).apply(train_df)
+(combined_model + score_predictions).apply(train_df)  # in-sample score
 ```
 
 #### Other uses of `then()`
 
-TODO.
+Concatenation via `then()` is a good way of introducing a `Transform` that doesn't have
+a corresponding call-chain method (say because it's a custom `Transform` subclass of the
+user's own devising; but see {doc}`implementing_transforms` and in particular
+[`Pipeline.with_methods()`](frankenfit.Pipeline.with_methods) for other ways of
+addressing this):
+
+```python
+(
+    ff.DataFramePipeline()
+    ...
+    .then(MyGreatTransform(...))
+    ...
+)
+```
+
+`then()` can also be used to initiate a call-chain sequence if one is starting with a
+bare `Transform` instance outside of a `Pipeline`. Without any arguments, `then()`
+returns a Pipeline containing `self`. For example
+
+```{code-cell} ipython3
+# suppose we have a bare DeMean object from somewhere...
+de_mean = ff.dataframe.DeMean("foo")
+# we can start a DataFramePipeline by calling then()
+my_pipeline = (
+    de_mean
+    .then()
+    .winsorize(0.05)
+    .pipe(np.sqrt, "bar")
+)
+my_pipeline.visualize()
+```
+
+:::{tip}
+The `then()` method of Transforms defined in [`frankenfit.universal`](universal-api)
+returns a [`UniversalPipeline`](frankenfit.UniversalPipeline), while that of those
+defined in [`frankenfit.dataframe`](dataframe-api) returns a
+[`DataFramePipeline`](frankenfit.DataFramePipeline).
+:::
 
 +++
+
+### Including `FitTransforms` in a Pipeline
+
+Pipelines may only contain [`Transforms`](frankenfit.Transform), but often we might wish
+to include an already-fit [`FitTransform`](frankenfit.FitTransform) in a Pipeline,
+potentially alongside some (unfit) `Transforms`.  This is possible using a built-in
+utility Transform called [`ApplyFitTransform`](frankenfit.core.ApplyFitTransform)
+(call-chain method [`apply_fit_transform()`](frankenfit.Pipeline.apply_fit_transform)),
+whose purpose is to wrap an already-fit `FitTransform` instance as a stateless
+Transform. At fit-time, `ApplyFitTransform` does nothing; at apply-time, it applies the
+wrapped `FitTransform` instance. This allows one to embed `FitTransform` objects
+wherever ``Transform`` is ordinarily required, for example in a
+[`Pipeline`](frankenfit.Pipeline).
+
+This is particularly useful in situations where we've already fit some predictive
+pipeline, and now we want to layer some additional transformations onto its input or
+output. Because those transformations may be stateful themselves, we can even create
+"heterogeneously fit" Pipelines, wherein different parts of the Pipeline have been fit
+on different datasets. 
+
+For example, continuing with our `fit_model` (a `FitTransform` instance) from above, now
+that we've fit that model on `train_df`, we might be interested to know how it performs
+on the subset of `test_df` with just the largest diamonds, say those weighting at least
+one carat. We can use the [`Filter`](frankenfit.dataframe.Filter) Transform (call-chain
+method [`filter()`](frankenfit.dataframe.DataFrameCallChain.filter)) to select the rows
+in question, and send them to our `fit_model` with `apply_fit_transform()`:
+
+```{code-cell} ipython3
+(
+    ff.DataFramePipeline()
+    .filter(lambda df: df["carat"] >= 1)
+    .apply_fit_transform(fit_model)
+).apply(test_df).plot.scatter("price_hat", "price");
+```
+
+As a convenience, both [`then()`](frankenfit.Transform.then) and the addition operator
+will automatically wrap their argument in an `ApplyFitTransform` if a `FitTransform` is
+provided, so we could also write our filtered Pipeline as:
+
+```{code-cell} ipython3
+keep_large = ff.DataFramePipeline().filter(lambda df: df["carat"] >= 1)
+(keep_large + fit_model);  # or equivalently: keep_large.then(fit_model)
+```
+
+If we visualize this Pipeline, we can see the resulting `ApplyFitTransform` transform:
+
+```{code-cell} ipython3
+(keep_large + fit_model).visualize()
+```
+
+Earlier we mentioned a common use-case in which we have one or more predictive
+pipelines, and one or more "scoring" methods, which we'd like to mix and match with each
+other. This is another situation in which `ApplyFitTransform` is handy, because we might
+want to fit the predictions on one dataset (training data) and apply and score them on
+another dataset (test data). Let's revisit out `combined_model` from before, and define
+two scoring pipelines, one based on correlation and the other based on mean squared
+error:
+
+```{code-cell} ipython3
+# predictive pipeline (a Transform)
+combined_model = (prepare_training_response + prepare_features + predict_price)
+
+# scoring pipelines
+score_corr = ff.DataFramePipeline().correlation(["price_hat"], ["price"])
+score_mse = ff.DataFramePipeline().stateless_lambda(
+    lambda df: ((df["price_hat"] - df["price"])**2).mean()
+)
+```
+
+One thing we could do is concatenate `combined_model` with each scoring pipeline, and
+then fit the resulting Pipeline on `train_df` and apply it to `test_df` in order to get
+the out-of-sample scores:
+
+```{code-cell} ipython3
+(combined_model + score_corr).fit(train_df).apply(test_df)
+```
+
+```{code-cell} ipython3
+(combined_model + score_mse).fit(train_df).apply(test_df)
+```
+
+But that is wasteful, because we are fitting the pipeline every time that we wish to
+score it. Thanks to `ApplyFitTransform` we can fit the predictive pipline just once,
+giving us a `FitTransform`, which we concatenate with the scoring pipelines, and apply
+the result to `test_df` to compute the out-of-sample scores. In this way we avoid
+re-fitting the Pipeline each time:
+
+```{code-cell} ipython3
+# now we only fit the model once
+fit_model = combined_model.fit(train_df)
+display(
+    (fit_model + score_corr).apply(test_df),
+    (fit_model + score_mse).apply(test_df),
+)
+```
+
+We can even include our `keep_large` filtering pipeline from before to get out-of-sample scores on only the largest diamonds (having fit on *all* sizes of diamonds):
+
+```{code-cell} ipython3
+# still using the same fit from before
+display(
+    (keep_large + fit_model + score_corr).apply(test_df),
+    (keep_large + fit_model + score_mse).apply(test_df),
+)
+```
 
 (tagging-selecting-transforms)=
 ### Tagging and selecting Transforms
@@ -967,7 +1111,7 @@ name `"SKLearn#price_regression"`, and with this tagged Transform in our
 [`find_by_name()`](frankenfit.Transform.find_by_name):
 
 ```{code-cell} ipython3
-combined_model = (prepare_features + prepare_training_response + predict_price_tagged)
+combined_model = (prepare_training_response + prepare_features + predict_price_tagged)
 combined_model.find_by_name("SKLearn#price_regression")
 ```
 
@@ -984,29 +1128,8 @@ fit_regression = fit_model.find_by_name("SKLearn#price_regression")
 fit_regression
 ```
 
-This is useful, for example, if we want to inspect the fit betas of the regression:
+This is useful, for example, if we want to inspect the estimated betas of the regression:
 
 ```{code-cell} ipython3
 fit_regression.state().coef_  # coef_ attribute of sklearn.linear_model.LinearRegression
 ```
-
-
-## Draft notes
-
-XXX: another file? reading data (working with data frames?). behavior of pipelines on empty data, and of empty pipelines.
-
-XXX: Mention then() as a method on all Transforms()?
-
-XXX: What about FitTransforms in Pipelines? Motivating: feed new data reader to an
-already-fit model.
-
-+++
-
-Glossary:
-
-* fitting data, training data
-* fit-time
-* apply data
-* apply-time
-* data in, data result
-* state
