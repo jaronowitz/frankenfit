@@ -31,10 +31,11 @@ manipulation that must first be **[`fit`](frankenfit.Transform.fit)** on some
 **[`apply`](frankenfit.FitTransform.apply)** to transform some **apply data**.
 
 Frankenfit includes an extensive library of built-in Transforms, and ordinarily one will
-create instances of these Transforms by using the so-called "chall-chain API" provided
-by [`Pipeline`](frankenfit.Pipeline) objects. For example, a Pipeline (specifically a
-`DataFramePipeline`) comprising a [`Winsorize`](frankenfit.dataframe.Winsorize)
-Transform followed by a [`DeMean`](frankenfit.dataframe.DeMean) might look like this:
+create instances of these Transforms by using the so-called ["chall-chain
+API"](call-chain-api) provided by [`Pipeline`](frankenfit.Pipeline) objects. For
+example, a Pipeline (specifically a [`DataFramePipeline`](frankenfit.DataFramePipeline))
+comprising a [`Winsorize`](frankenfit.dataframe.Winsorize) Transform followed by a
+[`DeMean`](frankenfit.dataframe.DeMean) might look like this:
 
 ```{code-cell} ipython3
 import frankenfit as ff
@@ -75,26 +76,29 @@ learns to de-mean all columns in the DataFrame.
 fit_dmn = dmn.fit(diamonds_df)
 ```
 
-The [`fit()`](frankenfit.Transform.fit) method returns an instance of `FitTransform`,
-which encapsulates the **state** that was learned on the fitting data, and which may be
-**applied** to a dataset by calling its `apply()` method.
+The [`fit()`](frankenfit.Transform.fit) method returns an instance of
+[`FitTransform`](frankenfit.FitTransform), which encapsulates the **state** that was
+learned on the fitting data, and which may be **applied** to a dataset by calling its
+`apply()` method.
 
 ```{code-cell} ipython3
 fit_dmn.apply(diamonds_df).head()
 ```
 
 In the case of [`DeMean`](frankenfit.dataframe.DeMean), the state consists of the means
-of the columns observed in the fitting data. Of course, other Transforms will have
-totally different kinds of state (e.g., the state of a fit
+of the columns observed in the fitting data. When applied, it subtracts these means from
+the corresponding columns of the apply data, returning the result. Of course, other
+Transforms will have totally different kinds of state (e.g., the state of a fit
 [`Winsorize`](frankenfit.dataframe.Winsorize) Transform is the values of the outlier
 quantiles observed in the fitting data), and some Transforms may have no state at all
-(for example `ImputeConstant` replaces missing values with a constant that is
-independent of any fitting data; see `StatelessTransform`).
+(for example [`ImputeConstant`](frankenfit.dataframe.ImputeConstant) replaces missing
+values with a constant that is independent of any fitting data; see [Stateless
+transforms](stateless-transforms)).
 
-One may query the the state of a `FitTransform` by calling its `state()` method. The
-exact type and value of the state is an implementation detail of the Transform in
-question, and in the case of `DeMean` we can see that its state is a pandas `Series` of
-means, indexed by column name:
+One may query the the state of a `FitTransform` by calling its
+[`state()`](frankenfit.FitTransform.state) method. The exact type and value of the state
+is an implementation detail of the Transform in question, and in the case of `DeMean` we
+can see that its state is a pandas `Series` of means, indexed by column name:
 
 ```{code-cell} ipython3
 fit_dmn.state()
@@ -123,7 +127,7 @@ dmn.fit(train_df).apply(test_df).head()
 Most Transforms have some associated **parameters** that control their behavior. The
 values of these parameters are supplied by the user when constructing the Transform
 (but as we'll cover in more detail later, the values may be "hyperparameters" with
-deferred evaluation; see [Hyperparams]). Parameters may be required or optional,
+deferred evaluation; see {doc}`hyperparams`). Parameters may be required or optional,
 typically with some reasonable default value in the latter case.
 
 For example, the [`DeMean`](frankenfit.dataframe.DeMean) Transform that we've been using
@@ -172,20 +176,23 @@ ff.dataframe.Winsorize(limit=0.05, cols=["price"])
 
 :::{tip}
 `DeMean` and `Winsorize` are part of a larger family of [DataFrame
-Transforms](dataframe-api) that accept a `cols` parameter. Others include `ZScore`,
-`Select`, `Drop`, `ImputeConstant`, and many more. As a notational convenience, all of
-these Transforms allow `cols` to be given as a single string, rather than a list of
-strings, in the case that the user wants the Transform to apply to a single column.
-Under the hood, this is converted to a length-1 list. So our previous example could also
-be written most succinctly as `Winsorize(0.05, "price")`.
+Transforms](dataframe-api) that accept a `cols` parameter. Others include
+[`ZScore`](frankenfit.dataframe.ZScore), [`Select`](frankenfit.dataframe.Select),
+[`Drop`](frankenfit.dataframe.Drop),
+[`ImputeConstant`](frankenfit.dataframe.ImputeConstant), and [many more](dataframe-api).
+As a notational convenience, all of these Transforms allow `cols` to be given as a
+single string, rather than a list of strings, in the case that the user wants the
+Transform to apply to a single column.  Under the hood, this is converted to a length-1
+list. So our previous example could also be written most succinctly as `Winsorize(0.05,
+"price")`.
 
 Furthermore, all of the Transforms in this family follow the convention that omitting
 the `cols` argument indicates that the Transform should be applied to all columns in the
-data.
+data, unless otherwise noted in the [API reference](api-reference).
 
 When implementing one's own bespoke Transforms on DataFrames, it is possible to get this
-same behavior by using the [`columns_field`](frankenfit.params.columns_field)
-field-specifier; see TODO.
+same behavior by using the [`columns_field`](frankenfit.columns_field) field-specifier;
+see {doc}`implementing_transforms`.
 :::
 
 +++
@@ -210,8 +217,10 @@ dmn_2cols.params()
 The `repr` of a Transform instance additionally shows the values of its parameters:
 
 ```{code-cell} ipython3
-display(dmn_2cols)
-display(ff.dataframe.Winsorize(0.01, "price"))
+display(
+    dmn_2cols,
+    ff.dataframe.Winsorize(0.01, "price"),
+)
 ```
 
 (transform-tags)=
@@ -266,14 +275,15 @@ Instances of `Transform` and `FitTransform` are both immutable and re-usable:
 * A `Transform` instance is an immutable description of a transformation, with fixed
   parameter values provided at the time of instantiation (although the use of
   hyperparameters allows deferring the resolution of some or all parameter values until
-  the moment that `fit()` is called; see [Hyperparams]). It is re-usable in the sense
-  that a single `Transform` instance may be `fit()` on many different datasets, each
-  time returning a new instance of `FitTransform`, and never modifying the fitting data
-  in the process.
+  the moment that `fit()` is called; see {doc}`hyperparams`). It is re-usable in the
+  sense that a single `Transform` instance may be `fit()` on many different datasets,
+  each time returning a new instance of `FitTransform`, never modifying its parameters
+  or the fitting data in the process.
 * A `FitTransform` instance has some state which, once constructed by `Transform.fit()`,
   is fixed and immutable. The instance may be re-used by calling `apply()` on many
-  different datasets. The `apply()` method never modifies the data that it is given;
-  it returns a copy of the data in which the fit transformation has been applied.
+  different datasets. The `apply()` method never modifies the state nor the data that it
+  is given; it always returns a copy of the data in which the fit transformation has
+  been applied.
 
 :::{note}
 It's worth noting that nothing formally prevents a rogue `Transform` implementation from
@@ -284,17 +294,19 @@ Furthermore, once the user has an instance of `Transform` or `FitTransform` in h
 nothing truly prevents him from modifying its parameters or state. This should be
 avoided except for a few extraordinary circumstances (e.g. making a modified copy of a
 `Transform` whose type is not known at runtime), and in any case, the Pipeline
-call-chain API, which is preferred over direct instantiation of `Transform` objects,
-makes it difficult to do so.
+[call-chain API](call-chain-api), which is preferred over direct instantiation of
+`Transform` objects, makes it inconvenient to do so.
 :::
 
 (stateless-transforms)=
-### Stateless Transforms
+### Stateless transforms
 
-A number of Transforms don't actually have any state to fit; Frankenfit calls these
-[`StatelessTransforms`](frankenfit.StatelessTransform). For these Transforms, the
-`fit()` method is essentially a null operation, and by convention the `state()` of the
-resulting `FitTransform` is `None`. All of the action is in `apply()`.
+A number of [`Transforms`](frankenfit.Transform) don't actually have any state to fit;
+Frankenfit calls these [`StatelessTransforms`](frankenfit.StatelessTransform). For these
+Transforms, the [`fit()`](frankenfit.Transform.fit) method is essentially a null
+operation, and by convention the [`state()`](frankenfit.FitTransform.state) of the
+resulting [`FitTransform`](frankenfit.FitTransform) is `None`. All of the action is in
+[`apply()`](frankenfit.FitTransform.apply).
 
 For example, suppose we just want to log-transform some column like `price`; that is,
 replace each value $x$ with $\log(1+x)$. (The $1$ is there to ensure that we don't try
@@ -317,16 +329,16 @@ The Frankenfit library provides a few workhorse `StatelessTransforms` that can b
 to wrap simple stateless operations like `np.log1p` above:
 
 * [`Pipe`](frankenfit.dataframe.Pipe) lets us easily "pipe" (the specified
-  columns of) a DataFrame through an arbitrary function, as long as it accepts and
-  returns a DataFrame:
+  columns of) a `DataFrame` through an arbitrary function, as long as it accepts and
+  returns a `DataFrame`:
 
 ```{code-cell} ipython3
 log_price = ff.dataframe.Pipe(np.log1p, cols="price")
 ```
 
 * [`StatelessLambda`](frankenfit.universal.StatelessLambda) is even more
-  generic. It passes the apply-time data (which may or may not be a DataFrame) directly
-  to a user-supplied function, returning the result.
+  generic. It passes the apply-time data (which may or may not be a `DataFrame`)
+  directly to a user-supplied function, returning the result.
 
 ```{code-cell} ipython3
 log_price_lambda = ff.universal.StatelessLambda(
@@ -389,7 +401,7 @@ bindings, which can only be given at fit-time.
 
 ## Pipelines
 
-### Composing Transforms
+### Composing transforms
 
 When modeling or analyzing some dataset, one usually wishes to **compose** many
 Transforms. For example, consider the dataset of diamond prices and covariates:
@@ -426,11 +438,12 @@ the data before fitting a regression model. Specifically, let's suppose we want 
 5. Finally, because we log-transformed `price`, exponentiate the predictions of the
    regression model to put them back in the original units.
 
-The `frankenfit.dataframe` module provides Transforms for all of these operations
-([`Winsorize`](frankenfit.dataframe.Winsorize), [`ZScore`](frankenfit.dataframe.ZScore),
-[`SKLearn`](frankenfit.dataframe.SKLearn)), and naively we might manually combine them,
-along with some pandas `assign()` calls, to implement our end-to-end model. For
-example, we could instantiate our transforms like so:
+The [`frankenfit.dataframe`](dataframe-api) module provides Transforms for all of these
+operations ([`Winsorize`](frankenfit.dataframe.Winsorize),
+[`Pipe`](frankenfit.dataframe.Pipe) [`ZScore`](frankenfit.dataframe.ZScore),
+[`SKLearn`](frankenfit.dataframe.SKLearn)), and naively we might manually combine them
+to implement our end-to-end model. For example, we could instantiate our transforms like
+so:
 
 ```{code-cell} ipython3
 from sklearn.linear_model import LinearRegression
@@ -479,14 +492,14 @@ df = exp_price_hat_fit.apply(df)
 df.head()
 ```
 
-At the end of this process, we have three `FitTransform` instances `winsorize_fit`,
-`z_score_fit`, and `regress_fit`, as well as the DataFrame `df`, which contains the
-results of applying our whole model to its own fitting data.
+At the end of this process, we have a bunch of `FitTransform` instances `winsorize_fit`,
+`log_price_cara_fit`, `z_score_fit`, `regress_fit`, `exp_price_hat_fit`, as well as the
+DataFrame `df`, which contains the results of applying our whole model to its own
+fitting data.
 
 Incidentally, we can see that the model does a reasonable job of predicting its own
 fitting data, with a high correlation between `price_hat_dollars` and the original,
-un-standardized `price`, though there is clearly some non-random structure to the
-errors:
+un-transformed `price`, though there is clearly some non-random structure to the errors:
 
 ```{code-cell} ipython3
 eval_df = (
@@ -540,8 +553,8 @@ There is, to invent some terminology, a clean separation between **fit-time** an
 :::
 
 As expected, the out-of-sample predictions are not as correlated with observed `price`
-as the in-sample predictions, although the degradation is very slight, perhaps
-suggesting that our training set was not very biased:
+as the in-sample predictions, although the degradation is miniscule, perhaps suggesting
+that our training set was not very biased:
 
 ```{code-cell} ipython3
 eval_oos_df = (
@@ -551,7 +564,7 @@ eval_oos_df = (
 eval_oos_df.corr()
 ```
 
-### Pipeline Transforms
+### Pipeline transforms
 
 Now, this is generally **not** how one should use Frankenfit to implement data modeling
 pipelines. The example above serves merely to introduce the basic principles from the
@@ -618,6 +631,7 @@ price_model_corr_fit.apply(train_df)  # correlation on its own training data
 price_model_corr_fit.apply(test_df)  # correlation on test data
 ```
 
+(call-chain-api)=
 ### The call-chain API
 
 In the previous section we created the `price_model` [`Pipeline`](frankenfit.Pipeline)
@@ -672,16 +686,16 @@ price_model = (
 One can see two main differences from the previous style of writing a Pipeline:
 
 1. Instead of constructing an instance of [`Pipeline`](frankenfit.Pipeline), we begin by
-   constructing an intance of [`DataFramePipeline`](frankenfit.DataFramePipeline).
+   constructing an instance of [`DataFramePipeline`](frankenfit.DataFramePipeline).
 
    This is because `Pipeline` is just a generic base class. It provides the core
    functionality common to all pipelines, but no call-chain
    methods.[^footnote-if-fitting] As noted earlier, Frankenfit's library of built-in
    Transforms is organized into submodules:
 
-   * `frankefit.universal` for generically useful Transforms that make no assumptions
-     about the type or shape of the data.
-   * `frankenfit.dataframe` for Transforms that operate on `DataFrames`.
+   * [`frankefit.universal`](universal-api) for generically useful Transforms that make
+     no assumptions about the type or shape of the data.
+   * [`frankenfit.dataframe`](dataframe-api) for Transforms that operate on `DataFrames`.
 
    These also provide subclasses of `Pipeline`, available to users directly under the
    `frankenfit` package namespace:
@@ -851,7 +865,7 @@ other Transforms, such as those covered in {doc}`branching_and_grouping`.
 
 +++
 
-### Concatenating Pipelines
+### Concatenating pipelines
 
 Once defined, Pipelines can be composed together in various ways. The simplest is
 **concatenation**, whereby one Pipeline's sequence of Transforms is followed immediately
@@ -933,9 +947,9 @@ score_predictions = ff.DataFramePipeline().correlation(["price_hat"], ["price"])
 
 #### Other uses of `then()`
 
-Concatenation via `then()` is a good way of introducing a `Transform` that doesn't have
-a corresponding call-chain method (say because it's a custom `Transform` subclass of the
-user's own devising; but see {doc}`implementing_transforms` and in particular
+Concatenation via `then()` is also a good way of introducing a `Transform` that doesn't
+have a corresponding call-chain method (say because it's a custom `Transform` subclass
+of the user's own devising; but see {doc}`implementing_transforms` and in particular
 [`Pipeline.with_methods()`](frankenfit.Pipeline.with_methods) for other ways of
 addressing this):
 
@@ -974,7 +988,7 @@ defined in [`frankenfit.dataframe`](dataframe-api) returns a
 
 +++
 
-### Including `FitTransforms` in a Pipeline
+### Including `FitTransforms` in a pipeline
 
 Pipelines may only contain [`Transforms`](frankenfit.Transform), but often we might wish
 to include an already-fit [`FitTransform`](frankenfit.FitTransform) in a Pipeline,
@@ -1008,9 +1022,9 @@ in question, and send them to our `fit_model` with `apply_fit_transform()`:
 ).apply(test_df).plot.scatter("price_hat", "price");
 ```
 
-As a convenience, both [`then()`](frankenfit.Transform.then) and the addition operator
-will automatically wrap their argument in an `ApplyFitTransform` if a `FitTransform` is
-provided, so we could also write our filtered Pipeline as:
+As a convenience, both [`then()`](frankenfit.core.PipelineMember.then) and the addition
+operator will automatically wrap their argument in an `ApplyFitTransform` if a
+`FitTransform` is provided, so we could also write our filtered Pipeline as:
 
 ```{code-cell} ipython3
 keep_large = ff.DataFramePipeline().filter(lambda df: df["carat"] >= 1)
@@ -1080,14 +1094,14 @@ display(
 ```
 
 (tagging-selecting-transforms)=
-### Tagging and selecting Transforms
+### Tagging and selecting transforms
 
 As mentioned [above](transform-tags), every `Transform` has an optional
 [`tag`](frankenfit.Transform.tag) parameter, which determines the
 [`name`](frankenfit.Transform.name) of the `Transform` instance. The purpose of `name`
 is to make it more convenient to identify and select individual `Transforms` when
 embedded in larger `Pipelines`. For example, revisiting the `combined_model` from the
-previous section, we might add a custom tag like `"price_regression"` to the
+previous sections, we might add a custom tag like `"price_regression"` to the
 `sk_learn()` Transform that performs the linear regression:
 
 ```{code-cell} ipython3
@@ -1108,7 +1122,7 @@ predict_price_tagged = (
 The resulting [`SKLearn`](frankenfit.dataframe.SKLearn) `Transform` object will have the
 name `"SKLearn#price_regression"`, and with this tagged Transform in our
 `combined_model`, we can now pull it back out for inspection by using the method
-[`find_by_name()`](frankenfit.Transform.find_by_name):
+[`find_by_name()`](frankenfit.core.PipelineMember.find_by_name):
 
 ```{code-cell} ipython3
 combined_model = (prepare_training_response + prepare_features + predict_price_tagged)
@@ -1116,11 +1130,11 @@ combined_model.find_by_name("SKLearn#price_regression")
 ```
 
 The [`FitTransform`](frankenfit.FitTransform) class also provides a similar
-[`find_by_name()`](frankenfit.FitTransform.find_by_name) method, which searches through
-the [`state()`](frankenfit.FitTransform.state) of the `FitTransform`. This means that
-after fitting the `combined_model` Pipeline on some data, which yields a `FitTransform`
-representing the state of the entire fit Pipeline, we can easily pull out the
-sub-`FitTransform` corresponding to the regression:
+[`find_by_name()`](frankenfit.core.PipelineMember.find_by_name) method, which searches
+through the [`state()`](frankenfit.FitTransform.state) of the `FitTransform`. This means
+that after fitting the `combined_model` Pipeline on some data, which yields a
+`FitTransform` representing the state of the entire fit Pipeline, we can easily pull out
+the sub-`FitTransform` corresponding to the regression:
 
 ```{code-cell} ipython3
 fit_model = combined_model.fit(train_df)

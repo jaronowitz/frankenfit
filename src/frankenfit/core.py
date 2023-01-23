@@ -384,13 +384,121 @@ LOCAL_BACKEND = LocalBackend()
 
 class PipelineMember:
     """
-    Base class of objects that can belong to a :class:`Pipeline`.
+    Abstract base class of :class:`Transform` and :class:`FitTransform`, specifying the
+    functionality common to both of them, namely:
+    
+    - concatenation (:meth:`then`, :meth:`__add__`),
+    - selecting children by name (:data:`name`, :meth:`find_by_name`,
+      :meth:`_children`), and
+    - visualization (:meth:`_visualize`).
     """
 
     def then(
         self,
         other: PipelineMember | Sequence[PipelineMember] | None = None,
     ) -> Pipeline:
+        """
+        Implements concatenation for :class:`Transforms <Transform>` and
+        :class:`FitTransforms <FitTransform>`. 
+
+        Return a :class:`Pipeline` containing the concatenation of ``self`` and
+        ``other``.  The addition operator is an alias for this method, meaning that the
+        following are equivalent pairs::
+
+            t1: Transform | FitTransform
+            t2: Transform | FitTransform
+
+            t1 + t2 == t1.then(t2)
+            t1 + [t2, ...] == t1.then([t2, ...])
+
+        In the case of appending built-in ``Transform`` classes to a ``Pipeline`` it is
+        usually not necessary to call ``then()`` because the ``Pipeline`` subclasses
+        :class:`~frankenfit.UniversalPipeline`, :class:`~frankenfit.DataFramePipeline`
+        have more specific call-chain methods for each built-in ``Transform``. For
+        example, instead of::
+
+            p: DataFramePipeline
+            p.then([ff.dataframe.Winsorize(...), ff.dataframe.DeMean(...)])
+        
+        ...it is more idiomatic to write::
+
+            p.winsorize(...).de_mean(...)
+
+        The main use cases for ``then()`` are to append user-defined ``Transform``
+        subclasses that don't have call-chain methods like the above (but see
+        :class:`Pipeline.with_methods <frankenfit.Pipeline.with_methods>` for a pleasing
+        alternative), and to append separately constructed ``Pipeline`` objects when
+        writing a pipeline in the call-chain style. For example::
+
+            def bake_features(cols):
+                # using built-in methods for Winsorize and ZScore transforms
+                return ff.DataFramePipeline().winsorize(0.05, cols).z_score(cols)
+
+            class MyCustomTransform(ff.Transform):
+                ...
+
+            pipeline = (
+                ff.DataFramePipeline()
+                .pipe(np.log1p, ['carat'])  # built-in method for Pipe transform
+                .then(bake_features(['carat', 'table', 'height']))  # append Pipeline
+                .then(MyCustomTransform(...))  # append a user-defined transform
+            )
+
+        Another common use case for ``then()`` is when you want a grouping transform
+        like :meth:`~frankenfit.DataFramePipelineInterface.group_by_cols()` to group a
+        complex sub-pipeline, not just a single transform, e.g.::
+
+            pipeline = (
+                ff.DataFramePipeline()
+                .group_by_cols("cut")
+                    .then(
+                        # This whole pipeline of transforms will be fit and applied
+                        # independently per distinct value of cut
+                        ff.DataFramePipeline()
+                        .zscore(["carat", "table", "depth"])
+                        .winsorize(0.05, ["carat", "table", "depth"])
+                    )
+            )
+
+        Note
+        ----
+        Subclasses :class:`~frankenfit.universal.UniversalTransform`,
+        :class:`~frankenfit.universal.FitUniversalTransform`,
+        :class:`~frankenfit.dataframe.DataFrameTransform`, and
+        :class:`~frankenfit.dataframe.FitDataFrameTransform` override ``then()`` to
+        return :class:`~frankenfit.UniversalPipeline` or
+        :class:`~frankenfit.DataFramePipeline` as appropriate.
+
+        This means ``then()`` can be used to initiate a call-chain sequence if one is
+        starting with a bare ``UniversalTransform`` or ``DataFrameTransform`` instance
+        outside of a pipeline. For example::
+
+            # suppose we have a bare DeMean object from somewhere...
+            de_mean = ff.dataframe.DeMean("foo")
+            # we can start a DataFramePipeline by calling then()
+            my_pipeline = (
+                de_mean
+                .then()
+                .winsorize(0.05)
+                .pipe(np.sqrt, "bar")
+            )
+
+        Parameters
+        ----------
+        other
+            The :class:`Transform` or :class:`FitTransform` instance which will be
+            concatenated to ``self``, or a list of the same, which will be concatenated
+            in the order in which in they appear in the list, or ``None``, in which case
+            a pipeline containing only ``self`` is returned.
+
+        Raises
+        ------
+        ``TypeError``
+            If ``other`` has the wrong type.
+
+
+        :rtype: :class:`frankenfit.core.Pipeline`
+        """
         transforms: Sequence[PipelineMember]
         if other is None:
             transforms = [self]
@@ -408,6 +516,9 @@ class PipelineMember:
     def __add__(
         self, other: PipelineMember | Sequence[PipelineMember] | None
     ) -> Pipeline:
+        """
+        Syntactic sugar for :meth:`then()`.
+        """
         return self.then(other)
 
     @property
@@ -450,6 +561,9 @@ class PipelineMember:
 
     @abstractmethod
     def _visualize(self, digraph, bg_fg: tuple[str, str]) -> tuple[list, list]:
+        """
+        Subclasses must implement this for visualiztion black magic.
+        """
         raise NotImplementedError
 
 
@@ -1521,65 +1635,6 @@ class Pipeline(Generic[DataType], Transform[DataType]):
         self: P,
         other: PipelineMember | Sequence[PipelineMember] | None = None,
     ) -> P:
-        """
-        Return the result of appending the given :class:`Transform` instance(s) to this
-        :class:`Pipeline`. The addition operator on Pipeline objects is an alias for
-        this method, meaning that the following are equivalent pairs::
-
-            pipeline + ff.DeMean(...) == pipeline.then(ff.DeMean(...))
-            pipeline + other_pipeline == pipeline.then(other_pipeline)
-            pipeline + [ff.Winsorize(...), ff.DeMean(...)] == pipeline.then(
-                [ff.Winsorize(...), ff.DeMean(...)]
-            )
-
-        In the case of appending built-in ``Transform`` classes it is usually not
-        necessary to call ``then()`` because the ``Pipeline`` object has a more specific
-        method for each built-in ``Transform``. For example, the last pipeline in the
-        example above could be written more idiomatically as::
-
-            pipeline.winsorize(...).de_mean(...)
-
-        The main use cases for ``then()`` are to append user-defined ``Transform``
-        subclasses that don't have built-in methods like the above, and to append
-        separately constructed ``Pipeline`` objects when writing a pipeline in the
-        call-chain style. For example::
-
-            def bake_features(cols):
-                # using built-in methods for Winsorize and ZScore transforms
-                return ff.Pipeline().winsorize(cols, limit=0.05).z_score(cols)
-
-            class MyCustomTransform(ff.Transform):
-                ...
-
-            pipeline = (
-                ff.Pipeline()
-                .pipe(['carat'], np.log1p)  # built-in method for Pipe transform
-                .then(bake_features(['carat', 'table', 'height']))  # append Pipeline
-                .then(MyCustomTransform(...))  # append a user-defined transform
-            )
-
-        Another common use case for ``then()`` is when you want :meth:`group_by()` to
-        group a complex sub-pipeline, not just a single transform, e.g.::
-
-            pipeline = (
-                ff.Pipeline()
-                .group_by("cut")
-                    .then(
-                        # This whole Pipeline of transforms will be fit and applied
-                        # independently per distinct value of cut
-                        ff.Pipeline()
-                        .zscore(["carat", "table", "depth"])
-                        .winsorize(["carat", "table", "depth"])
-                    )
-            )
-
-        :param other: The Transform instance to append, or a list of Transforms, which
-            will be appended in the order in which in they appear in the list.
-        :type other: :class:`Transform` | ``list[Transform]``
-        :raises ``TypeError``: If ``other`` is not a ``Transform`` or list of
-            ``Transform``\\ s.
-        :rtype: :class:`Pipeline`
-        """
         if other is None:
             transforms = self.transforms
         elif isinstance(other, Pipeline):

@@ -1,3 +1,4 @@
+(api-reference)=
 # Frankenfit API reference
 
 ## The `frankenfit` package
@@ -61,11 +62,18 @@ Other submodules in the `frankenfit` package include:
 .. autoclass:: Transform
     :members:
     :private-members: _fit, _apply
+    :undoc-members:
 
 .. autodata:: frankenfit.core.DEFAULT_VISUALIZE_DIGRAPH_KWARGS
 
 .. autoclass:: FitTransform
     :members:
+    :undoc-members:
+
+.. autoclass:: frankenfit.core.PipelineMember
+    :members:
+    :private-members:
+    :special-members: __add__
 
 .. autoclass:: StatelessTransform
     :members:
@@ -89,23 +97,22 @@ Foobar.
 .. autoclass:: HP
     :members:
 
-..
-    # .. autoclass:: HPFmtStr
-    #     :show-inheritance:
-    #     :members:
-    #
-    # .. autoclass:: HPCols
-    #     :show-inheritance:
-    #     :members:
-    #
-    # .. autoclass:: HPDict
-    #     :show-inheritance:
-    #     :members:
-    #
-    # .. autoclass:: HPLambda
-    #     :show-inheritance:
-    #     :members:
-    #
+.. autoclass:: HPFmtStr
+    :show-inheritance:
+    :members:
+
+.. autoclass:: HPCols
+    :show-inheritance:
+    :members:
+
+.. autoclass:: HPDict
+    :show-inheritance:
+    :members:
+
+.. autoclass:: HPLambda
+    :show-inheritance:
+    :members:
+
 ```
 
 ## Pipelines
@@ -117,6 +124,7 @@ Foobar.
 .. autoclass:: Pipeline
     :show-inheritance:
     :members:
+    :undoc-members:
 ```
 
 ### Universal pipelines
@@ -187,15 +195,15 @@ Foobar.
 Foobar.
 
 ```{eval-rst}
-..
-    # .. autofunction:: params
-    #
-    # .. autofunction:: fmt_str_field
-    #
-    # .. autofunction:: columns_field
-    #
-    # .. autofunction:: dict_field
-    #
+
+.. autofunction:: params
+
+.. autofunction:: fmt_str_field
+
+.. autofunction:: columns_field
+
+.. autofunction:: dict_field
+
 ```
 
 ## Transform library
