@@ -468,7 +468,8 @@ def test_tags(diamonds_df: pd.DataFrame) -> None:
 
     fit = pip.fit(diamonds_df)
     assert isinstance(
-        fit.find_by_name("Identity#mytag").resolved_transform(), ff.Identity
+        cast(ff.FitTransform, fit.find_by_name("Identity#mytag")).resolved_transform(),
+        ff.Identity,
     )
     with pytest.raises(KeyError):
         fit.find_by_name("mingus dew")
@@ -477,7 +478,10 @@ def test_tags(diamonds_df: pd.DataFrame) -> None:
     assert ihp.find_by_name("Identity#mytag") is tagged_ident
     ihp_fit = ihp.fit(**{"my-hp": False})
     assert isinstance(
-        ihp_fit.find_by_name("Identity#mytag").resolved_transform(), ff.Identity
+        cast(
+            ff.FitTransform, ihp_fit.find_by_name("Identity#mytag")
+        ).resolved_transform(),
+        ff.Identity,
     )
 
     ihp_fit = ihp.fit(**{"my-hp": True})
@@ -493,13 +497,17 @@ def test_FitTransform_materialize_state() -> None:
     pip = core.Pipeline[Any](transforms=[ff.Identity(), tagged_ident, ff.Identity()])
     fit = ff.LocalBackend().fit(pip)
     assert not has_materialized_state(fit)
-    with pytest.raises(ValueError):
-        fit.find_by_name("Identity#mytag")
+
+    # with pytest.raises(ValueError):
+    #     fit.find_by_name("Identity#mytag")
 
     fit_mat = fit.materialize_state()
     assert has_materialized_state(fit_mat)
     assert isinstance(
-        fit_mat.find_by_name("Identity#mytag").resolved_transform(), ff.Identity
+        cast(
+            ff.FitTransform, fit_mat.find_by_name("Identity#mytag")
+        ).resolved_transform(),
+        ff.Identity,
     )
 
     # there should be nothing to materialize
@@ -721,4 +729,16 @@ def test_pipeline_with_FitTransform(diamonds_df: pd.DataFrame):
     pip_fit = pip.fit()
     pip_fit.then(ff.universal.Identity()).apply().equals(target)
 
-    # TODO: find_by_name(), visualize()
+    dmn = ff.DataFramePipeline(tag="dmn").de_mean("price", tag="dmn_price")
+
+    pip = (
+        ff.DataFramePipeline()
+        .filter(lambda df: df["carat"] > 1)
+        .then(dmn.fit(df1))
+        .select("price", tag="select_price")
+    )
+
+    assert isinstance(pip.find_by_name("DeMean#dmn_price"), ff.FitTransform)
+    assert isinstance(pip.find_by_name("Select#select_price"), ff.Transform)
+
+    # TODO: visualize()

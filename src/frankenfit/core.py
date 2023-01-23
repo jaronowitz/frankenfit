@@ -408,6 +408,44 @@ class PipelineMember:
     def __add__(self, other: PipelineMember | list[PipelineMember] | None) -> Pipeline:
         return self.then(other)
 
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """
+        Subclasses of :class:`PipelineMember` must implement a ``name`` property.
+
+        .. SEEALSO:: :meth:`find_by_name()`
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def _children(self) -> Iterable[PipelineMember]:
+        """
+        Return an iterator of child ``PipelineMember`` instances. Subclasses must
+        implement. Must yield at least ``self``.
+        """
+        raise NotImplementedError
+
+    def find_by_name(self, name: str) -> PipelineMember:
+        """
+        Recurse through child objects (as yielded by :meth:`_children`) and return the
+        first one with the given ``name``. If not found, raise ``KeyError``.
+
+        Parameters
+        ----------
+        name:
+            The ``name`` of the desired child object, e.g., ``"DeMean#5"``.
+
+        Raises
+        ------
+        KeyError
+            No child object was found with the given ``name``.
+        """
+        for child in self._children():
+            if child.name == name:
+                return child
+        raise KeyError(f"No child found with name: {name}")
+
 
 class FitTransform(Generic[R_co, DataType], PipelineMember):
     """
@@ -530,39 +568,25 @@ class FitTransform(Generic[R_co, DataType], PipelineMember):
     def materialize_state(self: _Self) -> _Self:
         tf = self.resolved_transform()
         state = tf._materialize_state(self.state())
-        return type(self)(self.resolved_transform(), state, self.bindings())
+        return type(self)(tf, state, self.bindings())
 
-    def find_by_name(self, name: str):
+    def _children(self) -> Iterable[PipelineMember]:
         """
-        Recurse through the :meth:`state()` of this ``FitTransform`` searching for any
-        child ``FitTransforms``, and return the first one with the given ``name``. If
-        not found, raise ``KeyError``.
+        Recursively searches :meth:`self.state() <FitTransform.state>` for
+        ``FitTransforms`` and iterables thereof, yielding them in the order found.
+        Subclasses should override this if they have other ways of keeping child
+        transforms, so that they are discoverable by
+        :meth:`~PipelineMember.find_by_name()`.
         """
-        # TODO: automatically materialize state? how can subclasses provide alternate
-        # recursion strategies?
-        if self.name == name:
-            return self
-
+        mat_self = self.materialize_state()
+        yield mat_self
         val = self.state()
-        if isinstance(val, Future):
-            raise ValueError(
-                "FitTransform.find_by_name: impossible on Future state. "
-                "Try materialize_state() first."
-            )
-        if isinstance(val, FitTransform):
-            try:
-                return val.find_by_name(name)
-            except KeyError:
-                pass
-        elif is_iterable(val):
-            for x in cast(Iterable[Any], val):
-                if isinstance(x, FitTransform):
-                    try:
-                        return x.find_by_name(name)
-                    except KeyError:
-                        pass
-
-        raise KeyError(f"No child FitTransform found with name: {name}")
+        if isinstance(val, PipelineMember):
+            yield from val._children()
+        elif is_iterable(val) and not isinstance(val, str):
+            for x in val:
+                if isinstance(x, PipelineMember):
+                    yield from x._children()
 
 
 @params
@@ -927,57 +951,22 @@ class Transform(ABC, Generic[DataType], PipelineMember):
                 return False
         return True
 
-    def _children(self) -> Iterable[Transform]:
+    def _children(self) -> Iterable[PipelineMember]:
         """
-        Base implementation checks params that are transforms or iterables of
-        transforms. Subclasses should override this if they have other ways of keeping
-        child transforms.
+        Recursively searches params for ``Transforms``, ``FitTransforms`` and iterables
+        thereof, yielding them in the order found. Subclasses should override this if
+        they have other ways of keeping child transforms, so that they are discoverable
+        by :meth:`~PipelineMember.find_by_name()`.
         """
-        # TODO: address implementation on FitTransform. we need a _children()
-        # method that can be overridden like _apply().  ... or actually
-        # _children() and _fit_children()... the latter needs to iterate through state
-        # Also, Pipeline.transforms can contain FitTransforms now, how should we handle
-        # that?
         yield self
         for name in self.params():
             val = getattr(self, name)
-            if isinstance(val, Transform):
+            if isinstance(val, PipelineMember):
                 yield from val._children()
             elif is_iterable(val) and not isinstance(val, str):
                 for x in val:
-                    if isinstance(x, Transform):
+                    if isinstance(x, PipelineMember):
                         yield from x._children()
-
-    def find_by_name(self, name: str) -> Transform:
-        """
-        Recurse through child ``Transforms`` (i.e., ``Transforms`` that are, or are
-        contained in, this transform's params) and return the first one with the given
-        ``name``. If not found, raise ``KeyError``.
-
-        .. SEEALSO:: :meth:`FitTransform.find_by_name()`
-
-        Note
-        ----
-        The base implementation looks in parameters (as returned by :meth:`params()`)
-        that are either ``Transform`` instances, or iterables of ``Transform``
-        instances. Subclasses with other ways of storing child ``Transforms`` must
-        override ``_children()`` for those ``Transforms`` to be discoverable by
-        ``find_by_name()``.
-
-        Parameters
-        ----------
-        name:
-            The ``name`` of the desired child ``Transform``, e.g., ``"DeMean#5"``.
-
-        Raises
-        ------
-        KeyError
-            No child ``Transform`` was found with the given ``name``.
-        """
-        for child in self._children():
-            if child.name == name:
-                return child
-        raise KeyError(f"No child Transform found with name: {name}")
 
     def _visualize(self, digraph, bg_fg: tuple[str, str]):
         # out of the box, handle three common cases:
