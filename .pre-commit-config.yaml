@@ -46,7 +46,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: dmypy run
+        entry: tox -e mypy
         language: system
         pass_filenames: false
         always_run: true
@@ -54,7 +54,7 @@ repos:
     hooks:
       - id: pytest
         name: pytest
-        entry: pytest
+        entry: tox -e py
         language: system
         pass_filenames: false
         always_run: true

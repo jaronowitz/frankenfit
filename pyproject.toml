@@ -87,15 +87,15 @@ dask = [
 
 tests = [
     'frankenfit[dask]',
-    'tox',
     'pytest',
     'pytest-xdist',
     'pytest-cov',
-    'pydataset',
+    'pydataset == 0.2.0',
     'scikit-learn',
     'statsmodels',
-    'mypy',
-    'pandas-stubs',
+
+    'mypy == 0.991',
+    'pandas-stubs == 1.5.1.221024',
 ]
 
 docs = [
@@ -105,16 +105,19 @@ docs = [
     'jupytext',
     'pydataset',
     'scikit-learn',
+    'matplotlib ~= 3.6',
 ]
 
 dev = [
     'frankenfit[dask,docs,tests]',
+    'pre-commit',
+    'build',
+    'tox < 4',
+    # convenience: running linters outside of tox
     'flake8',
     'flake8-pyproject',
     'black',
     'isort',
-    'pre-commit',
-    'build',
 ]
 
 [tool.flake8]
@@ -158,6 +161,19 @@ files = [
     "src",
     "tests",
 ]
+
+# some indirectly imported libraries cause annoying mypy errors; suppress them.
+[[tool.mypy.overrides]]
+# .tox/mypy/lib/python3.10/site-packages/_pytest/compat.py:22: error: Skipping analyzing
+# "py": module is installed, but missing library stubs or py.typed marker  [import]
+module = "_pytest.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# .tox/mypy/lib/python3.10/site-packages/click/decorators.py:436: error: Cannot find
+# implementation or library stub for module named "importlib_metadata"  [import]
+module = "click.*"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 filterwarnings = [
