@@ -1,4 +1,4 @@
-# Copyright (c) 2022 Max Bane <max@thebanes.org>
+# Copyright (c) 2023 Max Bane <max@thebanes.org>
 #
 # Redistribution and use in source and binary forms, with or without modification, are
 # permitted provided that the following conditions are met:
@@ -50,6 +50,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from dask import distributed
+from pandas.testing import assert_frame_equal
 from pydataset import data  # type: ignore
 from sklearn.linear_model import LinearRegression  # type: ignore
 
@@ -139,17 +140,17 @@ def test_pipeline_straight(
     result_pandas = pipeline.apply(**bindings)
 
     result_dask = dask.apply(pipeline, **bindings).result()
-    assert result_pandas.equals(result_dask)
+    assert_frame_equal(result_pandas, result_dask)
 
     result_dask = dask.fit(pipeline, **bindings).apply()
-    assert result_pandas.equals(result_dask)
+    assert_frame_equal(result_pandas, result_dask)
 
     # FIXME
     result_dask = dask.apply(pipeline.fit(**bindings)).result()
-    assert result_pandas.equals(result_dask)
+    assert_frame_equal(result_pandas, result_dask)
 
     result_dask = dask.apply(dask.fit(pipeline, **bindings)).result()
-    assert result_pandas.equals(result_dask)
+    assert_frame_equal(result_pandas, result_dask)
 
 
 @pytest.mark.dask
@@ -218,13 +219,8 @@ def test_parallelized_pipeline_1(
 
     local_result = complex_pipeline.apply(diamonds_df, bindings)
     dask_result = dask.apply(complex_pipeline, diamonds_df, bindings).result()
-    if not local_result.equals(dask_result):
-        print(local_result)
-        print(dask_result)
-        print("drop_duplicates:")
-        print(pd.concat([local_result, dask_result]).drop_duplicates(keep=False))
 
-    assert local_result.equals(dask_result)
+    assert_frame_equal(local_result, dask_result)
 
     pip = (
         ff.DataFramePipeline()
@@ -243,4 +239,5 @@ def test_parallelized_pipeline_1(
     )
     bindings = {"response_col": "price", "bake_features": True}
     local_result = pip.apply(**bindings)
-    assert local_result.equals(dask.apply(pip, **bindings).result())
+    dask_result = dask.apply(pip, **bindings).result()
+    assert_frame_equal(local_result, dask_result)
