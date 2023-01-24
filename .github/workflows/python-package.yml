@@ -90,15 +90,24 @@ jobs:
           python -m pip install "tox < 4"
       - name: jupyter-book
         run: tox -e docs
-      - name: upload-on-failure
+      - name: upload-logs-on-failure
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: frankenfit-docs-html-reports
           path: docs/_build/html/reports/
-      - name: upload
+      - name: upload-artifact
         uses: actions/upload-artifact@v3
         if: ${{ !env.ACT }}
         with:
           name: frankenfit-docs-html
           path: docs/_build/html/
+      - name: deploy-current-docs
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.ref == 'refs/heads/main' && !env.ACT }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/_build/html
+          destination_dir: current
+          commit_message: |
+            Deploy current docs: ${{ github.event.head_commit.message }}
