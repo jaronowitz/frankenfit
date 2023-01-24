@@ -90,9 +90,15 @@ jobs:
           python -m pip install "tox < 4"
       - name: jupyter-book
         run: tox -e docs
-      - name: upload
-        if: ${{ !env.ACT }}
+      - name: upload-on-failure
         uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: frankenfit-docs-html-reports
+          path: docs/_build/html/reports/
+      - name: upload
+        uses: actions/upload-artifact@v3
+        if: ${{ !env.ACT }}
         with:
           name: frankenfit-docs-html
-          path: docs/_build/html
+          path: docs/_build/html/
