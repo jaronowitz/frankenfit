@@ -218,8 +218,12 @@ def test_parallelized_pipeline_1(
 
     local_result = complex_pipeline.apply(diamonds_df, bindings)
     dask_result = dask.apply(complex_pipeline, diamonds_df, bindings).result()
-    print(local_result.head())
-    print(dask_result.head())
+    if not local_result.equals(dask_result):
+        print(local_result)
+        print(dask_result)
+        print("drop_duplicates:")
+        print(pd.concat([local_result, dask_result]).drop_duplicates(keep=False))
+
     assert local_result.equals(dask_result)
 
     pip = (
