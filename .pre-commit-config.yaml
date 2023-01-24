@@ -42,19 +42,20 @@ repos:
 #         language: system
 #         pass_filenames: true
 #         always_run: false
--   repo: local
-    hooks:
-      - id: mypy
-        name: mypy
-        entry: tox -e mypy
-        language: system
-        pass_filenames: false
-        always_run: true
--   repo: local
-    hooks:
-      - id: pytest
-        name: pytest
-        entry: tox -e py
-        language: system
-        pass_filenames: false
-        always_run: true
+# mypy and pytest now run in CI (via github actions)
+# -   repo: local
+#     hooks:
+#       - id: mypy
+#         name: mypy
+#         entry: tox -e mypy
+#         language: system
+#         pass_filenames: false
+#         always_run: true
+# -   repo: local
+#     hooks:
+#       - id: pytest
+#         name: pytest
+#         entry: tox -e py
+#         language: system
+#         pass_filenames: false
+#         always_run: true
