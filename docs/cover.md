@@ -3,8 +3,8 @@
 Copyright © 2023 Max Bane (max@thebanes.org)
 
 ```{epigraph}
-“For instance, when bread is baked some parts are split at the surface, and these 
-parts which thus open, and have a certain fashion contrary to the purpose of the 
+“For instance, when bread is baked some parts are split at the surface, and these
+parts which thus open, and have a certain fashion contrary to the purpose of the
 baker’s art, are beautiful in a manner, and in a peculiar way excite a desire for
 eating.”
 

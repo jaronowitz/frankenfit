@@ -38,7 +38,7 @@ Other submodules in the `frankenfit` package include:
 * `frankenfit.params`: classes and functions related to hyperparameters, as well as
   declaring and using parameters of various types when writing `Transform` subclasses.
   The most useful ones are all exposed as top-level names in the `frankenfit` package, so that the user should rarely need to import this module.
-  
+
 * `frankenfit.backend`: classes and functions related to specific
   [`Backend`](frankenfit.Backend) implementations (other than the core
   [`LocalBackend`](frankenfit.LocalBackend)). Currently this consists of
@@ -52,7 +52,7 @@ Other submodules in the `frankenfit` package include:
   ```toml
   [tool.mypy]
   plugins = "frankenfit.mypy"
-  ``` 
+  ```
 
 ------------
 

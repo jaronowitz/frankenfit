@@ -1005,7 +1005,7 @@ This is particularly useful in situations where we've already fit some predictiv
 pipeline, and now we want to layer some additional transformations onto its input or
 output. Because those transformations may be stateful themselves, we can even create
 "heterogeneously fit" Pipelines, wherein different parts of the Pipeline have been fit
-on different datasets. 
+on different datasets.
 
 For example, continuing with our `fit_model` (a `FitTransform` instance) from above, now
 that we've fit that model on `train_df`, we might be interested to know how it performs

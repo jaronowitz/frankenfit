@@ -48,7 +48,7 @@ pipeline.
 
 ## Use hyperparameters in column names
 
-HPCols functionality for free in `cols` params of built-in transforms. 
+HPCols functionality for free in `cols` params of built-in transforms.
 
 ## Use `assign()` together with `select()`/`[]`, `ALL_COLS`, and affixes
 
