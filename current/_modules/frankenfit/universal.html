@@ -1,0 +1,1272 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" />
+
+    <meta name="generator" content="sphinx-4.5.0, furo 2022.09.29"/>
+        <title>frankenfit.universal - 🧟 Frankenfit Documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
+    <link rel="stylesheet" type="text/css" href="../../_static/togglebutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/mystnb.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-thebe.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/design-style.b7bb847fb20b106c3d81b95245e65545.min.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments_overrides.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments_overrides.css" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments_overrides.css" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #282a36;
+  --color-code-foreground: #f8f8f2;
+  --color-background-item: #6272A4;
+  --color-brand-primary: #50FA7B;
+  --color-brand-content: #50FA7B;
+  --color-problematic: #FF5555;
+  --color-foreground-primary: #F8F8F2;
+  --color-foreground-secondary: #6272A4;
+  --color-foreground-border: #6272A4;
+  --color-background-primary: #282A36;
+  --color-background-secondary: #343746;
+  --color-background-hover: #44475A;
+  --color-background-hover--transparent: #44475A;
+  --color-highlighted-background: #44475A75;
+  --color-admonition-background: #343746;
+  --color-admonition-title--caution: #FFB86C;
+  --color-admonition-title-background--caution: rgba(255, 184, 108, .1);
+  --color-admonition-title--warning: #F1FA8C;
+  --color-admonition-title-background--warning: rgba(241, 250, 140, .1);
+  --color-admonition-title--danger: #FF5555;
+  --color-admonition-title-background--danger: rgba(255, 85, 85, .1);
+  --color-admonition-title--attention: #FF5555;
+  --color-admonition-title-background--attention: rgba(255, 85, 85, .1);
+  --color-admonition-title--error: #FF5555;
+  --color-admonition-title-background--error: rgba(255, 85, 85, .1);
+  --color-admonition-title--hint: #50FA7B;
+  --color-admonition-title-background--hint: rgba(80, 250, 123, .1);
+  --color-admonition-title--tip: #50FA7B;
+  --color-admonition-title-background--tip: rgba(80, 250, 123, .1);
+  --color-admonition-title--important: #FF79C6;
+  --color-admonition-title-background--important: rgba(255, 121, 198, .1);
+  --color-admonition-title--note: #BD93F9;
+  --color-admonition-title-background--note: rgba(189, 147, 249, .1);
+  --color-admonition-title--seealso: #6272A4;
+  --color-admonition-title-background--seealso: rgba(98, 114, 164, .1);
+  --color-admonition-title--admonition-todo: #808080;
+  --color-admonition-title-background--admonition-todo: rgba(128, 128, 128, .1);
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #282a36;
+  --color-code-foreground: #f8f8f2;
+  --color-background-item: #6272A4;
+  --color-brand-primary: #50FA7B;
+  --color-brand-content: #50FA7B;
+  --color-problematic: #FF5555;
+  --color-foreground-primary: #F8F8F2;
+  --color-foreground-secondary: #6272A4;
+  --color-foreground-border: #6272A4;
+  --color-background-primary: #282A36;
+  --color-background-secondary: #343746;
+  --color-background-hover: #44475A;
+  --color-background-hover--transparent: #44475A;
+  --color-highlighted-background: #44475A75;
+  --color-admonition-background: #343746;
+  --color-admonition-title--caution: #FFB86C;
+  --color-admonition-title-background--caution: rgba(255, 184, 108, .1);
+  --color-admonition-title--warning: #F1FA8C;
+  --color-admonition-title-background--warning: rgba(241, 250, 140, .1);
+  --color-admonition-title--danger: #FF5555;
+  --color-admonition-title-background--danger: rgba(255, 85, 85, .1);
+  --color-admonition-title--attention: #FF5555;
+  --color-admonition-title-background--attention: rgba(255, 85, 85, .1);
+  --color-admonition-title--error: #FF5555;
+  --color-admonition-title-background--error: rgba(255, 85, 85, .1);
+  --color-admonition-title--hint: #50FA7B;
+  --color-admonition-title-background--hint: rgba(80, 250, 123, .1);
+  --color-admonition-title--tip: #50FA7B;
+  --color-admonition-title-background--tip: rgba(80, 250, 123, .1);
+  --color-admonition-title--important: #FF79C6;
+  --color-admonition-title-background--important: rgba(255, 121, 198, .1);
+  --color-admonition-title--note: #BD93F9;
+  --color-admonition-title-background--note: rgba(189, 147, 249, .1);
+  --color-admonition-title--seealso: #6272A4;
+  --color-admonition-title-background--seealso: rgba(98, 114, 164, .1);
+  --color-admonition-title--admonition-todo: #808080;
+  --color-admonition-title-background--admonition-todo: rgba(128, 128, 128, .1);
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #282a36;
+  --color-code-foreground: #f8f8f2;
+  --color-background-item: #6272A4;
+  --color-brand-primary: #50FA7B;
+  --color-brand-content: #50FA7B;
+  --color-problematic: #FF5555;
+  --color-foreground-primary: #F8F8F2;
+  --color-foreground-secondary: #6272A4;
+  --color-foreground-border: #6272A4;
+  --color-background-primary: #282A36;
+  --color-background-secondary: #343746;
+  --color-background-hover: #44475A;
+  --color-background-hover--transparent: #44475A;
+  --color-highlighted-background: #44475A75;
+  --color-admonition-background: #343746;
+  --color-admonition-title--caution: #FFB86C;
+  --color-admonition-title-background--caution: rgba(255, 184, 108, .1);
+  --color-admonition-title--warning: #F1FA8C;
+  --color-admonition-title-background--warning: rgba(241, 250, 140, .1);
+  --color-admonition-title--danger: #FF5555;
+  --color-admonition-title-background--danger: rgba(255, 85, 85, .1);
+  --color-admonition-title--attention: #FF5555;
+  --color-admonition-title-background--attention: rgba(255, 85, 85, .1);
+  --color-admonition-title--error: #FF5555;
+  --color-admonition-title-background--error: rgba(255, 85, 85, .1);
+  --color-admonition-title--hint: #50FA7B;
+  --color-admonition-title-background--hint: rgba(80, 250, 123, .1);
+  --color-admonition-title--tip: #50FA7B;
+  --color-admonition-title-background--tip: rgba(80, 250, 123, .1);
+  --color-admonition-title--important: #FF79C6;
+  --color-admonition-title-background--important: rgba(255, 121, 198, .1);
+  --color-admonition-title--note: #BD93F9;
+  --color-admonition-title-background--note: rgba(189, 147, 249, .1);
+  --color-admonition-title--seealso: #6272A4;
+  --color-admonition-title-background--seealso: rgba(98, 114, 164, .1);
+  --color-admonition-title--admonition-todo: #808080;
+  --color-admonition-title-background--admonition-todo: rgba(128, 128, 128, .1);
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../cover.html"><div class="brand">🧟 Frankenfit Documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../cover.html">
+  
+  
+  <span class="sidebar-brand-text">🧟 Frankenfit Documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../synopsis.html">Synopsis and overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../transforms_and_pipelines.html">Transforms and pipelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../hyperparams.html">Hyperparameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dataframes.html">Working with DataFrames and <code class="docutils literal notranslate"><span class="pre">DataFramePipelines</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../branching_and_grouping.html">Branching and grouping transforms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../backends.html">Backends and parallel compute</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../implementing_transforms.html">Implementing your own transforms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../crossval.html">Cross-validation and hyperparameter search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tips_tricks.html">Tips and tricks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../api.html">Frankenfit API reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <h1>Source code for frankenfit.universal</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Copyright (c) 2022 Max Bane &lt;max@thebanes.org&gt;</span>
+<span class="c1">#</span>
+<span class="c1"># Redistribution and use in source and binary forms, with or without modification, are</span>
+<span class="c1"># permitted provided that the following conditions are met:</span>
+<span class="c1">#</span>
+<span class="c1"># 1. Redistributions of source code must retain the above copyright notice, this list of</span>
+<span class="c1"># conditions and the following disclaimer.</span>
+<span class="c1">#</span>
+<span class="c1"># 2. Redistributions in binary form must reproduce the above copyright notice, this list</span>
+<span class="c1"># of conditions and the following disclaimer in the documentation and/or other materials</span>
+<span class="c1"># provided with the distribution.</span>
+<span class="c1">#</span>
+<span class="c1"># Subject to the terms and conditions of this license, each copyright holder and</span>
+<span class="c1"># contributor hereby grants to those receiving rights under this license a perpetual,</span>
+<span class="c1"># worldwide, non-exclusive, no-charge, royalty-free, irrevocable (except for failure to</span>
+<span class="c1"># satisfy the conditions of this license) patent license to make, have made, use, offer</span>
+<span class="c1"># to sell, sell, import, and otherwise transfer this software, where such license</span>
+<span class="c1"># applies only to those patent claims, already acquired or hereafter acquired,</span>
+<span class="c1"># licensable by such copyright holder or contributor that are necessarily infringed by:</span>
+<span class="c1">#</span>
+<span class="c1"># (a) their Contribution(s) (the licensed copyrights of copyright holders and</span>
+<span class="c1"># non-copyrightable additions of contributors, in source or binary form) alone; or</span>
+<span class="c1">#</span>
+<span class="c1"># (b) combination of their Contribution(s) with the work of authorship to which such</span>
+<span class="c1"># Contribution(s) was added by such copyright holder or contributor, if, at the time the</span>
+<span class="c1"># Contribution is added, such addition causes such combination to be necessarily</span>
+<span class="c1"># infringed. The patent license shall not apply to any other combinations which include</span>
+<span class="c1"># the Contribution.</span>
+<span class="c1">#</span>
+<span class="c1"># Except as expressly stated above, no rights or licenses from any copyright holder or</span>
+<span class="c1"># contributor is granted under this license, whether expressly, by implication, estoppel</span>
+<span class="c1"># or otherwise.</span>
+<span class="c1">#</span>
+<span class="c1"># DISCLAIMER</span>
+<span class="c1">#</span>
+<span class="c1"># THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND ANY</span>
+<span class="c1"># EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES</span>
+<span class="c1"># OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT</span>
+<span class="c1"># SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,</span>
+<span class="c1"># INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED</span>
+<span class="c1"># TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR</span>
+<span class="c1"># BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN</span>
+<span class="c1"># CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY</span>
+<span class="c1"># WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH</span>
+<span class="c1"># DAMAGE.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Frankenfit&#39;s built-in library of generically useful Transforms that make no</span>
+<span class="sd">assumptions about the type or shape of the data to which they are applied.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">inspect</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Any</span><span class="p">,</span>
+    <span class="n">Callable</span><span class="p">,</span>
+    <span class="n">ClassVar</span><span class="p">,</span>
+    <span class="n">Generic</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
+    <span class="n">Optional</span><span class="p">,</span>
+    <span class="n">Sequence</span><span class="p">,</span>
+    <span class="n">TextIO</span><span class="p">,</span>
+    <span class="n">Type</span><span class="p">,</span>
+    <span class="n">TypeVar</span><span class="p">,</span>
+    <span class="n">cast</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="kn">from</span> <span class="nn">attrs</span> <span class="kn">import</span> <span class="n">NOTHING</span><span class="p">,</span> <span class="n">define</span><span class="p">,</span> <span class="n">field</span>
+
+<span class="kn">from</span> <span class="nn">.core</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Bindings</span><span class="p">,</span>
+    <span class="n">DataType</span><span class="p">,</span>
+    <span class="n">FitTransform</span><span class="p">,</span>
+    <span class="n">Future</span><span class="p">,</span>
+    <span class="n">Grouper</span><span class="p">,</span>
+    <span class="n">P_co</span><span class="p">,</span>
+    <span class="n">Pipeline</span><span class="p">,</span>
+    <span class="n">PipelineMember</span><span class="p">,</span>
+    <span class="n">R</span><span class="p">,</span>
+    <span class="n">R_co</span><span class="p">,</span>
+    <span class="n">SentinelDict</span><span class="p">,</span>
+    <span class="n">StatelessTransform</span><span class="p">,</span>
+    <span class="n">Transform</span><span class="p">,</span>
+    <span class="n">callchain</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.params</span> <span class="kn">import</span> <span class="n">HP</span><span class="p">,</span> <span class="n">UnresolvedHyperparameterError</span><span class="p">,</span> <span class="n">params</span>
+
+<span class="n">_LOG</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="n">U</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;U&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;UniversalTransform&quot;</span><span class="p">)</span>
+<span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
+
+
+<span class="k">class</span> <span class="nc">FitUniversalTransform</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">R_co</span><span class="p">,</span> <span class="n">DataType</span><span class="p">],</span> <span class="n">FitTransform</span><span class="p">[</span><span class="n">R_co</span><span class="p">,</span> <span class="n">DataType</span><span class="p">]):</span>
+    <span class="c1"># The point of this is just to specialize the type signature to help IDEs</span>
+    <span class="k">def</span> <span class="nf">then</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">other</span><span class="p">:</span> <span class="n">PipelineMember</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">PipelineMember</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;UniversalPipeline&quot;</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">UniversalPipeline</span><span class="p">(</span><span class="n">transforms</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">transforms</span><span class="p">)</span>
+
+
+<span class="nd">@params</span>
+<span class="k">class</span> <span class="nc">UniversalTransform</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">DataType</span><span class="p">],</span> <span class="n">Transform</span><span class="p">[</span><span class="n">DataType</span><span class="p">]):</span>
+    <span class="n">fit_transform_class</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">FitTransform</span><span class="p">]]</span> <span class="o">=</span> <span class="n">FitUniversalTransform</span>
+
+    <span class="c1"># The point of this is just to specialize the type signature to help IDEs</span>
+    <span class="k">def</span> <span class="nf">then</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">other</span><span class="p">:</span> <span class="n">PipelineMember</span> <span class="o">|</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">PipelineMember</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;UniversalPipeline&quot;</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">other</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">UniversalPipeline</span><span class="p">(</span><span class="n">transforms</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">transforms</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">R</span><span class="p">,</span>
+        <span class="n">data_fit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">DataType</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">/</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FitUniversalTransform</span><span class="p">[</span><span class="n">R</span><span class="p">,</span> <span class="n">DataType</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">FitUniversalTransform</span><span class="p">[</span><span class="n">R</span><span class="p">,</span> <span class="n">DataType</span><span class="p">],</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
+        <span class="p">)</span>
+
+
+<div class="viewcode-block" id="Identity"><a class="viewcode-back" href="../../api.html#frankenfit.universal.Identity">[docs]</a><span class="k">class</span> <span class="nc">Identity</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">StatelessTransform</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">UniversalTransform</span><span class="p">[</span><span class="n">T</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The stateless Transform that, at apply-time, simply returns the input data</span>
+<span class="sd">    unaltered.</span>
+
+<span class="sd">    🏳️ :class:`Stateless &lt;frankenfit.StatelessTransform&gt;`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_apply</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">data_apply</span>
+
+    <span class="n">_Self</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;_Self&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;Identity&quot;</span><span class="p">)</span>
+
+    <span class="c1"># The overrides below are just to present a more specific type signature</span>
+
+    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">_Self</span><span class="p">,</span>
+        <span class="n">data_fit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">T</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">T</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">/</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FitUniversalTransform</span><span class="p">[</span><span class="n">_Self</span><span class="p">,</span> <span class="n">T</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">apply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_apply</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">T</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">T</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">/</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">data_apply</span><span class="p">,</span> <span class="n">bindings</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="StateOf"><a class="viewcode-back" href="../../api.html#frankenfit.universal.StateOf">[docs]</a><span class="nd">@params</span>
+<span class="k">class</span> <span class="nc">StateOf</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">DataType</span><span class="p">],</span> <span class="n">Transform</span><span class="p">[</span><span class="n">DataType</span><span class="p">]):</span>
+    <span class="n">transform</span><span class="p">:</span> <span class="n">PipelineMember</span>
+
+    <span class="k">def</span> <span class="nf">_submit_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_fit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">DataType</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">,</span> <span class="n">FitTransform</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">transform</span>
+        <span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">,</span> <span class="n">Transform</span><span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_backend</span><span class="p">()</span> <span class="k">as</span> <span class="n">backend</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_apply</span><span class="p">:</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataType</span><span class="p">:</span>
+        <span class="n">state</span> <span class="o">=</span> <span class="n">cast</span><span class="p">(</span><span class="n">FitTransform</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">DataType</span><span class="p">],</span> <span class="n">state</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">materialize_state</span><span class="p">()</span><span class="o">.</span><span class="n">state</span><span class="p">()</span></div>
+
+
+<span class="nd">@params</span>
+<span class="k">class</span> <span class="nc">BranchTransform</span><span class="p">(</span><span class="n">UniversalTransform</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">_submit_apply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_apply</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="n">FitTransform</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Future</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_backend</span><span class="p">()</span> <span class="k">as</span> <span class="n">backend</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># behave like identity if the condition was false and there is no</span>
+                <span class="c1"># otherwise transform</span>
+                <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">maybe_put</span><span class="p">(</span><span class="n">data_apply</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">data_apply</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_visualize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">digraph</span><span class="p">,</span> <span class="n">bg_fg</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="nb">list</span><span class="p">]:</span>
+        <span class="n">entries</span><span class="p">,</span> <span class="n">exits</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_visualize</span><span class="p">(</span><span class="n">digraph</span><span class="p">,</span> <span class="n">bg_fg</span><span class="p">)</span>
+        <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;otherwise&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">exits</span> <span class="o">=</span> <span class="n">exits</span> <span class="o">+</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">&quot;otherwise&quot;</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">entries</span><span class="p">,</span> <span class="n">exits</span>
+
+    <span class="k">def</span> <span class="nf">_materialize_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">FitTransform</span> <span class="o">|</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">state</span><span class="o">.</span><span class="n">materialize_state</span><span class="p">()</span> <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">state</span>
+
+
+<div class="viewcode-block" id="IfHyperparamIsTrue"><a class="viewcode-back" href="../../api.html#frankenfit.universal.IfHyperparamIsTrue">[docs]</a><span class="nd">@params</span>
+<span class="k">class</span> <span class="nc">IfHyperparamIsTrue</span><span class="p">(</span><span class="n">BranchTransform</span><span class="p">):</span>
+    <span class="n">hp_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">then_transform</span><span class="p">:</span> <span class="n">Transform</span>
+    <span class="n">otherwise</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Transform</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">allow_unresolved</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">def</span> <span class="nf">_submit_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_fit</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FitTransform</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bindings</span> <span class="o">=</span> <span class="n">bindings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">allow_unresolved</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">hp_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">bindings</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UnresolvedHyperparameterError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;IfHyperparamIsTrue: no binding for </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">hp_name</span><span class="si">!r}</span><span class="s2"> but &quot;</span>
+                <span class="s2">&quot;allow_unresolved is False&quot;</span>
+            <span class="p">)</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_backend</span><span class="p">()</span> <span class="k">as</span> <span class="n">backend</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">bindings</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hp_name</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="s2">&quot;then&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">then_transform</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">otherwise</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="s2">&quot;otherwise&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">otherwise</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">hyperparams</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
+        <span class="n">result</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">hp_name</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="IfHyperparamLambda"><a class="viewcode-back" href="../../api.html#frankenfit.universal.IfHyperparamLambda">[docs]</a><span class="nd">@params</span>
+<span class="k">class</span> <span class="nc">IfHyperparamLambda</span><span class="p">(</span><span class="n">BranchTransform</span><span class="p">):</span>
+    <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span>  <span class="c1"># dict[str, object] -&gt; bool</span>
+    <span class="n">then_transform</span><span class="p">:</span> <span class="n">Transform</span>
+    <span class="n">otherwise</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Transform</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">_submit_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_fit</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FitTransform</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bindings</span> <span class="o">=</span> <span class="n">bindings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_backend</span><span class="p">()</span> <span class="k">as</span> <span class="n">backend</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">(</span><span class="n">bindings</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="s2">&quot;then&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">then_transform</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">otherwise</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="s2">&quot;otherwise&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">otherwise</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">def</span> <span class="nf">hyperparams</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="c1"># Note we don&#39;t use UserLambdaHyperparams because the lambda receives the WHOLE</span>
+        <span class="c1"># bindings dict</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
+        <span class="c1"># find out what bindings our lambda function queries</span>
+        <span class="n">sd</span> <span class="o">=</span> <span class="n">SentinelDict</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">(</span><span class="n">sd</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">|=</span> <span class="n">sd</span><span class="o">.</span><span class="n">keys_checked</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="IfFittingDataHasProperty"><a class="viewcode-back" href="../../api.html#frankenfit.universal.IfFittingDataHasProperty">[docs]</a><span class="nd">@params</span><span class="p">(</span><span class="n">auto_attribs</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">IfFittingDataHasProperty</span><span class="p">(</span><span class="n">BranchTransform</span><span class="p">):</span>
+    <span class="n">test_transform</span><span class="p">:</span> <span class="n">StatelessLambda</span>
+
+    <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>  <span class="c1"># df -&gt; bool</span>
+    <span class="n">then_transform</span><span class="p">:</span> <span class="n">Transform</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>
+    <span class="n">otherwise</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Transform</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+
+    <span class="n">_Self</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;_Self&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;IfFittingDataHasProperty&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__attrs_post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">test_transform</span> <span class="o">=</span> <span class="n">StatelessLambda</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fun</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">hyperparams</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_transform</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">_submit_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_fit</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FitTransform</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">bindings</span> <span class="o">=</span> <span class="n">bindings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_backend</span><span class="p">()</span> <span class="k">as</span> <span class="n">backend</span><span class="p">:</span>
+            <span class="n">test_result</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">test_transform</span><span class="o">.</span><span class="n">on_backend</span><span class="p">(</span>
+                <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="s2">&quot;test&quot;</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">test_result</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="s2">&quot;then&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">then_transform</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span>
+                <span class="p">)</span>
+            <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">otherwise</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="s2">&quot;otherwise&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">otherwise</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="kc">None</span></div>
+
+
+<div class="viewcode-block" id="ForBindings"><a class="viewcode-back" href="../../api.html#frankenfit.universal.ForBindings">[docs]</a><span class="nd">@params</span>
+<span class="k">class</span> <span class="nc">ForBindings</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">DataType</span><span class="p">],</span> <span class="n">UniversalTransform</span><span class="p">[</span><span class="n">DataType</span><span class="p">]):</span>
+    <span class="n">bindings_sequence</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span>
+    <span class="n">transform</span><span class="p">:</span> <span class="n">Transform</span>
+    <span class="n">combine_fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ForBindings</span><span class="o">.</span><span class="n">ApplyResult</span><span class="p">]],</span> <span class="n">DataType</span><span class="p">]</span>
+
+    <span class="nd">@define</span>
+    <span class="k">class</span> <span class="nc">FitResult</span><span class="p">:</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Bindings</span>
+        <span class="n">fit</span><span class="p">:</span> <span class="n">FitTransform</span>
+
+    <span class="nd">@define</span>
+    <span class="k">class</span> <span class="nc">ApplyResult</span><span class="p">:</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Bindings</span>
+        <span class="n">result</span><span class="p">:</span> <span class="n">Any</span>  <span class="c1"># TODO: make this generic in DataType type?</span>
+
+    <span class="k">def</span> <span class="nf">_submit_fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_fit</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">ForBindings</span><span class="o">.</span><span class="n">FitResult</span><span class="p">]:</span>
+        <span class="n">base_bindings</span> <span class="o">=</span> <span class="n">bindings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="n">fits</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ForBindings</span><span class="o">.</span><span class="n">FitResult</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_backend</span><span class="p">()</span> <span class="k">as</span> <span class="n">backend</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bindings_sequence</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">data_fit</span> <span class="o">=</span> <span class="n">backend</span><span class="o">.</span><span class="n">maybe_put</span><span class="p">(</span><span class="n">data_fit</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">bindings</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bindings_sequence</span><span class="p">):</span>
+                <span class="n">fits</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">ForBindings</span><span class="o">.</span><span class="n">FitResult</span><span class="p">(</span>
+                        <span class="n">bindings</span><span class="p">,</span>
+                        <span class="c1"># submit in parallel on backend</span>
+                        <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                            <span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">,</span>
+                            <span class="n">data_fit</span><span class="p">,</span>
+                            <span class="p">{</span><span class="o">**</span><span class="n">base_bindings</span><span class="p">,</span> <span class="o">**</span><span class="n">bindings</span><span class="p">},</span>
+                        <span class="p">),</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="c1"># materialize all states. this is where we wait for all the parallel _fit</span>
+            <span class="c1"># tasks to complete</span>
+            <span class="c1"># for fit_result in fits:</span>
+            <span class="c1">#     fit_result.fit = fit_result.fit.materialize_state()</span>
+        <span class="k">return</span> <span class="n">fits</span>
+
+    <span class="k">def</span> <span class="nf">_combine_results</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bindings_seq</span><span class="p">,</span> <span class="o">*</span><span class="n">results</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataType</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">bindings_seq</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">combine_fun</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">ForBindings</span><span class="o">.</span><span class="n">ApplyResult</span><span class="p">(</span><span class="n">bindings</span><span class="p">,</span> <span class="n">result</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">bindings</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">bindings_seq</span><span class="p">,</span> <span class="n">results</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_submit_apply</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">data_apply</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">DataType</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">state</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ForBindings</span><span class="o">.</span><span class="n">FitResult</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Future</span><span class="p">[</span><span class="n">DataType</span><span class="p">]:</span>
+        <span class="k">assert</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">parallel_backend</span><span class="p">()</span> <span class="k">as</span> <span class="n">backend</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">bindings_sequence</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">data_apply</span> <span class="o">=</span> <span class="n">backend</span><span class="o">.</span><span class="n">maybe_put</span><span class="p">(</span><span class="n">data_apply</span><span class="p">)</span>
+            <span class="n">bindings</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Future</span><span class="p">[</span><span class="n">DataType</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">fit_result</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">state</span><span class="p">):</span>
+                <span class="n">bindings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">fit_result</span><span class="o">.</span><span class="n">bindings</span><span class="p">)</span>
+                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">backend</span><span class="o">.</span><span class="n">push_trace</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">fit_result</span><span class="o">.</span><span class="n">fit</span><span class="p">,</span> <span class="n">data_apply</span><span class="p">),</span>
+                <span class="p">)</span>
+            <span class="k">return</span> <span class="n">backend</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
+                <span class="s2">&quot;_combine_results&quot;</span><span class="p">,</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_combine_results</span><span class="p">,</span>
+                <span class="n">bindings</span><span class="p">,</span>
+                <span class="o">*</span><span class="n">results</span><span class="p">,</span>
+            <span class="p">)</span></div>
+
+
+<span class="n">PROHIBITED_USER_LAMBDA_PARAMETER_KINDS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">POSITIONAL_ONLY</span><span class="p">,</span>
+    <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">VAR_POSITIONAL</span><span class="p">,</span>
+    <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">VAR_KEYWORD</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="nd">@define</span>
+<span class="k">class</span> <span class="nc">UserLambdaHyperparams</span><span class="p">:</span>
+    <span class="n">required</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+    <span class="n">optional</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
+    <span class="n">_Self</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;_Self&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;UserLambdaHyperparams&quot;</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_function_sig</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">_Self</span><span class="p">],</span> <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">n_data_args</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Self</span><span class="p">:</span>
+        <span class="n">required</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">optional</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="n">fun_params</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fun_params</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">n_data_args</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="n">required</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="n">optional</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">info</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">fun_params</span><span class="o">.</span><span class="n">items</span><span class="p">())[</span><span class="n">n_data_args</span><span class="p">:]:</span>
+            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">kind</span> <span class="ow">in</span> <span class="n">PROHIBITED_USER_LAMBDA_PARAMETER_KINDS</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Filter: user lambda function&#39;s signature must allow requested &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;hyperparameters to be supplied non-variadically by name at &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;call-time but parameter </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> has kind </span><span class="si">{</span><span class="n">info</span><span class="o">.</span><span class="n">kind</span><span class="si">}</span><span class="s2">. Full &quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;signature: </span><span class="si">{</span><span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">fun</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">)</span>
+            <span class="k">if</span> <span class="n">info</span><span class="o">.</span><span class="n">default</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">_empty</span><span class="p">:</span>
+                <span class="n">required</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">optional</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">required</span><span class="o">=</span><span class="n">required</span><span class="p">,</span> <span class="n">optional</span><span class="o">=</span><span class="n">optional</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">required_or_optional</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">required</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">optional</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">collect_bindings</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="n">Bindings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Bindings</span><span class="p">:</span>
+        <span class="n">result</span><span class="p">:</span> <span class="n">Bindings</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">missing</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">hp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">required</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">hp</span><span class="p">]</span> <span class="o">=</span> <span class="n">bindings</span><span class="p">[</span><span class="n">hp</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="n">missing</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hp</span><span class="p">)</span>
+                <span class="k">continue</span>
+        <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">UnresolvedHyperparameterError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Requested the values of hyperparameters </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">required</span><span class="si">}</span><span class="s2">, but the &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;following hyperparameters were not resolved at fit-time: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">. &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;Bindings were: </span><span class="si">{</span><span class="n">bindings</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+        <span class="k">for</span> <span class="n">hp</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">optional</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">result</span><span class="p">[</span><span class="n">hp</span><span class="p">]</span> <span class="o">=</span> <span class="n">bindings</span><span class="p">[</span><span class="n">hp</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                <span class="k">continue</span>
+        <span class="k">return</span> <span class="n">result</span>
+
+
+<div class="viewcode-block" id="StatelessLambda"><a class="viewcode-back" href="../../api.html#frankenfit.universal.StatelessLambda">[docs]</a><span class="nd">@params</span><span class="p">(</span><span class="n">auto_attribs</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">StatelessLambda</span><span class="p">(</span>
+    <span class="n">Generic</span><span class="p">[</span><span class="n">DataType</span><span class="p">],</span>
+    <span class="n">UniversalTransform</span><span class="p">[</span><span class="n">DataType</span><span class="p">],</span>
+    <span class="n">StatelessTransform</span><span class="p">[</span><span class="n">DataType</span><span class="p">],</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Generically wrap a user-supplied function as a :class:`StatelessTransform`. At</span>
+<span class="sd">    apply-time, the input data is passed unaltered to ``apply_fun``, the result of which</span>
+<span class="sd">    is then the result of the Transform.</span>
+
+<span class="sd">    🏳️ :class:`Stateless &lt;frankenfit.StatelessTransform&gt;`</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    apply_fun: Callable</span>
+<span class="sd">        The function through which to pass the apply-time data. ``apply_fun`` will be</span>
+<span class="sd">        called with the apply-time data as its first argument. Any additional arguments</span>
+<span class="sd">        in ``apply_fun``&#39;s signature are treated as the names of hyperparameters, whose</span>
+<span class="sd">        values will also be supplied as named arguments with ``apply_fun`` is called.</span>
+<span class="sd">        See XXX for an overview of referencing hyperparameters from user-supplied</span>
+<span class="sd">        callable parameters.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    ::</span>
+
+<span class="sd">        df = diamonds_df</span>
+<span class="sd">        result = (</span>
+<span class="sd">            ff.UniversalPipeline()</span>
+<span class="sd">            .stateless_lambda(lambda df: df.rename(columns={&quot;price&quot;: &quot;price_orig&quot;}))</span>
+<span class="sd">            .apply(df)</span>
+<span class="sd">        )</span>
+<span class="sd">        assert result.equals(df.rename(columns={&quot;price&quot;: &quot;price_orig&quot;}))</span>
+
+<span class="sd">    With ``apply_fun`` referencing a hyperparameter named &quot;response&quot;::</span>
+
+<span class="sd">        pip = ff.UniversalPipeline().stateless_lambda(</span>
+<span class="sd">            lambda df, response: df.rename(columns={response: &quot;foo&quot;})</span>
+<span class="sd">        )</span>
+<span class="sd">        result = pip.apply(df, {&quot;response&quot;: &quot;price&quot;})</span>
+<span class="sd">        assert result.equals(df.rename(columns={&quot;price&quot;: &quot;foo&quot;}))</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">apply_fun</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>  <span class="c1"># df[, bindings] -&gt; df</span>
+
+    <span class="n">apply_fun_bindings</span><span class="p">:</span> <span class="n">Bindings</span>
+    <span class="n">apply_fun_hyperparams</span><span class="p">:</span> <span class="n">UserLambdaHyperparams</span>
+
+    <span class="n">_Self</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;_Self&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;StatelessLambda&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__attrs_post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="p">,</span> <span class="n">HP</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;StatelessLambda.apply_fun must not be a hyperparameter; got:&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="si">!r}</span><span class="s2">. Instead consider supplying a function that &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;requests hyperparameter bindings in its parameter signature.&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_bindings</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_hyperparams</span> <span class="o">=</span> <span class="n">UserLambdaHyperparams</span><span class="o">.</span><span class="n">from_function_sig</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="p">,</span> <span class="mi">1</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">hyperparams</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">super</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_hyperparams</span><span class="o">.</span><span class="n">required_or_optional</span><span class="p">())</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">_Self</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Self</span><span class="p">:</span>
+        <span class="c1"># override _resolve_hyperparams() to collect hyperparam bindings at fit-time</span>
+        <span class="c1"># so we don&#39;t need bindings arg to _apply.</span>
+        <span class="n">resolved_self</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
+        <span class="n">resolved_self</span><span class="o">.</span><span class="n">apply_fun_bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_hyperparams</span><span class="o">.</span><span class="n">collect_bindings</span><span class="p">(</span>
+            <span class="n">bindings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">resolved_self</span>
+
+    <span class="k">def</span> <span class="nf">_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_apply</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="n">fun_params</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="n">positional_args</span> <span class="o">=</span> <span class="p">(</span><span class="n">data_apply</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fun_params</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="p">(</span><span class="o">*</span><span class="n">positional_args</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_bindings</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="StatefulLambda"><a class="viewcode-back" href="../../api.html#frankenfit.universal.StatefulLambda">[docs]</a><span class="nd">@params</span><span class="p">(</span><span class="n">auto_attribs</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">class</span> <span class="nc">StatefulLambda</span><span class="p">(</span><span class="n">UniversalTransform</span><span class="p">):</span>
+    <span class="n">fit_fun</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>  <span class="c1"># df[, bindings] -&gt; state</span>
+    <span class="n">apply_fun</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">=</span> <span class="n">field</span><span class="p">()</span>  <span class="c1"># df, state[, bindings] -&gt; df</span>
+
+    <span class="n">fit_fun_bindings</span><span class="p">:</span> <span class="n">Bindings</span>
+    <span class="n">fit_fun_hyperparams</span><span class="p">:</span> <span class="n">UserLambdaHyperparams</span>
+    <span class="n">apply_fun_bindings</span><span class="p">:</span> <span class="n">Bindings</span>
+    <span class="n">apply_fun_hyperparams</span><span class="p">:</span> <span class="n">UserLambdaHyperparams</span>
+
+    <span class="n">_Self</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;_Self&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;StatefulLambda&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__attrs_post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_fun</span><span class="p">,</span> <span class="n">HP</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;StatefulLambda.fit_fun must not be a hyperparameter; got:&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_fun</span><span class="si">!r}</span><span class="s2">. Instead consider supplying a function that &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;requests hyperparameter bindings in its parameter signature.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="p">,</span> <span class="n">HP</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;StatefulLambda.apply_fun must not be a hyperparameter; got:&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="si">!r}</span><span class="s2">. Instead consider supplying a function that &quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;requests hyperparameter bindings in its parameter signature.&quot;</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_fun_bindings</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_fun_hyperparams</span> <span class="o">=</span> <span class="n">UserLambdaHyperparams</span><span class="o">.</span><span class="n">from_function_sig</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">fit_fun</span><span class="p">,</span> <span class="mi">1</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_bindings</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_hyperparams</span> <span class="o">=</span> <span class="n">UserLambdaHyperparams</span><span class="o">.</span><span class="n">from_function_sig</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="p">,</span> <span class="mi">2</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">hyperparams</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="p">(</span>
+            <span class="nb">super</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_fun_hyperparams</span><span class="o">.</span><span class="n">required_or_optional</span><span class="p">())</span>
+            <span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_hyperparams</span><span class="o">.</span><span class="n">required_or_optional</span><span class="p">())</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">resolve</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">_Self</span><span class="p">,</span> <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_Self</span><span class="p">:</span>
+        <span class="c1"># override _resolve_hyperparams() to collect hyperparam bindings at fit-time</span>
+        <span class="c1"># so we don&#39;t need bindings arg to _apply.</span>
+        <span class="n">resolved_self</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">resolve</span><span class="p">(</span><span class="n">bindings</span><span class="p">)</span>
+        <span class="n">resolved_self</span><span class="o">.</span><span class="n">fit_fun_bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_fun_hyperparams</span><span class="o">.</span><span class="n">collect_bindings</span><span class="p">(</span>
+            <span class="n">bindings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="p">)</span>
+        <span class="n">resolved_self</span><span class="o">.</span><span class="n">apply_fun_bindings</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_hyperparams</span><span class="o">.</span><span class="n">collect_bindings</span><span class="p">(</span>
+            <span class="n">bindings</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">resolved_self</span>
+
+    <span class="k">def</span> <span class="nf">_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="n">fun_params</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_fun</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="n">positional_args</span> <span class="o">=</span> <span class="p">(</span><span class="n">data_fit</span><span class="p">,)</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fun_params</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">tuple</span><span class="p">()</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_fun</span><span class="p">(</span><span class="o">*</span><span class="n">positional_args</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_fun_bindings</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_apply</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+        <span class="n">fun_params</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="p">)</span><span class="o">.</span><span class="n">parameters</span>
+        <span class="n">positional_args</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fun_params</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">positional_args</span> <span class="o">+=</span> <span class="p">(</span><span class="n">data_apply</span><span class="p">,)</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">fun_params</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">positional_args</span> <span class="o">+=</span> <span class="p">(</span><span class="n">state</span><span class="p">,)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_fun</span><span class="p">(</span><span class="o">*</span><span class="n">positional_args</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_fun_bindings</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Print"><a class="viewcode-back" href="../../api.html#frankenfit.universal.Print">[docs]</a><span class="nd">@params</span>
+<span class="k">class</span> <span class="nc">Print</span><span class="p">(</span><span class="n">Identity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An identity transform that has the side-effect of printing a message at fit- and/or</span>
+<span class="sd">    apply-time.</span>
+
+<span class="sd">    🏳️ :class:`Stateless &lt;frankenfit.StatelessTransform&gt;`</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fit_msg: str, optional</span>
+<span class="sd">        Message to print at fit-time.</span>
+<span class="sd">    apply_msg: str, optional</span>
+<span class="sd">        Message to print at apply-time.</span>
+<span class="sd">    dest: TextIO | str, optional</span>
+<span class="sd">        File object to which to print, or the name of a file to open in append mode. If</span>
+<span class="sd">        ``None`` (default), print to stdout.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">fit_msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">apply_msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">dest</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TextIO</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># if str, will be opened in append mode</span>
+
+    <span class="k">def</span> <span class="nf">_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">:</span> <span class="n">T</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_msg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dest</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_msg</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">dest</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fit_msg</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_fit</span><span class="p">(</span><span class="n">data_fit</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_apply</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_msg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">data_apply</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">dest</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_msg</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="n">dest</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">apply_msg</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dest</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply</span><span class="p">(</span><span class="n">data_apply</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="LogMessage"><a class="viewcode-back" href="../../api.html#frankenfit.universal.LogMessage">[docs]</a><span class="nd">@params</span>
+<span class="k">class</span> <span class="nc">LogMessage</span><span class="p">(</span><span class="n">Identity</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An identity transform that has the side-effect of logging a message at fit- and/or</span>
+<span class="sd">    apply-time. The message string(s) must be fully known at construction-time.</span>
+
+<span class="sd">    🏳️ :class:`Stateless &lt;frankenfit.StatelessTransform&gt;`</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fit_msg: str, optional</span>
+<span class="sd">        Message to log at fit-time.</span>
+
+<span class="sd">    apply_msg: str, optional</span>
+<span class="sd">        Message to log at apply-time.</span>
+
+<span class="sd">    logger_name: str, optional</span>
+<span class="sd">        Logger instance to which to log. If ``None`` (default), use</span>
+<span class="sd">        ``logging.getLogger(&quot;frankenfit.universal&quot;)``</span>
+
+<span class="sd">    level: int, optional</span>
+<span class="sd">        Level at which to log, default ``INFO``.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">fit_msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">apply_msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">logger_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span>
+
+    <span class="k">def</span> <span class="nf">_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_fit</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logger_name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span> <span class="o">=</span> <span class="n">_LOG</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">fit_msg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_fit</span><span class="p">(</span><span class="n">data_fit</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">_apply</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_apply</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger_name</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">logger_name</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">logger</span> <span class="o">=</span> <span class="n">_LOG</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">level</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">apply_msg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">_apply</span><span class="p">(</span><span class="n">data_apply</span><span class="p">,</span> <span class="n">state</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="UniversalCallChain"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain">[docs]</a><span class="k">class</span> <span class="nc">UniversalCallChain</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">P_co</span><span class="p">]):</span>
+<div class="viewcode-block" id="UniversalCallChain.identity"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain.identity">[docs]</a>    <span class="nd">@callchain</span><span class="p">(</span><span class="n">Identity</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">identity</span><span class="p">(</span>  <span class="c1"># type: ignore [empty-body]</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append an :class:`~frankenfit.universal.Identity` transform to this pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="UniversalCallChain.if_hyperparam_is_true"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain.if_hyperparam_is_true">[docs]</a>    <span class="nd">@callchain</span><span class="p">(</span><span class="n">IfHyperparamIsTrue</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">if_hyperparam_is_true</span><span class="p">(</span>  <span class="c1"># type: ignore [empty-body]</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">HP</span><span class="p">,</span>
+        <span class="n">then_transform</span><span class="p">:</span> <span class="n">Transform</span> <span class="o">|</span> <span class="n">HP</span><span class="p">,</span>
+        <span class="n">otherwise</span><span class="p">:</span> <span class="n">Transform</span> <span class="o">|</span> <span class="n">HP</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">allow_unresolved</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="n">HP</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append an :class:`~frankenfit.universal.IfHyperparamIsTrue` transform to this</span>
+<span class="sd">        pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="UniversalCallChain.if_hyperparam_lambda"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain.if_hyperparam_lambda">[docs]</a>    <span class="nd">@callchain</span><span class="p">(</span><span class="n">IfHyperparamLambda</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">if_hyperparam_lambda</span><span class="p">(</span>  <span class="c1"># type: ignore [empty-body]</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">HP</span><span class="p">,</span>
+        <span class="n">then_transform</span><span class="p">:</span> <span class="n">Transform</span> <span class="o">|</span> <span class="n">HP</span><span class="p">,</span>
+        <span class="n">otherwise</span><span class="p">:</span> <span class="n">Transform</span> <span class="o">|</span> <span class="n">HP</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append an :class:`~frankenfit.universal.IfHyperparamLambda` transform to this</span>
+<span class="sd">        pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="UniversalCallChain.if_fitting_data_has_property"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain.if_fitting_data_has_property">[docs]</a>    <span class="nd">@callchain</span><span class="p">(</span><span class="n">IfFittingDataHasProperty</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">if_fitting_data_has_property</span><span class="p">(</span>  <span class="c1"># type: ignore [empty-body]</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">fun</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="n">HP</span><span class="p">,</span>
+        <span class="n">then_transform</span><span class="p">:</span> <span class="n">Transform</span> <span class="o">|</span> <span class="n">HP</span><span class="p">,</span>
+        <span class="n">otherwise</span><span class="p">:</span> <span class="n">Transform</span> <span class="o">|</span> <span class="n">HP</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append an :class:`~frankenfit.universal.IfFittingDataHasProperty` transform to</span>
+<span class="sd">        this pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="UniversalCallChain.stateless_lambda"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain.stateless_lambda">[docs]</a>    <span class="nd">@callchain</span><span class="p">(</span><span class="n">StatelessLambda</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">stateless_lambda</span><span class="p">(</span>  <span class="c1"># type: ignore [empty-body]</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">apply_fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append a :class:`~frankenfit.universal.StatelessLambda` transform to this</span>
+<span class="sd">        pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="UniversalCallChain.stateful_lambda"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain.stateful_lambda">[docs]</a>    <span class="nd">@callchain</span><span class="p">(</span><span class="n">StatefulLambda</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">stateful_lambda</span><span class="p">(</span>  <span class="c1"># type: ignore [empty-body]</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">fit_fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+        <span class="n">apply_fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append a :class:`~frankenfit.universal.StatefulLambda` transform to this</span>
+<span class="sd">        pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="UniversalCallChain.print"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain.print">[docs]</a>    <span class="nd">@callchain</span><span class="p">(</span><span class="n">Print</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">print</span><span class="p">(</span>  <span class="c1"># type: ignore [empty-body]</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">fit_msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">HP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">apply_msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">HP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">dest</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">TextIO</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">HP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append a :class:`~frankenfit.universal.Print` transform to this pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="UniversalCallChain.log_message"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalCallChain.log_message">[docs]</a>    <span class="nd">@callchain</span><span class="p">(</span><span class="n">LogMessage</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">log_message</span><span class="p">(</span>  <span class="c1"># type: ignore [empty-body]</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">fit_msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">HP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">apply_msg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="n">HP</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">logger</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">level</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="n">HP</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">P_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Append a :class:`~frankenfit.universal.LogMessage` transform to this pipeline.</span>
+<span class="sd">        &quot;&quot;&quot;</span></div></div>
+
+
+<span class="k">class</span> <span class="nc">UniversalGrouper</span><span class="p">(</span><span class="n">Generic</span><span class="p">[</span><span class="n">P_co</span><span class="p">],</span> <span class="n">Grouper</span><span class="p">[</span><span class="n">P_co</span><span class="p">],</span> <span class="n">UniversalCallChain</span><span class="p">[</span><span class="n">P_co</span><span class="p">]):</span>
+    <span class="o">...</span>
+
+
+<span class="n">G_co</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;G_co&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">UniversalGrouper</span><span class="p">,</span> <span class="n">covariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">SelfUPI</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;SelfUPI&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="s2">&quot;UniversalPipelineInterface&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="UniversalPipelineInterface"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalPipelineInterface">[docs]</a><span class="k">class</span> <span class="nc">UniversalPipelineInterface</span><span class="p">(</span>
+    <span class="n">Generic</span><span class="p">[</span><span class="n">DataType</span><span class="p">,</span> <span class="n">G_co</span><span class="p">,</span> <span class="n">P_co</span><span class="p">],</span> <span class="n">UniversalCallChain</span><span class="p">[</span><span class="n">P_co</span><span class="p">],</span> <span class="n">Pipeline</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span>
+<span class="p">):</span>
+
+    <span class="n">_Grouper</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">UniversalGrouper</span><span class="p">[</span><span class="n">P_co</span><span class="p">]]</span> <span class="o">=</span> <span class="n">UniversalGrouper</span><span class="p">[</span><span class="n">P_co</span><span class="p">]</span>
+
+<div class="viewcode-block" id="UniversalPipelineInterface.for_bindings"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalPipelineInterface.for_bindings">[docs]</a>    <span class="k">def</span> <span class="nf">for_bindings</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">bindings_sequence</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">Bindings</span><span class="p">],</span>
+        <span class="n">combine_fun</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">ForBindings</span><span class="o">.</span><span class="n">ApplyResult</span><span class="p">]],</span> <span class="n">DataType</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">tag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">G_co</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Consume the next transform ``t`` in the call-chain by appending</span>
+<span class="sd">        :class:`ForBindings(bindings_sequence=..., combine_fun=..., transform=t)</span>
+<span class="sd">        &lt;frankenfit.universal.ForBindings&gt;` to this pipeline.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        ::</span>
+
+<span class="sd">            from pydataset import data</span>
+<span class="sd">            df = data(&quot;diamonds&quot;)</span>
+<span class="sd">            result = (</span>
+<span class="sd">                ff.UniversalPipeline[Any]()</span>
+<span class="sd">                .for_bindings(</span>
+<span class="sd">                    [</span>
+<span class="sd">                        {&quot;target_col&quot;: &quot;price&quot;},</span>
+<span class="sd">                        {&quot;target_col&quot;: &quot;depth&quot;},</span>
+<span class="sd">                        {&quot;target_col&quot;: &quot;table&quot;},</span>
+<span class="sd">                    ],</span>
+<span class="sd">                    combine_fun=list,</span>
+<span class="sd">                )</span>
+<span class="sd">                .stateless_lambda(lambda df, target_col: df[[target_col]])</span>
+<span class="sd">            ).apply(df)</span>
+
+<span class="sd">            for x in result:</span>
+<span class="sd">                assert x.result.equals(df[[x.bindings[&quot;target_col&quot;]]])</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">grouper</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">_Grouper</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">ForBindings</span><span class="p">,</span>
+            <span class="s2">&quot;transform&quot;</span><span class="p">,</span>
+            <span class="n">bindings_sequence</span><span class="o">=</span><span class="n">bindings_sequence</span><span class="p">,</span>
+            <span class="n">combine_fun</span><span class="o">=</span><span class="n">combine_fun</span><span class="p">,</span>
+            <span class="n">tag</span><span class="o">=</span><span class="n">tag</span> <span class="k">if</span> <span class="n">tag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">NOTHING</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">G_co</span><span class="p">,</span> <span class="n">grouper</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="UniversalPipelineInterface.last_state"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalPipelineInterface.last_state">[docs]</a>    <span class="k">def</span> <span class="nf">last_state</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">SelfUPI</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SelfUPI</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Replace the last transform ``t`` in the pipeline with</span>
+<span class="sd">        :class:`StateOf(t) &lt;frankenfit.universal.StateOf&gt;`.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If the pipeline is empty.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transforms</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;last_state: undefined on empty pipeline&quot;</span><span class="p">)</span>
+
+        <span class="n">self_copy</span> <span class="o">=</span> <span class="bp">self</span> <span class="o">+</span> <span class="p">[]</span>
+        <span class="n">self_copy</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">StateOf</span><span class="p">(</span><span class="n">self_copy</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">pop</span><span class="p">()))</span>
+        <span class="k">return</span> <span class="n">self_copy</span></div></div>
+
+
+<div class="viewcode-block" id="UniversalPipeline"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalPipeline">[docs]</a><span class="k">class</span> <span class="nc">UniversalPipeline</span><span class="p">(</span>
+    <span class="n">Generic</span><span class="p">[</span><span class="n">DataType</span><span class="p">],</span>
+    <span class="n">UniversalPipelineInterface</span><span class="p">[</span>
+        <span class="n">DataType</span><span class="p">,</span> <span class="n">UniversalGrouper</span><span class="p">[</span><span class="s2">&quot;UniversalPipeline&quot;</span><span class="p">],</span> <span class="s2">&quot;UniversalPipeline&quot;</span>
+    <span class="p">],</span>
+<span class="p">):</span>
+    <span class="n">fit_transform_class</span><span class="p">:</span> <span class="n">ClassVar</span><span class="p">[</span><span class="n">Type</span><span class="p">[</span><span class="n">FitTransform</span><span class="p">]]</span> <span class="o">=</span> <span class="n">FitUniversalTransform</span>
+
+<div class="viewcode-block" id="UniversalPipeline.fit"><a class="viewcode-back" href="../../api.html#frankenfit.universal.UniversalPipeline.fit">[docs]</a>    <span class="k">def</span> <span class="nf">fit</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">:</span> <span class="n">R</span><span class="p">,</span>
+        <span class="n">data_fit</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span> <span class="o">|</span> <span class="n">Future</span><span class="p">[</span><span class="n">DataType</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">bindings</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Bindings</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">/</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FitUniversalTransform</span><span class="p">[</span><span class="n">R</span><span class="p">,</span> <span class="n">DataType</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span>
+            <span class="n">FitUniversalTransform</span><span class="p">[</span><span class="n">R</span><span class="p">,</span> <span class="n">DataType</span><span class="p">],</span>
+            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data_fit</span><span class="p">,</span> <span class="n">bindings</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">),</span>
+        <span class="p">)</span></div></div>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2023, Max Bane
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/maxbane/frankenfit" aria-label="GitHub"><svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path> </svg></a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/clipboard.min.js"></script>
+    <script src="../../_static/copybutton.js"></script>
+    <script src="../../_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="../../_static/togglebutton.js"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="../../_static/design-tabs.js"></script>
+    <script src="../../_static/scripts/furo.js"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
+const thebe_selector = ".thebe,.cell"
+const thebe_selector_input = "pre"
+const thebe_selector_output = ".output, .cell_output"
+</script>
+    <script async="async" src="../../_static/sphinx-thebe.js"></script>
+    </body>
+</html>

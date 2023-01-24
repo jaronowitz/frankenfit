@@ -1,0 +1,869 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Transforms and pipelines" href="transforms_and_pipelines.html" /><link rel="prev" title="Frankenfit Documentation" href="cover.html" />
+
+    <meta name="generator" content="sphinx-4.5.0, furo 2022.09.29"/>
+        <title>Synopsis and overview - 🧟 Frankenfit Documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=d81277517bee4d6b0349d71bb2661d4890b5617c" />
+    <link rel="stylesheet" type="text/css" href="_static/togglebutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css" />
+    <link rel="stylesheet" type="text/css" href="_static/mystnb.css" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-thebe.css" />
+    <link rel="stylesheet" type="text/css" href="_static/design-style.b7bb847fb20b106c3d81b95245e65545.min.css" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=30d1aed668e5c3a91c3e3bf6a60b675221979f0e" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments_overrides.css" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments_overrides.css" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments_overrides.css" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #282a36;
+  --color-code-foreground: #f8f8f2;
+  --color-background-item: #6272A4;
+  --color-brand-primary: #50FA7B;
+  --color-brand-content: #50FA7B;
+  --color-problematic: #FF5555;
+  --color-foreground-primary: #F8F8F2;
+  --color-foreground-secondary: #6272A4;
+  --color-foreground-border: #6272A4;
+  --color-background-primary: #282A36;
+  --color-background-secondary: #343746;
+  --color-background-hover: #44475A;
+  --color-background-hover--transparent: #44475A;
+  --color-highlighted-background: #44475A75;
+  --color-admonition-background: #343746;
+  --color-admonition-title--caution: #FFB86C;
+  --color-admonition-title-background--caution: rgba(255, 184, 108, .1);
+  --color-admonition-title--warning: #F1FA8C;
+  --color-admonition-title-background--warning: rgba(241, 250, 140, .1);
+  --color-admonition-title--danger: #FF5555;
+  --color-admonition-title-background--danger: rgba(255, 85, 85, .1);
+  --color-admonition-title--attention: #FF5555;
+  --color-admonition-title-background--attention: rgba(255, 85, 85, .1);
+  --color-admonition-title--error: #FF5555;
+  --color-admonition-title-background--error: rgba(255, 85, 85, .1);
+  --color-admonition-title--hint: #50FA7B;
+  --color-admonition-title-background--hint: rgba(80, 250, 123, .1);
+  --color-admonition-title--tip: #50FA7B;
+  --color-admonition-title-background--tip: rgba(80, 250, 123, .1);
+  --color-admonition-title--important: #FF79C6;
+  --color-admonition-title-background--important: rgba(255, 121, 198, .1);
+  --color-admonition-title--note: #BD93F9;
+  --color-admonition-title-background--note: rgba(189, 147, 249, .1);
+  --color-admonition-title--seealso: #6272A4;
+  --color-admonition-title-background--seealso: rgba(98, 114, 164, .1);
+  --color-admonition-title--admonition-todo: #808080;
+  --color-admonition-title-background--admonition-todo: rgba(128, 128, 128, .1);
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #282a36;
+  --color-code-foreground: #f8f8f2;
+  --color-background-item: #6272A4;
+  --color-brand-primary: #50FA7B;
+  --color-brand-content: #50FA7B;
+  --color-problematic: #FF5555;
+  --color-foreground-primary: #F8F8F2;
+  --color-foreground-secondary: #6272A4;
+  --color-foreground-border: #6272A4;
+  --color-background-primary: #282A36;
+  --color-background-secondary: #343746;
+  --color-background-hover: #44475A;
+  --color-background-hover--transparent: #44475A;
+  --color-highlighted-background: #44475A75;
+  --color-admonition-background: #343746;
+  --color-admonition-title--caution: #FFB86C;
+  --color-admonition-title-background--caution: rgba(255, 184, 108, .1);
+  --color-admonition-title--warning: #F1FA8C;
+  --color-admonition-title-background--warning: rgba(241, 250, 140, .1);
+  --color-admonition-title--danger: #FF5555;
+  --color-admonition-title-background--danger: rgba(255, 85, 85, .1);
+  --color-admonition-title--attention: #FF5555;
+  --color-admonition-title-background--attention: rgba(255, 85, 85, .1);
+  --color-admonition-title--error: #FF5555;
+  --color-admonition-title-background--error: rgba(255, 85, 85, .1);
+  --color-admonition-title--hint: #50FA7B;
+  --color-admonition-title-background--hint: rgba(80, 250, 123, .1);
+  --color-admonition-title--tip: #50FA7B;
+  --color-admonition-title-background--tip: rgba(80, 250, 123, .1);
+  --color-admonition-title--important: #FF79C6;
+  --color-admonition-title-background--important: rgba(255, 121, 198, .1);
+  --color-admonition-title--note: #BD93F9;
+  --color-admonition-title-background--note: rgba(189, 147, 249, .1);
+  --color-admonition-title--seealso: #6272A4;
+  --color-admonition-title-background--seealso: rgba(98, 114, 164, .1);
+  --color-admonition-title--admonition-todo: #808080;
+  --color-admonition-title-background--admonition-todo: rgba(128, 128, 128, .1);
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #282a36;
+  --color-code-foreground: #f8f8f2;
+  --color-background-item: #6272A4;
+  --color-brand-primary: #50FA7B;
+  --color-brand-content: #50FA7B;
+  --color-problematic: #FF5555;
+  --color-foreground-primary: #F8F8F2;
+  --color-foreground-secondary: #6272A4;
+  --color-foreground-border: #6272A4;
+  --color-background-primary: #282A36;
+  --color-background-secondary: #343746;
+  --color-background-hover: #44475A;
+  --color-background-hover--transparent: #44475A;
+  --color-highlighted-background: #44475A75;
+  --color-admonition-background: #343746;
+  --color-admonition-title--caution: #FFB86C;
+  --color-admonition-title-background--caution: rgba(255, 184, 108, .1);
+  --color-admonition-title--warning: #F1FA8C;
+  --color-admonition-title-background--warning: rgba(241, 250, 140, .1);
+  --color-admonition-title--danger: #FF5555;
+  --color-admonition-title-background--danger: rgba(255, 85, 85, .1);
+  --color-admonition-title--attention: #FF5555;
+  --color-admonition-title-background--attention: rgba(255, 85, 85, .1);
+  --color-admonition-title--error: #FF5555;
+  --color-admonition-title-background--error: rgba(255, 85, 85, .1);
+  --color-admonition-title--hint: #50FA7B;
+  --color-admonition-title-background--hint: rgba(80, 250, 123, .1);
+  --color-admonition-title--tip: #50FA7B;
+  --color-admonition-title-background--tip: rgba(80, 250, 123, .1);
+  --color-admonition-title--important: #FF79C6;
+  --color-admonition-title-background--important: rgba(255, 121, 198, .1);
+  --color-admonition-title--note: #BD93F9;
+  --color-admonition-title-background--note: rgba(189, 147, 249, .1);
+  --color-admonition-title--seealso: #6272A4;
+  --color-admonition-title-background--seealso: rgba(98, 114, 164, .1);
+  --color-admonition-title--admonition-todo: #808080;
+  --color-admonition-title-background--admonition-todo: rgba(128, 128, 128, .1);
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="cover.html"><div class="brand">🧟 Frankenfit Documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="cover.html">
+  
+  
+  <span class="sidebar-brand-text">🧟 Frankenfit Documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Synopsis and overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="transforms_and_pipelines.html">Transforms and pipelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hyperparams.html">Hyperparameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dataframes.html">Working with DataFrames and <code class="docutils literal notranslate"><span class="pre">DataFramePipelines</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="branching_and_grouping.html">Branching and grouping transforms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="backends.html">Backends and parallel compute</a></li>
+<li class="toctree-l1"><a class="reference internal" href="implementing_transforms.html">Implementing your own transforms</a></li>
+<li class="toctree-l1"><a class="reference internal" href="crossval.html">Cross-validation and hyperparameter search</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tips_tricks.html">Tips and tricks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="examples.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">Frankenfit API reference</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          
+<div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="synopsis-and-overview">
+<h1>Synopsis and overview<a class="headerlink" href="#synopsis-and-overview" title="Permalink to this headline">#</a></h1>
+<p>Frankenfit is a Python library for creating predictive data modeling pipelines from
+reusable, composable building blocks called <em>Transforms</em>. Once defined, a pipeline may
+be fit on some data and hyperparameters, and then applied on some possibly different
+data. If the apply-time input data is different than the fit-time input data, then the
+pipeline and all of its constituent transforms are applied entirely “out-of-sample”
+with respect to the fitting data.</p>
+<p>Frankenfit takes some inspiration from scikit-learn’s
+<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html"><code class="docutils literal notranslate"><span class="pre">Pipeline</span></code></a>,
+but the Frankenfit API is intended to be used as a more general domain-specific language
+for data learning and transformation pipelines. It’s easy to include models and
+estimators from third-party libraries like <a class="reference external" href="https://scikit-learn.org/">scikit-learn</a> and
+<a class="reference external" href="https://www.statsmodels.org/">statsmodels</a> in your Frankenfit pipelines.</p>
+<p>Frankenfit’s focus is on 2-D Pandas DataFrames, but the core API is agnostic and could also
+be used to implement pipelines on other data types, like text or images.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>As a stylistic convention, and for the sake of brevity, the author of Frankenfit
+recommends importing <code class="docutils literal notranslate"><span class="pre">frankenfit</span></code> with the short name <code class="docutils literal notranslate"><span class="pre">ff</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">frankenfit</span> <span class="k">as</span> <span class="nn">ff</span>
+</pre></div>
+</div>
+</div>
+<p>With Frankenfit, you can:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#synopsis-create"><span class="std std-ref">Create pipelines</span></a></p></li>
+<li><p><a class="reference internal" href="#synopsis-fit-apply"><span class="std std-ref">Fit pipelines and apply them to data</span></a></p></li>
+</ul>
+<section id="create-pipelines">
+<span id="synopsis-create"></span><h2>Create pipelines<a class="headerlink" href="#create-pipelines" title="Permalink to this headline">#</a></h2>
+<p>Create concise and readable descriptions of data learning and transformation pipelines
+using a callchain-style API. A pipeline is a sequence of transforms, each applying to
+the output of the transform that precedes it. For example, here’s a pipeline for
+predicting diamond prices, including feature preparation and response transformations:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">sklearn.linear_model</span>
+<span class="kn">import</span> <span class="nn">frankenfit</span> <span class="k">as</span> <span class="nn">ff</span>
+
+<span class="n">do</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">DataFramePipeline</span><span class="p">()</span>
+<span class="n">diamond_model</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">do</span>
+    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="c1"># We train a model to predict the log-transformed and winsorized price of a</span>
+        <span class="c1"># diamond.</span>
+        <span class="n">price_train</span><span class="o">=</span><span class="n">do</span><span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">)</span><span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">),</span>
+        <span class="c1"># Transform carats to log-carats</span>
+        <span class="n">carat</span><span class="o">=</span><span class="n">do</span><span class="p">[</span><span class="s2">&quot;carat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="c1"># Prepare features: trim outliers and standardize</span>
+    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">do</span><span class="p">[[</span><span class="s2">&quot;carat&quot;</span><span class="p">,</span> <span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">]]</span>
+        <span class="o">.</span><span class="n">suffix</span><span class="p">(</span><span class="s2">&quot;_fea&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">z_score</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">impute_constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="c1"># Fit a linear regression model to predict log-prices from the prepared features</span>
+    <span class="o">.</span><span class="n">sk_learn</span><span class="p">(</span>
+        <span class="n">sklearn</span><span class="o">.</span><span class="n">linear_model</span><span class="o">.</span><span class="n">LinearRegression</span><span class="p">,</span>
+        <span class="n">x_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;carat_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;depth_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;table_fea&quot;</span><span class="p">],</span>
+        <span class="n">response_col</span><span class="o">=</span><span class="s2">&quot;price_train&quot;</span><span class="p">,</span>
+        <span class="n">hat_col</span><span class="o">=</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span>
+        <span class="n">class_params</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">fit_intercept</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="c1"># Transform the regression model&#39;s predictions back from log-dollars to dollars</span>
+    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">price_hat_dollars</span><span class="o">=</span><span class="n">do</span><span class="p">[</span><span class="s2">&quot;price_hat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expm1</span><span class="p">)</span>
+    <span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="fit-pipelines-and-apply-them-to-data">
+<span id="synopsis-fit-apply"></span><h2>Fit pipelines and apply them to data<a class="headerlink" href="#fit-pipelines-and-apply-them-to-data" title="Permalink to this headline">#</a></h2>
+<p>The pipeline itself is only a lightweight description of what to do to some input data.</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pydataset</span> <span class="kn">import</span> <span class="n">data</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">data</span><span class="p">(</span><span class="s1">&#39;diamonds&#39;</span><span class="p">)</span>
+<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>initiated datasets repo at: /home/runner/.pydataset/
+</pre></div>
+</div>
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>carat</th>
+      <th>cut</th>
+      <th>color</th>
+      <th>clarity</th>
+      <th>depth</th>
+      <th>table</th>
+      <th>price</th>
+      <th>x</th>
+      <th>y</th>
+      <th>z</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>1</th>
+      <td>0.23</td>
+      <td>Ideal</td>
+      <td>E</td>
+      <td>SI2</td>
+      <td>61.5</td>
+      <td>55.0</td>
+      <td>326</td>
+      <td>3.95</td>
+      <td>3.98</td>
+      <td>2.43</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>0.21</td>
+      <td>Premium</td>
+      <td>E</td>
+      <td>SI1</td>
+      <td>59.8</td>
+      <td>61.0</td>
+      <td>326</td>
+      <td>3.89</td>
+      <td>3.84</td>
+      <td>2.31</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>0.23</td>
+      <td>Good</td>
+      <td>E</td>
+      <td>VS1</td>
+      <td>56.9</td>
+      <td>65.0</td>
+      <td>327</td>
+      <td>4.05</td>
+      <td>4.07</td>
+      <td>2.31</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>0.29</td>
+      <td>Premium</td>
+      <td>I</td>
+      <td>VS2</td>
+      <td>62.4</td>
+      <td>58.0</td>
+      <td>334</td>
+      <td>4.20</td>
+      <td>4.23</td>
+      <td>2.63</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>0.31</td>
+      <td>Good</td>
+      <td>J</td>
+      <td>SI2</td>
+      <td>63.3</td>
+      <td>58.0</td>
+      <td>335</td>
+      <td>4.34</td>
+      <td>4.35</td>
+      <td>2.75</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<p><em>Fit</em> the pipeline on data, obtaining a <code class="docutils literal notranslate"><span class="pre">FitTransform</span></code> object, which
+encapsulates the learned <em>states</em> of all of the transforms in the pipeline:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df_in</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+<span class="n">fit_diamond_model</span> <span class="o">=</span> <span class="n">diamond_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">df_in</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>The fit may then be applied to another input DataFrame:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df_out</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">fit_diamond_model</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">df_out</span><span class="p">)</span>
+<span class="n">result</span><span class="p">[[</span><span class="s2">&quot;carat_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;depth_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;table_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;price_hat&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">));</span>
+<span class="n">result</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="s2">&quot;price_hat_dollars&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">);</span>
+<span class="n">result</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>index</th>
+      <th>carat</th>
+      <th>cut</th>
+      <th>color</th>
+      <th>clarity</th>
+      <th>depth</th>
+      <th>table</th>
+      <th>price</th>
+      <th>x</th>
+      <th>y</th>
+      <th>z</th>
+      <th>price_train</th>
+      <th>carat_fea</th>
+      <th>depth_fea</th>
+      <th>table_fea</th>
+      <th>price_hat</th>
+      <th>price_hat_dollars</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>3046</td>
+      <td>0.239017</td>
+      <td>Very Good</td>
+      <td>G</td>
+      <td>VVS1</td>
+      <td>62.9</td>
+      <td>55.0</td>
+      <td>566</td>
+      <td>4.12</td>
+      <td>4.15</td>
+      <td>2.60</td>
+      <td>6.354370</td>
+      <td>-1.216676</td>
+      <td>0.965489</td>
+      <td>-1.296111</td>
+      <td>6.488903</td>
+      <td>656.801504</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>52748</td>
+      <td>0.536493</td>
+      <td>Ideal</td>
+      <td>H</td>
+      <td>VS1</td>
+      <td>62.4</td>
+      <td>56.0</td>
+      <td>2559</td>
+      <td>5.66</td>
+      <td>5.71</td>
+      <td>3.55</td>
+      <td>7.847763</td>
+      <td>0.180710</td>
+      <td>0.583269</td>
+      <td>-0.842925</td>
+      <td>7.726990</td>
+      <td>2267.763702</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>46890</td>
+      <td>0.385262</td>
+      <td>Ideal</td>
+      <td>G</td>
+      <td>IF</td>
+      <td>62.1</td>
+      <td>54.0</td>
+      <td>1814</td>
+      <td>4.99</td>
+      <td>5.02</td>
+      <td>3.11</td>
+      <td>7.503841</td>
+      <td>-0.590197</td>
+      <td>0.353936</td>
+      <td>-1.296111</td>
+      <td>7.100946</td>
+      <td>1212.113984</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>31937</td>
+      <td>0.262364</td>
+      <td>Ideal</td>
+      <td>F</td>
+      <td>VS2</td>
+      <td>61.8</td>
+      <td>57.0</td>
+      <td>776</td>
+      <td>4.33</td>
+      <td>4.31</td>
+      <td>2.67</td>
+      <td>6.655440</td>
+      <td>-1.216676</td>
+      <td>0.124604</td>
+      <td>-0.389740</td>
+      <td>6.524136</td>
+      <td>680.390507</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>37706</td>
+      <td>0.314811</td>
+      <td>Very Good</td>
+      <td>F</td>
+      <td>IF</td>
+      <td>60.4</td>
+      <td>57.0</td>
+      <td>995</td>
+      <td>4.65</td>
+      <td>4.68</td>
+      <td>2.81</td>
+      <td>6.903747</td>
+      <td>-0.949327</td>
+      <td>-0.945614</td>
+      <td>-0.389740</td>
+      <td>6.868834</td>
+      <td>960.826413</td>
+    </tr>
+  </tbody>
+</table>
+</div></div><img alt="_images/synopsis_9_1.png" src="_images/synopsis_9_1.png" />
+<img alt="_images/synopsis_9_2.png" src="_images/synopsis_9_2.png" />
+</div>
+</div>
+<p>The ability to fit a complex pipeline on one set of data and use the fit state to
+generate predictions on different data is fundamental to statistical resampling
+techniques like cross-validation, as well as many common operations on time series.</p>
+<p>Frankenfit provides various transforms that fit and apply <em>child transforms</em>, which can
+be combined to achieve many use cases. For example, suppose we want to perform 5-fold
+cross validation on the model of diamond prices:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
+    <span class="n">do</span><span class="o">.</span><span class="n">read_pandas_csv</span><span class="p">(</span><span class="s2">&quot;./diamonds.csv&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="c1"># randomly assign rows to groups</span>
+        <span class="n">group</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">,</span> <span class="n">ngroups</span><span class="o">=</span><span class="mi">5</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span>
+            <span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">ngroups</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span>
+        <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">fitting_schedule</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">fit_group_on_all_other_groups</span><span class="p">,</span> <span class="n">group_keys</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+        <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">diamond_model</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price&quot;</span><span class="p">,</span> <span class="s2">&quot;price_hat_dollars&quot;</span><span class="p">)</span>
+<span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>price_hat_dollars</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>price</th>
+      <td>0.925829</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<p>We use <code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code> to divide the dataset into groups (based on a column that we
+create with <code class="docutils literal notranslate"><span class="pre">assign()</span></code>), and for each group, generate predictions from the
+<code class="docutils literal notranslate"><span class="pre">diamond_model</span></code> pipeline by fitting it on the data from all <em>other</em> groups, but applying
+it to the data from the group in question.</p>
+<p>This gives us a dataset of entirely out-of-sample predictions, whose performance we
+score by feeding it to a transform that outputs the correlation between observed and
+predicted price.</p>
+</section>
+<section id="use-hyperparameters">
+<h2>Use hyperparameters<a class="headerlink" href="#use-hyperparameters" title="Permalink to this headline">#</a></h2>
+<ol class="simple">
+<li><p>Hyperparameters and bindings. Concisely describe and execute hyperparameter searches
+and data batching.</p></li>
+</ol>
+</section>
+<section id="run-on-distributed-backends">
+<h2>Run on distributed backends<a class="headerlink" href="#run-on-distributed-backends" title="Permalink to this headline">#</a></h2>
+<ol class="simple">
+<li><p>Run on distributed backends, exploiting the parallelism inherent to any branching
+operations in the pipeline.</p></li>
+</ol>
+</section>
+</section>
+
+    <script type="text/x-thebe-config">
+    {
+        requestKernel: true,
+        binderOptions: {
+            repo: "binder-examples/jupyter-stacks-datascience",
+            ref: "master",
+        },
+        codeMirrorConfig: {
+            theme: "abcdef",
+            mode: "python"
+        },
+        kernelOptions: {
+            kernelName: "python3",
+            path: "./."
+        },
+        predefinedOutput: true
+    }
+    </script>
+    <script>kernelName = 'python3'</script>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="transforms_and_pipelines.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Transforms and pipelines</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="cover.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Home</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2023, Max Bane
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            <div class="icons">
+              <a class="muted-link " href="https://github.com/maxbane/frankenfit" aria-label="GitHub"><svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path> </svg></a>
+              
+            </div>
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Synopsis and overview</a><ul>
+<li><a class="reference internal" href="#create-pipelines">Create pipelines</a></li>
+<li><a class="reference internal" href="#fit-pipelines-and-apply-them-to-data">Fit pipelines and apply them to data</a></li>
+<li><a class="reference internal" href="#use-hyperparameters">Use hyperparameters</a></li>
+<li><a class="reference internal" href="#run-on-distributed-backends">Run on distributed backends</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/clipboard.min.js"></script>
+    <script src="_static/copybutton.js"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?digest=9c920249402e914e316237a7dbc6769907cce411"></script>
+    <script>let toggleHintShow = 'Click to show';</script>
+    <script>let toggleHintHide = 'Click to hide';</script>
+    <script>let toggleOpenOnPrint = 'true';</script>
+    <script src="_static/togglebutton.js"></script>
+    <script>var togglebuttonSelector = '.toggle, .admonition.dropdown, .tag_hide_input div.cell_input, .tag_hide-input div.cell_input, .tag_hide_output div.cell_output, .tag_hide-output div.cell_output, .tag_hide_cell.cell, .tag_hide-cell.cell';</script>
+    <script src="_static/design-tabs.js"></script>
+    <script src="_static/scripts/furo.js"></script>
+    <script>const THEBE_JS_URL = "https://unpkg.com/thebe@0.8.2/lib/index.js"
+const thebe_selector = ".thebe,.cell"
+const thebe_selector_input = "pre"
+const thebe_selector_output = ".output, .cell_output"
+</script>
+    <script async="async" src="_static/sphinx-thebe.js"></script>
+    </body>
+</html>

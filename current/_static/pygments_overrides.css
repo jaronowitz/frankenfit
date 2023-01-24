@@ -1,0 +1,31 @@
+/* There is only darkness. */
+div.theme-toggle-container {
+    display: none;
+}
+
+body .highlight {
+    background-color: var(--color-background-secondary) !important;
+}
+
+div.cell_output .highlight {
+    background-color: var(--color-background-primary) !important;
+}
+
+div.cell_output table {
+    background-color: var(--color-background-secondary);
+    color: var(--color-foreground-primary) ;
+    font-size: 0.8em ;
+}
+
+div.cell_output tbody tr:nth-child(2n+1) {
+    background-color: var(--color-background-primary);
+}
+
+div.cell_output tbody tr:hover {
+    background-color: var(--color-background-hover);
+}
+
+/* Scroll too-wide outputs */
+div.cell_output .output {
+    overflow-x: scroll;
+}
