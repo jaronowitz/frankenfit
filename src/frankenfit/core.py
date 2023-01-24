@@ -386,7 +386,7 @@ class PipelineMember:
     """
     Abstract base class of :class:`Transform` and :class:`FitTransform`, specifying the
     functionality common to both of them, namely:
-    
+
     - concatenation (:meth:`then`, :meth:`__add__`),
     - selecting children by name (:data:`name`, :meth:`find_by_name`,
       :meth:`_children`), and
@@ -399,7 +399,7 @@ class PipelineMember:
     ) -> Pipeline:
         """
         Implements concatenation for :class:`Transforms <Transform>` and
-        :class:`FitTransforms <FitTransform>`. 
+        :class:`FitTransforms <FitTransform>`.
 
         Return a :class:`Pipeline` containing the concatenation of ``self`` and
         ``other``.  The addition operator is an alias for this method, meaning that the
@@ -419,7 +419,7 @@ class PipelineMember:
 
             p: DataFramePipeline
             p.then([ff.dataframe.Winsorize(...), ff.dataframe.DeMean(...)])
-        
+
         ...it is more idiomatic to write::
 
             p.winsorize(...).de_mean(...)
