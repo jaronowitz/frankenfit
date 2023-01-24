@@ -110,6 +110,12 @@ df = data('diamonds')
 df.head()
 ```
 
+```{code-cell} ipython3
+:tags: [remove-cell]
+# FIXME: this cell should not be visible in docs output.
+df.rename_axis(index="index").to_csv("./diamonds.csv")
+```
+
 *Fit* the pipeline on data, obtaining a `FitTransform` object, which
 encapsulates the learned *states* of all of the transforms in the pipeline:
 
