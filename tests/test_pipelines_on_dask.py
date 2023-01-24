@@ -217,9 +217,10 @@ def test_parallelized_pipeline_1(
     }
 
     local_result = complex_pipeline.apply(diamonds_df, bindings)
-    assert local_result.equals(
-        dask.apply(complex_pipeline, diamonds_df, bindings).result()
-    )
+    dask_result = dask.apply(complex_pipeline, diamonds_df, bindings).result()
+    print(local_result.head())
+    print(dask_result.head())
+    assert local_result.equals(dask_result)
 
     pip = (
         ff.DataFramePipeline()
