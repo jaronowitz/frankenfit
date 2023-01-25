@@ -834,6 +834,7 @@ The following table summarizes the distribution of `fit()` and `apply()` methods
 
 +++
 
+(visualizing-pipelines)=
 ### Visualizing pipelines
 
 Because `price_model` is just a Transform, we can query its `params()` like any other

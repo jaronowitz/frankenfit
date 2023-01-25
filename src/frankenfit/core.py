@@ -1671,7 +1671,7 @@ class Pipeline(Generic[DataType], Transform[DataType]):
 class IfPipelineIsFitting(Generic[DataType], Transform[DataType]):
     """
     Apply the given child :class:`Transform` only when the :class:`Pipeline` containing
-    this `IfPipelineIsFitting` Transform is being fit. This is useful to avoid running
+    this ``IfPipelineIsFitting`` Transform is being fit. This is useful to avoid running
     Transforms that are unnecessary when an alread-fit Pipeline is being applied
     out-fo-sample, for example the preparation of training response columns.
 
