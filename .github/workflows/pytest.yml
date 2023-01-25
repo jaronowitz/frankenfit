@@ -1,0 +1,29 @@
+name: pytest
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.8", "3.9", "3.10"]
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Upgrade pip and install tox
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "tox < 4"
+      - name: pytest
+        # Run tox using the version of Python in `PATH`
+        run: tox -e py
