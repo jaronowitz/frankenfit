@@ -10,10 +10,8 @@ jobs:
   install_deps:
     runs-on: ubuntu-22.04
     steps:
-#      - uses: ConorMacBride/install-package@v1
-#        with:
-#          apt: graphviz
       - uses: awalsh128/cache-apt-pkgs-action@latest
+        if: ${{ !env.ACT }}
         with:
           packages: graphviz
           version: 1.0
@@ -27,6 +25,7 @@ jobs:
 
     steps:
       - uses: awalsh128/cache-apt-pkgs-action@latest
+        if: ${{ !env.ACT }}
         with:
           packages: graphviz
           version: 1.0
