@@ -51,6 +51,12 @@ of your pipelines:
 $ pip install "frankenfit[dask]"
 ```
 
+You may also need to install [GraphViz](https://graphviz.org/) for visualizations to
+work. On Ubuntu/Debian:
+```
+$ sudo apt install graphviz
+```
+
 The author of Frankenfit recommends importing it like this:
 ```python
 import frankenfit as ff
@@ -100,7 +106,7 @@ To get started with hacking on Frankenfit itself, make sure that the `python3.10
 binary is on your path, clone this repo, and run:
 
 ```
-# this just creates a venv and does `pip install -e ".[dev]"`
+# this just creates a venv and does `pip install -e ".[dev]"` and `pre-commit install`
 $ ./setup-venv-dev python3.10
 $ source ./.venv-dev/bin/activate
 ```
