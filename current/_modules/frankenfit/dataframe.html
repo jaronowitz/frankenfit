@@ -267,6 +267,7 @@
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../install.html">Installation and getting started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../synopsis.html">Synopsis and overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../transforms_and_pipelines.html">Transforms and pipelines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../hyperparams.html">Hyperparameters</a></li>
@@ -1417,7 +1418,9 @@
 <span class="sd">        ``X`` argument to the sklearn model&#39;s ``fit()`` and ``predict()`` methods.</span>
 <span class="sd">    response_col: str</span>
 <span class="sd">        The response column. At fit-time, this is selected from the fitting data to</span>
-<span class="sd">        create the ``y`` argument to the sklearn model&#39;s ``fit()`` method.</span>
+<span class="sd">        create the ``y`` argument to the sklearn model&#39;s ``fit()`` method. This column</span>
+<span class="sd">        is only needed at fit-time, hence its creation may be wrapped in</span>
+<span class="sd">        :class:`~frankenfit.core.IfPipelineIsFitting` if desired.</span>
 <span class="sd">    hat_col: str</span>
 <span class="sd">        The name of the new column to create at apply-time containing predictions from</span>
 <span class="sd">        the sklearn model.</span>
@@ -1491,7 +1494,9 @@
 <span class="sd">        ``X`` argument to the model&#39;s ``fit()`` and ``predict()`` methods.</span>
 <span class="sd">    response_col: str</span>
 <span class="sd">        The response column. At fit-time, this is selected from the fitting data to</span>
-<span class="sd">        create the ``y`` argument to the model&#39;s ``fit()`` method.</span>
+<span class="sd">        create the ``y`` argument to the model&#39;s ``fit()`` method. This column is only</span>
+<span class="sd">        needed at fit-time, hence its creation may be wrapped in</span>
+<span class="sd">        :class:`~frankenfit.core.IfPipelineIsFitting` if desired.</span>
 <span class="sd">    hat_col: str</span>
 <span class="sd">        The name of the new column to create at apply-time containing predictions from</span>
 <span class="sd">        the ``statsmodels`` model.</span>

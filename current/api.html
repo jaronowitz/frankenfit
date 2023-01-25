@@ -268,6 +268,7 @@
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation and getting started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="synopsis.html">Synopsis and overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="transforms_and_pipelines.html">Transforms and pipelines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hyperparams.html">Hyperparameters</a></li>
@@ -1833,7 +1834,7 @@ object.</p>
 <dt class="sig sig-object py" id="frankenfit.core.IfPipelineIsFitting">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">frankenfit.core.</span></span><span class="sig-name descname"><span class="pre">IfPipelineIsFitting</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">transform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#frankenfit.Transform" title="frankenfit.core.Transform"><span class="pre">frankenfit.core.Transform</span></a><span class="p"><span class="pre">[</span></span><span class="pre">frankenfit.core.DataType</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">NOTHING</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/frankenfit/core.html#IfPipelineIsFitting"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#frankenfit.core.IfPipelineIsFitting" title="Permalink to this definition">#</a></dt>
 <dd><p>Apply the given child <a class="reference internal" href="#frankenfit.Transform" title="frankenfit.core.Transform"><code class="xref py py-class docutils literal notranslate"><span class="pre">Transform</span></code></a> only when the <a class="reference internal" href="#frankenfit.Pipeline" title="frankenfit.core.Pipeline"><code class="xref py py-class docutils literal notranslate"><span class="pre">Pipeline</span></code></a> containing
-this <cite>IfPipelineIsFitting</cite> Transform is being fit. This is useful to avoid running
+this <code class="docutils literal notranslate"><span class="pre">IfPipelineIsFitting</span></code> Transform is being fit. This is useful to avoid running
 Transforms that are unnecessary when an alread-fit Pipeline is being applied
 out-fo-sample, for example the preparation of training response columns.</p>
 <div class="admonition seealso">
@@ -2444,7 +2445,9 @@ which are assigned to the apply-time data as a new column, <code class="docutils
 <li><p><strong>x_cols</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – The predictor columns. These are selected from the fit/apply-data to create the
 <code class="docutils literal notranslate"><span class="pre">X</span></code> argument to the sklearn model’s <code class="docutils literal notranslate"><span class="pre">fit()</span></code> and <code class="docutils literal notranslate"><span class="pre">predict()</span></code> methods.</p></li>
 <li><p><strong>response_col</strong> (<em>str</em>) – The response column. At fit-time, this is selected from the fitting data to
-create the <code class="docutils literal notranslate"><span class="pre">y</span></code> argument to the sklearn model’s <code class="docutils literal notranslate"><span class="pre">fit()</span></code> method.</p></li>
+create the <code class="docutils literal notranslate"><span class="pre">y</span></code> argument to the sklearn model’s <code class="docutils literal notranslate"><span class="pre">fit()</span></code> method. This column
+is only needed at fit-time, hence its creation may be wrapped in
+<a class="reference internal" href="#frankenfit.core.IfPipelineIsFitting" title="frankenfit.core.IfPipelineIsFitting"><code class="xref py py-class docutils literal notranslate"><span class="pre">IfPipelineIsFitting</span></code></a> if desired.</p></li>
 <li><p><strong>hat_col</strong> (<em>str</em>) – The name of the new column to create at apply-time containing predictions from
 the sklearn model.</p></li>
 <li><p><strong>class_params</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – Optional parameters to pass as named arguments to the <code class="docutils literal notranslate"><span class="pre">sklearn_class</span></code>
@@ -2493,7 +2496,9 @@ apply-time data as a new column, <code class="docutils literal notranslate"><spa
 <li><p><strong>x_cols</strong> (<em>list</em><em>[</em><em>str</em><em>]</em>) – The predictor columns. These are selected from the fit/apply-data to create the
 <code class="docutils literal notranslate"><span class="pre">X</span></code> argument to the model’s <code class="docutils literal notranslate"><span class="pre">fit()</span></code> and <code class="docutils literal notranslate"><span class="pre">predict()</span></code> methods.</p></li>
 <li><p><strong>response_col</strong> (<em>str</em>) – The response column. At fit-time, this is selected from the fitting data to
-create the <code class="docutils literal notranslate"><span class="pre">y</span></code> argument to the model’s <code class="docutils literal notranslate"><span class="pre">fit()</span></code> method.</p></li>
+create the <code class="docutils literal notranslate"><span class="pre">y</span></code> argument to the model’s <code class="docutils literal notranslate"><span class="pre">fit()</span></code> method. This column is only
+needed at fit-time, hence its creation may be wrapped in
+<a class="reference internal" href="#frankenfit.core.IfPipelineIsFitting" title="frankenfit.core.IfPipelineIsFitting"><code class="xref py py-class docutils literal notranslate"><span class="pre">IfPipelineIsFitting</span></code></a> if desired.</p></li>
 <li><p><strong>hat_col</strong> (<em>str</em>) – The name of the new column to create at apply-time containing predictions from
 the <code class="docutils literal notranslate"><span class="pre">statsmodels</span></code> model.</p></li>
 <li><p><strong>class_params</strong> (<em>dict</em><em>[</em><em>str</em><em>, </em><em>Any</em><em>]</em><em>, </em><em>optional</em>) – Optional parameters to pass as named arguments to the <code class="docutils literal notranslate"><span class="pre">sm_class</span></code> constructor

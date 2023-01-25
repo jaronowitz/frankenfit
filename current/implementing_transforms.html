@@ -268,6 +268,7 @@
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
   <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="install.html">Installation and getting started</a></li>
 <li class="toctree-l1"><a class="reference internal" href="synopsis.html">Synopsis and overview</a></li>
 <li class="toctree-l1"><a class="reference internal" href="transforms_and_pipelines.html">Transforms and pipelines</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hyperparams.html">Hyperparameters</a></li>
@@ -348,6 +349,9 @@
 </div>
 </div>
 <p>As authors of a Transform, in most cases we must implement <code class="docutils literal notranslate"><span class="pre">_fit</span></code> and <code class="docutils literal notranslate"><span class="pre">_apply</span></code> methods.</p>
+<section id="consider-using-statelesslambda-or-statefullambda">
+<h2>Consider using <code class="docutils literal notranslate"><span class="pre">StatelessLambda</span></code> or <code class="docutils literal notranslate"><span class="pre">StatefulLambda</span></code><a class="headerlink" href="#consider-using-statelesslambda-or-statefullambda" title="Permalink to this headline">#</a></h2>
+</section>
 <section id="implementing-simple-transforms-with-fit-and-apply">
 <h2>Implementing simple transforms with <code class="docutils literal notranslate"><span class="pre">_fit()</span></code> and <code class="docutils literal notranslate"><span class="pre">_apply()</span></code><a class="headerlink" href="#implementing-simple-transforms-with-fit-and-apply" title="Permalink to this headline">#</a></h2>
 </section>
@@ -447,6 +451,7 @@
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Implementing your own transforms</a><ul>
+<li><a class="reference internal" href="#consider-using-statelesslambda-or-statefullambda">Consider using <code class="docutils literal notranslate"><span class="pre">StatelessLambda</span></code> or <code class="docutils literal notranslate"><span class="pre">StatefulLambda</span></code></a></li>
 <li><a class="reference internal" href="#implementing-simple-transforms-with-fit-and-apply">Implementing simple transforms with <code class="docutils literal notranslate"><span class="pre">_fit()</span></code> and <code class="docutils literal notranslate"><span class="pre">_apply()</span></code></a></li>
 <li><a class="reference internal" href="#declaring-parameters">Declaring parameters</a></li>
 <li><a class="reference internal" href="#using-custom-transforms-in-pipelines">Using custom Transforms in pipelines</a></li>
