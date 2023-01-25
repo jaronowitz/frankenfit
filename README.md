@@ -1,5 +1,6 @@
 # 🧟 Frankenfit: it's alive! it's fit! 📈📊
 
+![pyversions](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.10-blue)
 [![pytest](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml)
 [![docs](https://github.com/maxbane/frankenfit/actions/workflows/docs.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/docs.yml)
 [![mypy](https://github.com/maxbane/frankenfit/actions/workflows/mypy.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/mypy.yml)
