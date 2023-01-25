@@ -7,6 +7,17 @@ on:
     branches: [ "main" ]
 
 jobs:
+  install_deps:
+    runs-on: ubuntu-22.04
+    steps:
+#      - uses: ConorMacBride/install-package@v1
+#        with:
+#          apt: graphviz
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: graphviz
+          version: 1.0
+
   docs:
     runs-on: ubuntu-22.04
     strategy:
@@ -15,6 +26,10 @@ jobs:
         python: ["3.10"]
 
     steps:
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: graphviz
+          version: 1.0
       - uses: actions/checkout@v3
       - name: Setup Python
         uses: actions/setup-python@v4
