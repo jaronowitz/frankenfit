@@ -71,9 +71,22 @@ dependencies = [
 ]
 
 classifiers = [
-    "Programming Language :: Python :: 3.8",
     "License :: OSI Approved :: BSD License",
+    "Environment :: Console",
     "Operating System :: OS Independent",
+
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 
 [project.urls]
@@ -113,7 +126,7 @@ dev = [
     'pre-commit',
     'build',
     'tox < 4',
-    # convenience: running linters outside of tox
+    # convenience: running linters outside of tox/pre-commit
     'flake8',
     'flake8-pyproject',
     'black',
