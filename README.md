@@ -15,7 +15,7 @@ Its key features are:
   modeling **pipelines** from chains of composable building blocks called
   **transforms**. Pipelines themselves are composable, re-usable, and extensible, with
   a thorough [library of
-  transforms](https://devbox.homenet.thebanes.org/~max/frankenfit/docs/_build/html/api.html#transform-library)
+  transforms](https://maxbane.github.io/frankenfit/current/api.html#transform-library)
   available for building, grouping, and combining pipelines in useful ways.
 * Rigorous separation between, on the one hand, **fitting** the state of your pipeline
   on some training data, and, on the other, **applying** it
