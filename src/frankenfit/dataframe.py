@@ -1103,7 +1103,9 @@ class SKLearn(DataFrameTransform):
         ``X`` argument to the sklearn model's ``fit()`` and ``predict()`` methods.
     response_col: str
         The response column. At fit-time, this is selected from the fitting data to
-        create the ``y`` argument to the sklearn model's ``fit()`` method.
+        create the ``y`` argument to the sklearn model's ``fit()`` method. This column
+        is only needed at fit-time, hence its creation may be wrapped in
+        :class:`~frankenfit.core.IfPipelineIsFitting` if desired.
     hat_col: str
         The name of the new column to create at apply-time containing predictions from
         the sklearn model.
@@ -1177,7 +1179,9 @@ class Statsmodels(DataFrameTransform):
         ``X`` argument to the model's ``fit()`` and ``predict()`` methods.
     response_col: str
         The response column. At fit-time, this is selected from the fitting data to
-        create the ``y`` argument to the model's ``fit()`` method.
+        create the ``y`` argument to the model's ``fit()`` method. This column is only
+        needed at fit-time, hence its creation may be wrapped in
+        :class:`~frankenfit.core.IfPipelineIsFitting` if desired.
     hat_col: str
         The name of the new column to create at apply-time containing predictions from
         the ``statsmodels`` model.
