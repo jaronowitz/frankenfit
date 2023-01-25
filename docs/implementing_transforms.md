@@ -44,6 +44,7 @@ class DeMean(ff.Transform):
 
 As authors of a Transform, in most cases we must implement `_fit` and `_apply` methods.
 
+## Consider using `StatelessLambda` or `StatefulLambda`
 
 ## Implementing simple transforms with `_fit()` and `_apply()`
 

@@ -1,11 +1,38 @@
 # 🧟 Frankenfit: it's alive! it's fit!
 
-Frankenfit is a Python library that provides a domain-specific-language for creating,
-fitting, and applying predictive data modeling pipelines.
+<p>
+<a href="https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml">
+  <img alt="tests passing?"
+  src="https://github.com/maxbane/frankenfit/workflows/pytest/badge.svg"></a>
+<a href="https://github.com/maxbane/frankenfit/actions/workflows/docs.yml">
+  <img alt="docs building?"
+  src="https://github.com/maxbane/frankenfit/workflows/docs/badge.svg"></a>
+<a href="https://github.com/maxbane/frankenfit/actions/workflows/mypy.yml">
+  <img alt="mypy passing?"
+  src="https://github.com/maxbane/frankenfit/workflows/mypy/badge.svg"></a>
+<a href="https://github.com/maxbane/frankenfit/blob/main/LICENSE.txt"><img
+  alt="License: BSD-2-Clause-Patent"
+  src="https://img.shields.io/badge/license-BSD-red"></a>
+<a href="https://github.com/psf/black"><img alt="Code style: black"
+  src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
+</p>
 
-* DSL, flexible, composable, re-usable, extensible
+Frankenfit is a Python library for data scientists that provides a domain-specific
+language (DSL) for creating, fitting, and applying predictive data modeling pipelines.
+They key features are:
+
+* A concise and readable DSL (inspired by the pandas [method-chaining style](https://tomaugspurger.github.io/posts/method-chaining/)) for creating data modeling **pipelines** from chains of composable building blocks called **transforms**. Pipelines themselves are composable, re-usable, and extensible, with a .
 * Rigorous separation between fitting and applying. You can apply everything truly out-of-sample.
-* Parallel computation on distributed backends (currently Dask)
+* Hyperparameter searches, cross-validation, and other resampling schemes.
+* Parallel computation on distributed backends (currently Dask). Frankenfit
+  automatically figures out what parts of your pipeline are independent of each other
+  and runs them in parallel on a distributed compute cluster.
+* A focus on user ergonomics and interactive usage. Extensive type annotations enable
+  smart auto-completions by IDEs.
+  [Visualizations](https://maxbane.github.io/frankenfit/current/transforms_and_pipelines.html#visualizing-pipelines)
+  help you see what your pipelines are doing. You can [implement your own
+  transforms](https://maxbane.github.io/frankenfit/current/implementing_transforms.html)
+  with almost zero boilerplate.
 
 Takes some inspiration from scikit-learn's [`pipeline`
 module](https://scikit-learn.org/stable/modules/classes.html#module-sklearn.pipeline).
@@ -50,9 +77,8 @@ what you can do and proceed from there.
 The most up-to-date documentation, corresponding to the unreleased `main` branch of this
 repository, is available here: https://maxbane.github.io/frankenfit/current/.
 
-The author of Frankenfit has put a lot of effort into writing a narrative walkthrough of
-using the library for predictive data modeling, as well as complete API documentation.
-Please check it out!
+The documentation provides a detailed narrative walkthrough of using the library for
+predictive data modeling, as well as a complete API reference.  Please check it out!
 
 ## Type annotations
 
