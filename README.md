@@ -1,21 +1,10 @@
 # 🧟 Frankenfit: it's alive! it's fit!
 
-<p>
-<a href="https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml">
-  <img alt="tests passing?"
-  src="https://github.com/maxbane/frankenfit/workflows/pytest/badge.svg"></a>
-<a href="https://github.com/maxbane/frankenfit/actions/workflows/docs.yml">
-  <img alt="docs building?"
-  src="https://github.com/maxbane/frankenfit/workflows/docs/badge.svg"></a>
-<a href="https://github.com/maxbane/frankenfit/actions/workflows/mypy.yml">
-  <img alt="mypy passing?"
-  src="https://github.com/maxbane/frankenfit/workflows/mypy/badge.svg"></a>
-<a href="https://github.com/maxbane/frankenfit/blob/main/LICENSE.txt"><img
-  alt="License: BSD-2-Clause-Patent"
-  src="https://img.shields.io/badge/license-BSD-red"></a>
-<a href="https://github.com/psf/black"><img alt="Code style: black"
-  src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
-</p>
+[![pytest](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml)
+[![docs](https://github.com/maxbane/frankenfit/actions/workflows/docs.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/docs.yml)
+[![mypy](https://github.com/maxbane/frankenfit/actions/workflows/mypy.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/mypy.yml)
+[![license](https://img.shields.io/badge/license-BSD-red)](https://github.com/maxbane/frankenfit/blob/main/LICENSE.txt)
+[![code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Frankenfit is a Python library for data scientists that provides a domain-specific
 language (DSL) for creating, fitting, and applying predictive data modeling pipelines.
