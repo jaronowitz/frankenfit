@@ -132,8 +132,8 @@ plugins = "frankenfit.mypy"
 
 If you're *not* hacking on the Frankenfit codebase itself, and just want to build or
 install it from source, `$ pip build .`, `$ pip sdist .`, `$ pip install .` should all
-work out of the box without creating any special virtual environment, as long as you're
-using Python 3.8+ and a recent version of `pip`.
+work out of the box without creating any special needs, as long as you're using Python
+3.8+ and a recent version of `pip`.
 
 To get started with hacking on Frankenfit itself, make sure that the `python3.10`
 binary is on your path, clone this repo, and run:
@@ -157,7 +157,7 @@ We use the [`pytest`](pytest.org) testing framework together with the [`tox`](to
 (v3) test runner. Tests live under `tests/` and are discovered by `pytest` according to
 its normal discovery rules. Please be diligent about writing or updating tests for any
 new or changed functionality. We use GitHub Actions to run tests on every pull request
-and push to `main`.
+and every push to `main`.
 
 ### Code style and linters
 
@@ -189,13 +189,12 @@ There are three categories of dependencies for the project:
   Book](https://jupyterbook.org) and other additional dependencies, as declared by the
   `docs` extra in `pyproject.toml`.
 
-* Developer dependencies, as declared by the `dev` extra. These are packages that a developer hacking on Frankenfit
-  needs to make full use of the repository, including `pre-commit` for running linters
-  without actually making a commit, `jupyter` for interacting with example notebooks, as
-  well as all of the run-time and test-time dependencies to allow for editor
-  autocompletions and ad hoc testing. The developer dependencies are defined in
-  `requirements-dev.txt`, and are automatically installed to the environment created by
-  the `setup-venv-dev` script.
+* Developer dependencies, as declared by the `dev` extra. These are packages that a
+  developer hacking on Frankenfit needs to make full use of the repository, including
+  `tox` for actually running tox, `pre-commit` for running linters without
+  actually making a commit, and so on. The `dev` extra itself depends on all of the
+  other extras `[dask,docs,tests]`, so it suffices just to run `pip install -e ".[dev]"`
+  on this repo to get started (which is what the setup script does).
 
 ### Writing documentation
 
@@ -204,7 +203,7 @@ build it as a static HTML site. Documentation content is written in Markdown
 (specifically MyST), but the Python docstrings, which are included in the API reference
 section of the documentation, must still be in reStructuredText (albeit [NumPy
 style](https://www.sphinx-doc.org/en/master/usage/extensions/napoleon.html)), so it's a
-bit of a Frankenstein situation.
+bit of a Frankenstein situation. 🧟
 
 The official color scheme of Frankenfit is, of course,
 [Dracula](https://draculatheme.com/). 🧛
