@@ -11,11 +11,14 @@ eating.”
 --Marcus Aurelius, *Meditations*, as translated by George Long in 1862
 ```
 
+🏠 **Project homepage:** https://github.com/maxbane/frankenfit
+
 ## Table of contents
 
 ```{tableofcontents}
 ```
-## License (BSD 2-Clause plus patents)
+
+## License ([BSD-2-Clause-Patent](https://spdx.org/licenses/BSD-2-Clause-Patent.html))
 
 Redistribution and use in source and binary forms, with or without modification, are
 permitted provided that the following conditions are met:
