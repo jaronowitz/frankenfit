@@ -65,9 +65,9 @@ intelligent auto-completions.
 
 ![screenshot-vscode](docs/_static/sshot-vscode-intellisense-frankenfit-pipeline.png)
 
-Frankenfit includes its own [mypy plugin]. It is highly recommended to enable it if you
-are type-checking your own code, which uses Frankenfit, with mypy. Just include the
-following in your project's `pyproject.toml`:
+Frankenfit includes its own [mypy plugin](src/frankenfit/mypy.py). It is highly
+recommended to enable it if you are using mypy to type-check your own code, which uses
+Frankenfit. Just include the following in your project's `pyproject.toml`:
 
 ```toml
 [tool.mypy]
