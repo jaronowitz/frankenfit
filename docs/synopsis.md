@@ -53,14 +53,15 @@ using a callchain-style API. A pipeline is a sequence of transforms, each applyi
 the output of the transform that precedes it. For example, here's a pipeline for
 predicting diamond prices, including feature preparation and response transformations:
 
-```{code-cell} ipython3
+```{code-cell}
 :tags: [remove-cell]
+
 # FIXME: this cell should not be visible in docs output.
 import matplotlib.pyplot as plt
 plt.style.use('./dracula.mplstyle')
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 import numpy as np
 import sklearn.linear_model
 import frankenfit as ff
@@ -104,14 +105,15 @@ diamond_model = (
 
 The pipeline itself is only a lightweight description of what to do to some input data.
 
-```{code-cell} ipython3
+```{code-cell}
 from pydataset import data
 df = data('diamonds')
 df.head()
 ```
 
-```{code-cell} ipython3
+```{code-cell}
 :tags: [remove-cell]
+
 # FIXME: this cell should not be visible in docs output.
 df.rename_axis(index="index").to_csv("./diamonds.csv")
 ```
@@ -119,14 +121,14 @@ df.rename_axis(index="index").to_csv("./diamonds.csv")
 *Fit* the pipeline on data, obtaining a `FitTransform` object, which
 encapsulates the learned *states* of all of the transforms in the pipeline:
 
-```{code-cell} ipython3
+```{code-cell}
 df_in = df.sample(100).reset_index()
 fit_diamond_model = diamond_model.fit(df_in)
 ```
 
 The fit may then be applied to another input DataFrame:
 
-```{code-cell} ipython3
+```{code-cell}
 df_out = df.sample(1000).reset_index()
 result = fit_diamond_model.apply(df_out)
 result[["carat_fea", "depth_fea", "table_fea", "price_hat"]].hist(figsize=(5,5));
@@ -142,7 +144,7 @@ Frankenfit provides various transforms that fit and apply *child transforms*, wh
 be combined to achieve many use cases. For example, suppose we want to perform 5-fold
 cross validation on the model of diamond prices:
 
-```{code-cell} ipython3
+```{code-cell}
 (
     do.read_pandas_csv("./diamonds.csv")
     .assign(
