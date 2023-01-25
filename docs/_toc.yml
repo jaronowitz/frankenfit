@@ -4,6 +4,7 @@
 format: jb-book
 root: cover
 chapters:
+- file: install
 - file: synopsis
 - file: transforms_and_pipelines
 - file: hyperparams
