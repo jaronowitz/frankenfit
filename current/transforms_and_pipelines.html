@@ -424,12 +424,6 @@ in the module <a class="reference internal" href="api.html#dataframe-api"><span 
 </table>
 </div></div></div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Throughout the documentation we make use of the
-<a class="reference external" href="https://pypi.org/project/pydataset/">pydataset</a> package for loading example data like
-<code class="docutils literal notranslate"><span class="pre">diamonds</span></code>.</p>
-</div>
 <p>The <code class="docutils literal notranslate"><span class="pre">DeMean</span></code> Transform instance <code class="docutils literal notranslate"><span class="pre">dmn</span></code> may then be <strong>fit</strong> on the data. By default it
 learns to de-mean all columns in the DataFrame.</p>
 <div class="cell docutils container">
@@ -579,38 +573,38 @@ de-mean the dataset with respect to the means observed on some subsample of it:<
   <tbody>
     <tr>
       <th>1</th>
-      <td>-0.4758</td>
-      <td>-0.26</td>
-      <td>-2.661</td>
-      <td>-3101.82</td>
+      <td>-0.4574</td>
+      <td>-0.332</td>
+      <td>-2.424</td>
+      <td>-2670.1</td>
     </tr>
     <tr>
       <th>2</th>
-      <td>-0.4958</td>
-      <td>-1.96</td>
-      <td>3.339</td>
-      <td>-3101.82</td>
+      <td>-0.4774</td>
+      <td>-2.032</td>
+      <td>3.576</td>
+      <td>-2670.1</td>
     </tr>
     <tr>
       <th>3</th>
-      <td>-0.4758</td>
-      <td>-4.86</td>
-      <td>7.339</td>
-      <td>-3100.82</td>
+      <td>-0.4574</td>
+      <td>-4.932</td>
+      <td>7.576</td>
+      <td>-2669.1</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>-0.4158</td>
-      <td>0.64</td>
-      <td>0.339</td>
-      <td>-3093.82</td>
+      <td>-0.3974</td>
+      <td>0.568</td>
+      <td>0.576</td>
+      <td>-2662.1</td>
     </tr>
     <tr>
       <th>5</th>
-      <td>-0.3958</td>
-      <td>1.54</td>
-      <td>0.339</td>
-      <td>-3092.82</td>
+      <td>-0.3774</td>
+      <td>1.468</td>
+      <td>0.576</td>
+      <td>-2661.1</td>
     </tr>
   </tbody>
 </table>
@@ -1575,7 +1569,7 @@ other, as well as outliers:</p>
     </tr>
   </tbody>
 </table>
-</div></div><img alt="_images/transforms_and_pipelines_52_1.png" src="_images/transforms_and_pipelines_52_1.png" />
+</div></div><img alt="_images/transforms_and_pipelines_51_1.png" src="_images/transforms_and_pipelines_51_1.png" />
 </div>
 </div>
 <p>Therefore in practice we’ll want to apply several feature-cleaning transformations to
@@ -1773,8 +1767,8 @@ un-transformed <code class="docutils literal notranslate"><span class="pre">pric
     </tr>
   </tbody>
 </table>
-</div></div><img alt="_images/transforms_and_pipelines_58_1.png" src="_images/transforms_and_pipelines_58_1.png" />
-<img alt="_images/transforms_and_pipelines_58_2.png" src="_images/transforms_and_pipelines_58_2.png" />
+</div></div><img alt="_images/transforms_and_pipelines_57_1.png" src="_images/transforms_and_pipelines_57_1.png" />
+<img alt="_images/transforms_and_pipelines_57_2.png" src="_images/transforms_and_pipelines_57_2.png" />
 </div>
 </div>
 <p>Even more incidentally, the <code class="docutils literal notranslate"><span class="pre">state()</span></code> of <code class="docutils literal notranslate"><span class="pre">regress_fit</span></code> is just a (fit) scikit-learn
@@ -2609,7 +2603,7 @@ Perhaps &quot;dot -c&quot; needs to be run (with installer&#39;s privileges) to 
 <span class="ne">CalledProcessError</span>: Command &#39;[PosixPath(&#39;dot&#39;), &#39;-Kdot&#39;, &#39;-Tsvg&#39;]&#39; returned non-zero exit status 1. [stderr: &#39;There is no layout engine support for &quot;dot&quot;\nPerhaps &quot;dot -c&quot; needs to be run (with installer\&#39;s privileges) to register the plugins?\n&#39;]
 </pre></div>
 </div>
-<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7fdac5e64640&gt;
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7f98a1bdb2e0&gt;
 </pre></div>
 </div>
 </div>
@@ -2742,7 +2736,7 @@ Perhaps &quot;dot -c&quot; needs to be run (with installer&#39;s privileges) to 
 <span class="ne">CalledProcessError</span>: Command &#39;[PosixPath(&#39;dot&#39;), &#39;-Kdot&#39;, &#39;-Tsvg&#39;]&#39; returned non-zero exit status 1. [stderr: &#39;There is no layout engine support for &quot;dot&quot;\nPerhaps &quot;dot -c&quot; needs to be run (with installer\&#39;s privileges) to register the plugins?\n&#39;]
 </pre></div>
 </div>
-<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7fdab1a06b90&gt;
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7f98a07d8fd0&gt;
 </pre></div>
 </div>
 </div>
@@ -2926,7 +2920,7 @@ Perhaps &quot;dot -c&quot; needs to be run (with installer&#39;s privileges) to 
 <span class="ne">CalledProcessError</span>: Command &#39;[PosixPath(&#39;dot&#39;), &#39;-Kdot&#39;, &#39;-Tsvg&#39;]&#39; returned non-zero exit status 1. [stderr: &#39;There is no layout engine support for &quot;dot&quot;\nPerhaps &quot;dot -c&quot; needs to be run (with installer\&#39;s privileges) to register the plugins?\n&#39;]
 </pre></div>
 </div>
-<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7fdab1a40df0&gt;
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7f98a07e8a00&gt;
 </pre></div>
 </div>
 </div>
@@ -3224,7 +3218,7 @@ Perhaps &quot;dot -c&quot; needs to be run (with installer&#39;s privileges) to 
 <span class="ne">CalledProcessError</span>: Command &#39;[PosixPath(&#39;dot&#39;), &#39;-Kdot&#39;, &#39;-Tsvg&#39;]&#39; returned non-zero exit status 1. [stderr: &#39;There is no layout engine support for &quot;dot&quot;\nPerhaps &quot;dot -c&quot; needs to be run (with installer\&#39;s privileges) to register the plugins?\n&#39;]
 </pre></div>
 </div>
-<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7fdab1a4f460&gt;
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7f98a064b670&gt;
 </pre></div>
 </div>
 </div>
@@ -3272,7 +3266,7 @@ in question, and send them to our <code class="docutils literal notranslate"><sp
 </div>
 </div>
 <div class="cell_output docutils container">
-<img alt="_images/transforms_and_pipelines_108_0.png" src="_images/transforms_and_pipelines_108_0.png" />
+<img alt="_images/transforms_and_pipelines_107_0.png" src="_images/transforms_and_pipelines_107_0.png" />
 </div>
 </div>
 <p>As a convenience, both <a class="reference internal" href="api.html#frankenfit.core.PipelineMember.then" title="frankenfit.core.PipelineMember.then"><span class="xref myst py py-meth"><code class="docutils literal notranslate"><span class="pre">then()</span></code></span></a> and the addition
@@ -3414,7 +3408,7 @@ Perhaps &quot;dot -c&quot; needs to be run (with installer&#39;s privileges) to 
 <span class="ne">CalledProcessError</span>: Command &#39;[PosixPath(&#39;dot&#39;), &#39;-Kdot&#39;, &#39;-Tsvg&#39;]&#39; returned non-zero exit status 1. [stderr: &#39;There is no layout engine support for &quot;dot&quot;\nPerhaps &quot;dot -c&quot; needs to be run (with installer\&#39;s privileges) to register the plugins?\n&#39;]
 </pre></div>
 </div>
-<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7fdab1a4eb00&gt;
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;graphviz.graphs.Digraph at 0x7f98a064ac20&gt;
 </pre></div>
 </div>
 </div>

@@ -206,6 +206,7 @@ Foobar.
 
 ```
 
+(transform-library)=
 ## Transform library
 
 ### Core transforms

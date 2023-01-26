@@ -316,18 +316,42 @@
         <article role="main">
           <section class="tex2jax_ignore mathjax_ignore" id="synopsis-and-overview">
 <h1>Synopsis and overview<a class="headerlink" href="#synopsis-and-overview" title="Permalink to this headline">#</a></h1>
-<p>Frankenfit is a Python library for creating predictive data modeling pipelines from
-reusable, composable building blocks called <em>Transforms</em>. Once defined, a pipeline may
-be fit on some data and hyperparameters, and then applied on some possibly different
-data. If the apply-time input data is different than the fit-time input data, then the
-pipeline and all of its constituent transforms are applied entirely “out-of-sample”
-with respect to the fitting data.</p>
-<p>Frankenfit takes some inspiration from scikit-learn’s
-<a class="reference external" href="https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html"><code class="docutils literal notranslate"><span class="pre">Pipeline</span></code></a>,
-but the Frankenfit API is intended to be used as a more general domain-specific language
-for data learning and transformation pipelines. It’s easy to include models and
-estimators from third-party libraries like <a class="reference external" href="https://scikit-learn.org/">scikit-learn</a> and
-<a class="reference external" href="https://www.statsmodels.org/">statsmodels</a> in your Frankenfit pipelines.</p>
+<p>Frankenfit is a Python library for data scientists that provides a domain-specific
+language (DSL) for creating, fitting, and applying predictive data modeling pipelines.
+Its key features are:</p>
+<ul class="simple">
+<li><p>A concise and readable <strong>DSL</strong> (inspired by the pandas <a class="reference external" href="https://tomaugspurger.github.io/posts/method-chaining/">method-chaining
+style</a>) to create data
+modeling <strong>pipelines</strong> from chains of composable building blocks called
+<strong>transforms</strong>. Pipelines themselves are composable, re-usable, and extensible, with
+a thorough <a class="reference internal" href="api.html#transform-library"><span class="std std-ref">library of transforms</span></a> available for building,
+grouping, and combining pipelines in useful ways.</p></li>
+<li><p>Rigorous separation between, on the one hand, <strong>fitting</strong> the state of your pipeline
+on some training data, and, on the other, <strong>applying</strong> it
+<a class="reference external" href="https://stats.stackexchange.com/questions/260899/what-is-difference-between-in-sample-and-out-of-sample-forecasts">out-of-sample</a>
+to make predictions on test data. Once fit, a pipeline can be re-used to make
+predictions on many different test datasets, and these predictions are truly
+<strong>out-of-sample</strong>, right down to the quantiles used to winsorize your features
+(for example).</p></li>
+<li><p>The ability to specify your pipeline’s parameters as <strong>hyperparameters</strong>, whose values
+are bound later. This can make your pipelines more re-usable, and enables powerful
+workflows like hyperparameter search, cross-validation, and other resampling schemes,
+all described in the same DSL used to create pipelines.</p></li>
+<li><p><strong>Parallel computation</strong> on distributed backends (currently
+<a class="reference external" href="https://www.dask.org">Dask</a>). Frankenfit automatically figures out what parts of your
+pipeline are independent of each other and runs them in parallel on a distributed
+compute cluster.</p></li>
+<li><p>A focus on <strong>user ergonomics</strong> and <strong>interactive usage.</strong> Extensive type annotations
+enable smart auto-completions by IDEs. <a class="reference internal" href="transforms_and_pipelines.html#visualizing-pipelines"><span class="std std-ref">Visualizations</span></a> help
+you see what your pipelines are doing. You can <a class="reference internal" href="implementing_transforms.html#implementing-transforms"><span class="std std-ref">implement your own
+transforms</span></a> with almost zero boilerplate.</p></li>
+</ul>
+<p>Frankenfit takes some inspiration from scikit-learn’s <a class="reference external" href="https://scikit-learn.org/stable/modules/classes.html#module-sklearn.pipeline"><code class="docutils literal notranslate"><span class="pre">pipeline</span></code>
+module</a>,
+but aims to be much more general-purpose and flexible. It integrates easily with
+industry-standard libraries like <a class="reference external" href="https://pandas.pydata.org">pandas</a>,
+<a class="reference external" href="https://scikit-learn.org">scikit-learn</a> and <a class="reference external" href="https://www.statsmodels.org">statsmodels</a>,
+or your own in-house library of statistical models and data transformations.</p>
 <p>Frankenfit’s focus is on 2-D Pandas DataFrames, but the core API is agnostic and could also
 be used to implement pipelines on other data types, like text or images.</p>
 <div class="admonition tip">
@@ -340,71 +364,51 @@ recommends importing <code class="docutils literal notranslate"><span class="pre
 </div>
 <p>With Frankenfit, you can:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="#synopsis-create"><span class="std std-ref">Create pipelines</span></a></p></li>
-<li><p><a class="reference internal" href="#synopsis-fit-apply"><span class="std std-ref">Fit pipelines and apply them to data</span></a></p></li>
+<li><p><a class="reference internal" href="#synopsis-create"><span class="std std-ref">Create pipelines</span></a> using a DSL of call-chain methods.</p></li>
+<li><p><a class="reference internal" href="#synopsis-fit-apply"><span class="std std-ref">Fit pipelines and apply them to data</span></a> to generate predictions.</p></li>
+<li><p><a class="reference internal" href="#synopsis-hyperparams"><span class="std std-ref">Use hyperparameters</span></a> to generalize your pipelines and concisely
+execute hyperparameter searches and data batching.</p></li>
+<li><p><a class="reference internal" href="#synopsis-backends"><span class="std std-ref">Run your pipelines on distributed backends</span></a>, exploiting the
+parallelism inherent to any branching operations in a pipeline.</p></li>
 </ul>
+<p>The remainder of this page summarizes each of these workflows with a running example,
+while the subsequent sections of the documentation detail how everything works from the
+ground up.</p>
 <section id="create-pipelines">
 <span id="synopsis-create"></span><h2>Create pipelines<a class="headerlink" href="#create-pipelines" title="Permalink to this headline">#</a></h2>
-<p>Create concise and readable descriptions of data learning and transformation pipelines
-using a callchain-style API. A pipeline is a sequence of transforms, each applying to
-the output of the transform that precedes it. For example, here’s a pipeline for
-predicting diamond prices, including feature preparation and response transformations:</p>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">sklearn.linear_model</span>
-<span class="kn">import</span> <span class="nn">frankenfit</span> <span class="k">as</span> <span class="nn">ff</span>
-
-<span class="n">do</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">DataFramePipeline</span><span class="p">()</span>
-<span class="n">diamond_model</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="n">do</span>
-    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
-        <span class="c1"># We train a model to predict the log-transformed and winsorized price of a</span>
-        <span class="c1"># diamond.</span>
-        <span class="n">price_train</span><span class="o">=</span><span class="n">do</span><span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">)</span><span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">),</span>
-        <span class="c1"># Transform carats to log-carats</span>
-        <span class="n">carat</span><span class="o">=</span><span class="n">do</span><span class="p">[</span><span class="s2">&quot;carat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="c1"># Prepare features: trim outliers and standardize</span>
-    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
-        <span class="n">do</span><span class="p">[[</span><span class="s2">&quot;carat&quot;</span><span class="p">,</span> <span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">]]</span>
-        <span class="o">.</span><span class="n">suffix</span><span class="p">(</span><span class="s2">&quot;_fea&quot;</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">z_score</span><span class="p">()</span>
-        <span class="o">.</span><span class="n">impute_constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-    <span class="p">)</span>
-    <span class="c1"># Fit a linear regression model to predict log-prices from the prepared features</span>
-    <span class="o">.</span><span class="n">sk_learn</span><span class="p">(</span>
-        <span class="n">sklearn</span><span class="o">.</span><span class="n">linear_model</span><span class="o">.</span><span class="n">LinearRegression</span><span class="p">,</span>
-        <span class="n">x_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;carat_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;depth_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;table_fea&quot;</span><span class="p">],</span>
-        <span class="n">response_col</span><span class="o">=</span><span class="s2">&quot;price_train&quot;</span><span class="p">,</span>
-        <span class="n">hat_col</span><span class="o">=</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span>
-        <span class="n">class_params</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">fit_intercept</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-    <span class="p">)</span>
-    <span class="c1"># Transform the regression model&#39;s predictions back from log-dollars to dollars</span>
-    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
-        <span class="n">price_hat_dollars</span><span class="o">=</span><span class="n">do</span><span class="p">[</span><span class="s2">&quot;price_hat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expm1</span><span class="p">)</span>
-    <span class="p">)</span>
-<span class="p">)</span>
-</pre></div>
-</div>
-</div>
-</div>
-</section>
-<section id="fit-pipelines-and-apply-them-to-data">
-<span id="synopsis-fit-apply"></span><h2>Fit pipelines and apply them to data<a class="headerlink" href="#fit-pipelines-and-apply-them-to-data" title="Permalink to this headline">#</a></h2>
-<p>The pipeline itself is only a lightweight description of what to do to some input data.</p>
+<p>Let’s suppose we want to model the prices of round-cut diamonds using the venerable
+<a class="reference external" href="https://ggplot2.tidyverse.org/reference/diamonds.html">diamonds</a> dataset, which is
+often used to teach regression, and looks like this:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pydataset</span> <span class="kn">import</span> <span class="n">data</span>
-<span class="n">df</span> <span class="o">=</span> <span class="n">data</span><span class="p">(</span><span class="s1">&#39;diamonds&#39;</span><span class="p">)</span>
-<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+<span class="n">diamonds_df</span> <span class="o">=</span> <span class="n">data</span><span class="p">(</span><span class="s1">&#39;diamonds&#39;</span><span class="p">)</span>
+<span class="n">diamonds_df</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+<span class="n">diamonds_df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
 <div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>initiated datasets repo at: /home/runner/.pydataset/
+</pre></div>
+</div>
+<div class="output stream highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>&lt;class &#39;pandas.core.frame.DataFrame&#39;&gt;
+Int64Index: 53940 entries, 1 to 53940
+Data columns (total 10 columns):
+ #   Column   Non-Null Count  Dtype  
+---  ------   --------------  -----  
+ 0   carat    53940 non-null  float64
+ 1   cut      53940 non-null  object 
+ 2   color    53940 non-null  object 
+ 3   clarity  53940 non-null  object 
+ 4   depth    53940 non-null  float64
+ 5   table    53940 non-null  float64
+ 6   price    53940 non-null  int64  
+ 7   x        53940 non-null  float64
+ 8   y        53940 non-null  float64
+ 9   z        53940 non-null  float64
+dtypes: float64(6), int64(1), object(3)
+memory usage: 4.5+ MB
 </pre></div>
 </div>
 <div class="output text_html"><div>
@@ -507,12 +511,93 @@ predicting diamond prices, including feature preparation and response transforma
 </table>
 </div></div></div>
 </div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># randomly split train and test data</span>
+<span class="n">train_df</span> <span class="o">=</span> <span class="n">diamonds_df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">1337_420_69</span><span class="p">)</span>
+<span class="n">test_df</span> <span class="o">=</span> <span class="n">diamonds_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">diamonds_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">train_df</span><span class="o">.</span><span class="n">index</span><span class="p">))]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
+    <span class="n">train_df</span>
+    <span class="p">[[</span><span class="s2">&quot;carat&quot;</span><span class="p">,</span> <span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">]]</span>
+    <span class="o">.</span><span class="n">hist</span><span class="p">()</span>
+<span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/synopsis_6_0.png" src="_images/synopsis_6_0.png" />
+</div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Throughout the documentation we make use of the
+<a class="reference external" href="https://pypi.org/project/pydataset/">pydataset</a> package for loading example data like
+<code class="docutils literal notranslate"><span class="pre">diamonds</span></code>.</p>
+</div>
+<p>Create concise and readable descriptions of data learning and transformation pipelines
+using a callchain-style API. A pipeline is a sequence of transforms, each applying to
+the output of the transform that precedes it. For example, here’s a pipeline for
+predicting diamond prices, including feature preparation and response transformations:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">sklearn.linear_model</span>
+<span class="kn">import</span> <span class="nn">frankenfit</span> <span class="k">as</span> <span class="nn">ff</span>
+
+<span class="c1"># &quot;do&quot; as shorthand for a new pipeline</span>
+<span class="n">do</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">DataFramePipeline</span><span class="p">()</span>
+<span class="n">diamond_model</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">do</span>
+    <span class="o">.</span><span class="n">if_fitting</span><span class="p">(</span>
+        <span class="c1"># create training response when fitting</span>
+        <span class="n">do</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+            <span class="c1"># We&#39;ll train a model on the log-transformed and winsorized price of a</span>
+            <span class="c1"># diamond.</span>
+            <span class="n">price_train</span><span class="o">=</span><span class="n">do</span><span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">)</span><span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="c1"># Transform carats feature to log-carats</span>
+    <span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">,</span> <span class="s2">&quot;carat&quot;</span><span class="p">)</span>
+    <span class="c1"># Prepare features: trim outliers and standardize</span>
+    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">do</span><span class="p">[[</span><span class="s2">&quot;carat&quot;</span><span class="p">,</span> <span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">]]</span>
+        <span class="o">.</span><span class="n">suffix</span><span class="p">(</span><span class="s2">&quot;_fea&quot;</span><span class="p">)</span>  <span class="c1"># name the prepared features with _fea suffix</span>
+        <span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span>  <span class="c1"># trim top and bottom 5% of each</span>
+        <span class="o">.</span><span class="n">z_score</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">impute_constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>  <span class="c1"># fill missing values with zero (i.e. mean)</span>
+        <span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># clip z-scores</span>
+    <span class="p">)</span>
+    <span class="c1"># Fit a linear regression model to predict training response from the prepared</span>
+    <span class="c1"># features</span>
+    <span class="o">.</span><span class="n">sk_learn</span><span class="p">(</span>
+        <span class="n">sklearn</span><span class="o">.</span><span class="n">linear_model</span><span class="o">.</span><span class="n">LinearRegression</span><span class="p">,</span>
+        <span class="n">x_cols</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;carat_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;depth_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;table_fea&quot;</span><span class="p">],</span>
+        <span class="n">response_col</span><span class="o">=</span><span class="s2">&quot;price_train&quot;</span><span class="p">,</span>
+        <span class="n">hat_col</span><span class="o">=</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span>
+        <span class="n">class_params</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">fit_intercept</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+    <span class="p">)</span>
+    <span class="c1"># Exponentiate the regression model&#39;s predictions back from log-dollars to dollars</span>
+    <span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expm1</span><span class="p">,</span> <span class="s2">&quot;price_hat&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+</section>
+<section id="fit-pipelines-and-apply-them-to-data">
+<span id="synopsis-fit-apply"></span><h2>Fit pipelines and apply them to data<a class="headerlink" href="#fit-pipelines-and-apply-them-to-data" title="Permalink to this headline">#</a></h2>
+<p>The pipeline itself is only a lightweight description of what to do to some input data.</p>
 <p><em>Fit</em> the pipeline on data, obtaining a <code class="docutils literal notranslate"><span class="pre">FitTransform</span></code> object, which
 encapsulates the learned <em>states</em> of all of the transforms in the pipeline:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df_in</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
-<span class="n">fit_diamond_model</span> <span class="o">=</span> <span class="n">diamond_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">df_in</span><span class="p">)</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">fit_diamond_model</span> <span class="o">=</span> <span class="n">diamond_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">)</span>
 </pre></div>
 </div>
 </div>
@@ -520,11 +605,8 @@ encapsulates the learned <em>states</em> of all of the transforms in the pipelin
 <p>The fit may then be applied to another input DataFrame:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">df_out</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
-<span class="n">result</span> <span class="o">=</span> <span class="n">fit_diamond_model</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">df_out</span><span class="p">)</span>
-<span class="n">result</span><span class="p">[[</span><span class="s2">&quot;carat_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;depth_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;table_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;price_hat&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">));</span>
-<span class="n">result</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="s2">&quot;price_hat_dollars&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">);</span>
-<span class="n">result</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">predictions_df</span> <span class="o">=</span> <span class="n">fit_diamond_model</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span>
+<span class="n">predictions_df</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -547,7 +629,6 @@ encapsulates the learned <em>states</em> of all of the transforms in the pipelin
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>index</th>
       <th>carat</th>
       <th>cut</th>
       <th>color</th>
@@ -558,119 +639,117 @@ encapsulates the learned <em>states</em> of all of the transforms in the pipelin
       <th>x</th>
       <th>y</th>
       <th>z</th>
-      <th>price_train</th>
       <th>carat_fea</th>
       <th>depth_fea</th>
       <th>table_fea</th>
       <th>price_hat</th>
-      <th>price_hat_dollars</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <th>0</th>
-      <td>40358</td>
-      <td>0.357674</td>
-      <td>Premium</td>
-      <td>F</td>
-      <td>VS1</td>
-      <td>62.2</td>
-      <td>61.0</td>
-      <td>1129</td>
-      <td>4.83</td>
-      <td>4.75</td>
-      <td>2.98</td>
-      <td>7.029973</td>
-      <td>-0.842564</td>
-      <td>0.285899</td>
-      <td>1.941094</td>
-      <td>6.802443</td>
-      <td>899.043227</td>
-    </tr>
-    <tr>
-      <th>1</th>
-      <td>41309</td>
-      <td>0.451076</td>
-      <td>Premium</td>
-      <td>I</td>
-      <td>VS1</td>
-      <td>61.6</td>
-      <td>58.0</td>
-      <td>1212</td>
-      <td>5.33</td>
-      <td>5.28</td>
-      <td>3.27</td>
-      <td>7.100852</td>
-      <td>-0.434336</td>
-      <td>-0.223120</td>
-      <td>0.424614</td>
-      <td>7.358024</td>
-      <td>1567.733016</td>
-    </tr>
-    <tr>
-      <th>2</th>
-      <td>16479</td>
-      <td>0.732368</td>
-      <td>Ideal</td>
-      <td>G</td>
-      <td>VS2</td>
-      <td>61.3</td>
-      <td>56.0</td>
-      <td>6586</td>
-      <td>6.59</td>
-      <td>6.62</td>
-      <td>4.05</td>
-      <td>8.792853</td>
-      <td>0.795107</td>
-      <td>-0.477629</td>
-      <td>-0.586372</td>
-      <td>8.632537</td>
-      <td>5610.298574</td>
-    </tr>
-    <tr>
       <th>3</th>
-      <td>14057</td>
-      <td>0.262364</td>
-      <td>Premium</td>
-      <td>F</td>
-      <td>VS2</td>
-      <td>61.4</td>
-      <td>60.0</td>
-      <td>605</td>
-      <td>4.29</td>
-      <td>4.34</td>
-      <td>2.65</td>
-      <td>6.406880</td>
-      <td>-1.259136</td>
-      <td>-0.392793</td>
-      <td>1.435601</td>
-      <td>6.500666</td>
-      <td>664.585011</td>
+      <td>0.207014</td>
+      <td>Good</td>
+      <td>E</td>
+      <td>VS1</td>
+      <td>56.9</td>
+      <td>65.0</td>
+      <td>327</td>
+      <td>4.05</td>
+      <td>4.07</td>
+      <td>2.31</td>
+      <td>-1.248306</td>
+      <td>-2.000000</td>
+      <td>1.830680</td>
+      <td>724.047740</td>
     </tr>
     <tr>
       <th>4</th>
-      <td>11139</td>
-      <td>0.693147</td>
+      <td>0.254642</td>
+      <td>Premium</td>
+      <td>I</td>
+      <td>VS2</td>
+      <td>62.4</td>
+      <td>58.0</td>
+      <td>334</td>
+      <td>4.20</td>
+      <td>4.23</td>
+      <td>2.63</td>
+      <td>-1.248306</td>
+      <td>0.571484</td>
+      <td>0.308727</td>
+      <td>702.801203</td>
+    </tr>
+    <tr>
+      <th>5</th>
+      <td>0.270027</td>
+      <td>Good</td>
+      <td>J</td>
+      <td>SI2</td>
+      <td>63.3</td>
+      <td>58.0</td>
+      <td>335</td>
+      <td>4.34</td>
+      <td>4.35</td>
+      <td>2.75</td>
+      <td>-1.215013</td>
+      <td>1.346166</td>
+      <td>0.308727</td>
+      <td>707.524695</td>
+    </tr>
+    <tr>
+      <th>7</th>
+      <td>0.215111</td>
       <td>Very Good</td>
-      <td>F</td>
-      <td>SI1</td>
-      <td>63.4</td>
+      <td>I</td>
+      <td>VVS1</td>
+      <td>62.3</td>
+      <td>57.0</td>
+      <td>336</td>
+      <td>3.95</td>
+      <td>3.98</td>
+      <td>2.47</td>
+      <td>-1.248306</td>
+      <td>0.485408</td>
+      <td>-0.198591</td>
+      <td>717.600760</td>
+    </tr>
+    <tr>
+      <th>10</th>
+      <td>0.207014</td>
+      <td>Very Good</td>
+      <td>H</td>
+      <td>VS1</td>
+      <td>59.4</td>
       <td>61.0</td>
-      <td>4939</td>
-      <td>6.35</td>
-      <td>6.29</td>
-      <td>4.01</td>
-      <td>8.505121</td>
-      <td>0.623685</td>
-      <td>1.303936</td>
-      <td>1.941094</td>
-      <td>8.119723</td>
-      <td>3359.090369</td>
+      <td>338</td>
+      <td>4.00</td>
+      <td>4.05</td>
+      <td>2.39</td>
+      <td>-1.248306</td>
+      <td>-2.000000</td>
+      <td>1.830680</td>
+      <td>724.047740</td>
     </tr>
   </tbody>
 </table>
-</div></div><img alt="_images/synopsis_9_1.png" src="_images/synopsis_9_1.png" />
-<img alt="_images/synopsis_9_2.png" src="_images/synopsis_9_2.png" />
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
+    <span class="n">predictions_df</span>
+    <span class="p">[[</span><span class="s2">&quot;carat_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;depth_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;table_fea&quot;</span><span class="p">,</span> <span class="s2">&quot;price_hat&quot;</span><span class="p">]]</span>
+    <span class="o">.</span><span class="n">hist</span><span class="p">()</span>
+<span class="p">);</span>
+
+<span class="n">predictions_df</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">);</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<img alt="_images/synopsis_15_0.png" src="_images/synopsis_15_0.png" />
+<img alt="_images/synopsis_15_1.png" src="_images/synopsis_15_1.png" />
 </div>
 </div>
 <p>The ability to fit a complex pipeline on one set of data and use the fit state to
@@ -682,19 +761,14 @@ cross validation on the model of diamond prices:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
-    <span class="n">do</span><span class="o">.</span><span class="n">read_pandas_csv</span><span class="p">(</span><span class="s2">&quot;./diamonds.csv&quot;</span><span class="p">)</span>
-    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
-        <span class="c1"># randomly assign rows to groups</span>
-        <span class="n">group</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">,</span> <span class="n">ngroups</span><span class="o">=</span><span class="mi">5</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span>
-            <span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">ngroups</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-        <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span>
-    <span class="p">)</span>
-    <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span>
-        <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">fitting_schedule</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">fit_group_on_all_other_groups</span><span class="p">,</span> <span class="n">group_keys</span><span class="o">=</span><span class="kc">True</span>
-    <span class="p">)</span>
-        <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">diamond_model</span><span class="p">)</span>
-    <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price&quot;</span><span class="p">,</span> <span class="s2">&quot;price_hat_dollars&quot;</span><span class="p">)</span>
-<span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+    <span class="n">do</span>
+    <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span><span class="s2">&quot;cut&quot;</span><span class="p">,</span> <span class="n">group_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">then</span><span class="p">(</span>
+            <span class="n">fit_diamond_model</span>
+            <span class="o">.</span><span class="n">then</span><span class="p">()</span>
+            <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+<span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -717,13 +791,93 @@ cross validation on the model of diamond prices:</p>
   <thead>
     <tr style="text-align: right;">
       <th></th>
-      <th>price_hat_dollars</th>
+      <th></th>
+      <th>price</th>
+    </tr>
+    <tr>
+      <th>cut</th>
+      <th></th>
+      <th></th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <th>Good</th>
+      <th>price_hat</th>
+      <td>0.921185</td>
+    </tr>
+    <tr>
+      <th>Premium</th>
+      <th>price_hat</th>
+      <td>0.927234</td>
+    </tr>
+    <tr>
+      <th>Very Good</th>
+      <th>price_hat</th>
+      <td>0.928280</td>
+    </tr>
+    <tr>
+      <th>Ideal</th>
+      <th>price_hat</th>
+      <td>0.928356</td>
+    </tr>
+    <tr>
+      <th>Fair</th>
+      <th>price_hat</th>
+      <td>0.873844</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">crossval_pipeline</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">do</span><span class="o">.</span><span class="n">read_pandas_csv</span><span class="p">(</span><span class="s2">&quot;./diamonds.csv&quot;</span><span class="p">)</span>
+    <span class="c1"># randomly assign rows to groups</span>
+    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">group</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">,</span> <span class="n">ngroups</span><span class="o">=</span><span class="mi">5</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span>
+            <span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">ngroups</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span>
+        <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">fitting_schedule</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">fit_group_on_all_other_groups</span><span class="p">,</span>
+    <span class="p">)</span>
+        <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">diamond_model</span><span class="p">)</span>  <span class="c1"># &lt;-- our diamond_model pipeline is what&#39;s being grouped!</span>
+    <span class="c1"># score the out-of-sample predictions across all groups</span>
+    <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">crossval_pipeline</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
       <th>price</th>
-      <td>0.925828</td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>price_hat</th>
+      <td>0.925865</td>
     </tr>
   </tbody>
 </table>
@@ -738,18 +892,674 @@ score by feeding it to a transform that outputs the correlation between observed
 predicted price.</p>
 </section>
 <section id="use-hyperparameters">
-<h2>Use hyperparameters<a class="headerlink" href="#use-hyperparameters" title="Permalink to this headline">#</a></h2>
+<span id="synopsis-hyperparams"></span><h2>Use hyperparameters<a class="headerlink" href="#use-hyperparameters" title="Permalink to this headline">#</a></h2>
 <ol class="simple">
 <li><p>Hyperparameters and bindings. Concisely describe and execute hyperparameter searches
 and data batching.</p></li>
 </ol>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">diamond_model_hyperparams</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">do</span>
+    <span class="o">.</span><span class="n">if_fitting</span><span class="p">(</span>
+        <span class="n">do</span><span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+            <span class="n">price_train</span><span class="o">=</span><span class="n">do</span><span class="p">[</span><span class="s2">&quot;price&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">)</span><span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">),</span>
+        <span class="p">)</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">,</span> <span class="s2">&quot;carat&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">do</span><span class="p">[</span><span class="n">ff</span><span class="o">.</span><span class="n">HP</span><span class="p">(</span><span class="s2">&quot;features&quot;</span><span class="p">)]</span>  <span class="c1"># &lt;-- &quot;features&quot; hyperparam</span>
+        <span class="o">.</span><span class="n">suffix</span><span class="p">(</span><span class="s2">&quot;_fea&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">z_score</span><span class="p">()</span>
+        <span class="o">.</span><span class="n">impute_constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">sk_learn</span><span class="p">(</span>
+        <span class="n">sklearn</span><span class="o">.</span><span class="n">linear_model</span><span class="o">.</span><span class="n">Lasso</span><span class="p">,</span>
+        <span class="c1"># x_cols is a hyperparameterized list of columns derived from &quot;features&quot;</span>
+        <span class="n">x_cols</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">HPLambda</span><span class="p">(</span><span class="k">lambda</span> <span class="n">bindings</span><span class="p">:</span> <span class="p">[</span><span class="n">f</span><span class="o">+</span><span class="s2">&quot;_fea&quot;</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">bindings</span><span class="p">[</span><span class="s2">&quot;features&quot;</span><span class="p">]]),</span>
+        <span class="n">response_col</span><span class="o">=</span><span class="s2">&quot;price_train&quot;</span><span class="p">,</span>
+        <span class="n">hat_col</span><span class="o">=</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span>
+        <span class="n">class_params</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
+            <span class="n">fit_intercept</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">HP</span><span class="p">(</span><span class="s2">&quot;alpha&quot;</span><span class="p">),</span>  <span class="c1"># &lt;-- &quot;alpha&quot; hyperparam</span>
+        <span class="p">),</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expm1</span><span class="p">,</span> <span class="s2">&quot;price_hat&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+
+<span class="n">diamond_model_hyperparams</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;alpha&#39;, &#39;features&#39;}
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
+    <span class="n">diamond_model_hyperparams</span>
+    <span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">features</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">])</span>
+    <span class="o">.</span><span class="n">then</span><span class="p">()</span>
+    <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>price</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>price_hat</th>
+      <td>0.131313</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">itertools</span>
+
+<span class="n">alphas</span> <span class="o">=</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.10</span><span class="p">]</span>
+<span class="n">feature_sets</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">&quot;table&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">&quot;carat&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;carat&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">&quot;carat&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">],</span>
+    <span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="s2">&quot;carat&quot;</span><span class="p">],</span>
+<span class="p">]</span>
+
+<span class="n">search_space</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">{</span><span class="s2">&quot;alpha&quot;</span><span class="p">:</span> <span class="n">alpha</span><span class="p">,</span> <span class="s2">&quot;features&quot;</span><span class="p">:</span> <span class="n">features</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">alpha</span><span class="p">,</span> <span class="n">features</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="n">alphas</span><span class="p">,</span> <span class="n">feature_sets</span><span class="p">)</span>
+<span class="p">]</span>
+
+<span class="n">search_space</span>
+
+<span class="c1">#(</span>
+<span class="c1">#    do</span>
+<span class="c1">#    .group_by_bindings()</span>
+<span class="c1">#)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>[{&#39;alpha&#39;: 0.01, &#39;features&#39;: [&#39;depth&#39;]},
+ {&#39;alpha&#39;: 0.01, &#39;features&#39;: [&#39;table&#39;]},
+ {&#39;alpha&#39;: 0.01, &#39;features&#39;: [&#39;carat&#39;]},
+ {&#39;alpha&#39;: 0.01, &#39;features&#39;: [&#39;depth&#39;, &#39;table&#39;]},
+ {&#39;alpha&#39;: 0.01, &#39;features&#39;: [&#39;depth&#39;, &#39;carat&#39;]},
+ {&#39;alpha&#39;: 0.01, &#39;features&#39;: [&#39;carat&#39;, &#39;table&#39;]},
+ {&#39;alpha&#39;: 0.01, &#39;features&#39;: [&#39;depth&#39;, &#39;table&#39;, &#39;carat&#39;]},
+ {&#39;alpha&#39;: 0.05, &#39;features&#39;: [&#39;depth&#39;]},
+ {&#39;alpha&#39;: 0.05, &#39;features&#39;: [&#39;table&#39;]},
+ {&#39;alpha&#39;: 0.05, &#39;features&#39;: [&#39;carat&#39;]},
+ {&#39;alpha&#39;: 0.05, &#39;features&#39;: [&#39;depth&#39;, &#39;table&#39;]},
+ {&#39;alpha&#39;: 0.05, &#39;features&#39;: [&#39;depth&#39;, &#39;carat&#39;]},
+ {&#39;alpha&#39;: 0.05, &#39;features&#39;: [&#39;carat&#39;, &#39;table&#39;]},
+ {&#39;alpha&#39;: 0.05, &#39;features&#39;: [&#39;depth&#39;, &#39;table&#39;, &#39;carat&#39;]},
+ {&#39;alpha&#39;: 0.1, &#39;features&#39;: [&#39;depth&#39;]},
+ {&#39;alpha&#39;: 0.1, &#39;features&#39;: [&#39;table&#39;]},
+ {&#39;alpha&#39;: 0.1, &#39;features&#39;: [&#39;carat&#39;]},
+ {&#39;alpha&#39;: 0.1, &#39;features&#39;: [&#39;depth&#39;, &#39;table&#39;]},
+ {&#39;alpha&#39;: 0.1, &#39;features&#39;: [&#39;depth&#39;, &#39;carat&#39;]},
+ {&#39;alpha&#39;: 0.1, &#39;features&#39;: [&#39;carat&#39;, &#39;table&#39;]},
+ {&#39;alpha&#39;: 0.1, &#39;features&#39;: [&#39;depth&#39;, &#39;table&#39;, &#39;carat&#39;]}]
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
+    <span class="n">do</span>
+    <span class="o">.</span><span class="n">group_by_bindings</span><span class="p">(</span><span class="n">search_space</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">then</span><span class="p">(</span>
+            <span class="n">diamond_model_hyperparams</span>
+            <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
+            <span class="c1">#.stateless_lambda(lambda df: df.head(3))</span>
+        <span class="p">)</span>
+<span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th></th>
+      <th>price</th>
+    </tr>
+    <tr>
+      <th>features</th>
+      <th>alpha</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>['depth']</th>
+      <th>0.01</th>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.01</th>
+      <td>0.128944</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.01</th>
+      <td>0.923514</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.01</th>
+      <td>0.133433</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.01</th>
+      <td>0.923938</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.01</th>
+      <td>0.923961</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.01</th>
+      <td>0.924758</td>
+    </tr>
+    <tr>
+      <th>['depth']</th>
+      <th>0.05</th>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.05</th>
+      <td>0.130043</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.05</th>
+      <td>0.924911</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.05</th>
+      <td>0.130043</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.05</th>
+      <td>0.924911</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.05</th>
+      <td>0.924911</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.05</th>
+      <td>0.924911</td>
+    </tr>
+    <tr>
+      <th>['depth']</th>
+      <th>0.10</th>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.10</th>
+      <td>0.131313</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.10</th>
+      <td>0.926361</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.10</th>
+      <td>0.131313</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.10</th>
+      <td>0.926361</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.10</th>
+      <td>0.926361</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.10</th>
+      <td>0.926361</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">make_crossval_pipeline</span><span class="p">(</span><span class="n">model_pipeline</span><span class="p">,</span> <span class="n">hat_col</span><span class="p">,</span> <span class="n">response_col</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="n">do</span><span class="o">.</span><span class="n">read_pandas_csv</span><span class="p">(</span><span class="s2">&quot;./diamonds.csv&quot;</span><span class="p">)</span>
+        <span class="c1"># randomly assign rows to groups</span>
+        <span class="c1"># ngroups is a hyperparam with default value of 5</span>
+        <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+            <span class="n">group</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">,</span> <span class="n">ngroups</span><span class="o">=</span><span class="mi">5</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span>
+                <span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">ngroups</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span>
+            <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">fitting_schedule</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">fit_group_on_all_other_groups</span><span class="p">,</span>
+        <span class="p">)</span>
+            <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">model_pipeline</span><span class="p">)</span>
+        <span class="c1"># score the out-of-sample predictions across all groups</span>
+        <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="n">hat_col</span><span class="p">,</span> <span class="n">response_col</span><span class="p">)</span>
+    <span class="p">)</span>
+
+<span class="n">cv_diamonds_hyperparams</span> <span class="o">=</span> <span class="n">make_crossval_pipeline</span><span class="p">(</span>
+    <span class="n">diamond_model_hyperparams</span><span class="p">,</span> <span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span>
+<span class="p">)</span>
+<span class="n">cv_diamonds_hyperparams</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;alpha&#39;, &#39;features&#39;, &#39;ngroups&#39;}
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">search_cv</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">do</span>
+    <span class="o">.</span><span class="n">group_by_bindings</span><span class="p">(</span><span class="n">search_space</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">cv_diamonds_hyperparams</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">search_cv</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ngroups</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th></th>
+      <th>price</th>
+    </tr>
+    <tr>
+      <th>features</th>
+      <th>alpha</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>['depth']</th>
+      <th>0.01</th>
+      <td>-0.002827</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.01</th>
+      <td>0.134853</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.01</th>
+      <td>0.924595</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.01</th>
+      <td>0.137903</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.01</th>
+      <td>0.925058</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.01</th>
+      <td>0.925017</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.01</th>
+      <td>0.925823</td>
+    </tr>
+    <tr>
+      <th>['depth']</th>
+      <th>0.05</th>
+      <td>-0.003548</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.05</th>
+      <td>0.135893</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.05</th>
+      <td>0.925921</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.05</th>
+      <td>0.135913</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.05</th>
+      <td>0.925926</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.05</th>
+      <td>0.925909</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.05</th>
+      <td>0.925958</td>
+    </tr>
+    <tr>
+      <th>['depth']</th>
+      <th>0.10</th>
+      <td>-0.005478</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.10</th>
+      <td>0.137159</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.10</th>
+      <td>0.927234</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.10</th>
+      <td>0.136906</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.10</th>
+      <td>0.927248</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.10</th>
+      <td>0.927276</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.10</th>
+      <td>0.927277</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
 </section>
 <section id="run-on-distributed-backends">
-<h2>Run on distributed backends<a class="headerlink" href="#run-on-distributed-backends" title="Permalink to this headline">#</a></h2>
+<span id="synopsis-backends"></span><h2>Run on distributed backends<a class="headerlink" href="#run-on-distributed-backends" title="Permalink to this headline">#</a></h2>
 <ol class="simple">
 <li><p>Run on distributed backends, exploiting the parallelism inherent to any branching
 operations in the pipeline.</p></li>
 </ol>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dask</span> <span class="kn">import</span> <span class="n">distributed</span>
+<span class="n">cluster</span> <span class="o">=</span> <span class="n">distributed</span><span class="o">.</span><span class="n">LocalCluster</span><span class="p">(</span>
+    <span class="n">n_workers</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+    <span class="n">threads_per_worker</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+    <span class="n">scheduler_port</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+    <span class="n">dashboard_address</span><span class="o">=</span><span class="s2">&quot;:0&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">client</span> <span class="o">=</span> <span class="n">distributed</span><span class="o">.</span><span class="n">Client</span><span class="p">(</span><span class="n">cluster</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">dask</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">DaskBackend</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">search_cv</span><span class="o">.</span><span class="n">on_backend</span><span class="p">(</span><span class="n">dask</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="cell_output docutils container">
+<div class="output text_html"><div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th></th>
+      <th>price</th>
+    </tr>
+    <tr>
+      <th>features</th>
+      <th>alpha</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>['depth']</th>
+      <th>0.01</th>
+      <td>-0.012864</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.01</th>
+      <td>0.134734</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.01</th>
+      <td>0.924574</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.01</th>
+      <td>0.137760</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.01</th>
+      <td>0.925044</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.01</th>
+      <td>0.924998</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.01</th>
+      <td>0.925821</td>
+    </tr>
+    <tr>
+      <th>['depth']</th>
+      <th>0.05</th>
+      <td>-0.005382</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.05</th>
+      <td>0.135681</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.05</th>
+      <td>0.925923</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.05</th>
+      <td>0.135621</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.05</th>
+      <td>0.925915</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.05</th>
+      <td>0.925932</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.05</th>
+      <td>0.925927</td>
+    </tr>
+    <tr>
+      <th>['depth']</th>
+      <th>0.10</th>
+      <td>-0.011047</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <th>0.10</th>
+      <td>0.137020</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <th>0.10</th>
+      <td>0.927270</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <th>0.10</th>
+      <td>0.136845</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <th>0.10</th>
+      <td>0.927267</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <th>0.10</th>
+      <td>0.927247</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <th>0.10</th>
+      <td>0.927268</td>
+    </tr>
+  </tbody>
+</table>
+</div></div></div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># if we were doing this for real we&#39;d want to make sure that our group randomization is fixed</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>Screenshot of the Dask task-stream:</p>
+<p><img alt="task-stream" src="_images/sshot-dask-taskstream-search_cv.png" /></p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">client</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
+<span class="n">client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
 </section>
 </section>
 
