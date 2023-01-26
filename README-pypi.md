@@ -1,6 +1,6 @@
 # 🧟 Frankenfit: it's alive! it's fit! 📈📊
 
-![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/maxbane/frankenfit?sort=semver)
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/maxbane/frankenfit?sort=semver)](https://github.com/maxbane/frankenfit/releases)
 [![pytest](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml)
 [![docs](https://github.com/maxbane/frankenfit/actions/workflows/docs.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/docs.yml)
 [![mypy](https://github.com/maxbane/frankenfit/actions/workflows/mypy.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/mypy.yml)
@@ -28,7 +28,7 @@ Its key features are:
 * The ability to specify your pipeline's parameters as **hyperparameters**, whose values
   are bound later. This can make your pipelines more re-usable, and enables powerful
   workflows like hyperparameter search, cross-validation, and other resampling schemes,
-  all described in the same DSL used for creating pipelines.
+  all described in the same DSL used to create pipelines.
 * **Parallel computation** on distributed backends (currently
   [Dask](https://www.dask.org)). Frankenfit automatically figures out what parts of your
   pipeline are independent of each other and runs them in parallel on a distributed

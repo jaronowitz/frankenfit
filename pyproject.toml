@@ -119,6 +119,7 @@ docs = [
     'pydataset',
     'scikit-learn',
     'matplotlib ~= 3.6',
+    'distributed',
 ]
 
 dev = [
