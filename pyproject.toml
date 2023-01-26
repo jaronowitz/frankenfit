@@ -46,8 +46,6 @@
 
 
 [build-system]
-# Note that running tests additionally requires pytest and pydataset, but they are not
-# required for building the package. See tox.ini for test-time dependencies.
 requires = ["setuptools>=62", "wheel", "setuptools_scm[toml]~=7.0.3"]
 build-backend = "setuptools.build_meta"
 

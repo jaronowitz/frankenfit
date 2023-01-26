@@ -21,6 +21,7 @@ jobs:
           cache: "pip"
           cache-dependency-path: |
             pyproject.toml
+            .pre-commit-config.yaml
 
       - name: cache tox
         id: cache-tox
