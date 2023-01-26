@@ -21,7 +21,6 @@ jobs:
           cache: "pip"
           cache-dependency-path: |
             pyproject.toml
-      - run: echo "pip cache hit ${{ steps.setup.outputs.cache-hit }}"
 
       - name: cache tox
         id: cache-tox
@@ -29,7 +28,6 @@ jobs:
         with:
           path: .tox
           key: ${{ runner.os }}-tox-${{ hashFiles('**/tox.ini') }}
-      - run: echo "tox cache hit ${{ steps.cache-tox.outputs.cache-hit }}"
 
       - name: cache pre-commit
         id: cache-pre-commit
@@ -37,7 +35,6 @@ jobs:
         with:
           path: ~/.cache/pre-commit
           key: ${{ runner.os }}-pre-commit-${{ hashFiles('**/.pre-commit-config.yaml') }}
-      - run: echo "pre-commit cache hit ${{ steps.cache-pre-commit.outputs.cache-hit }}"
 
       - name: Upgrade pip and install tox
         run: |
