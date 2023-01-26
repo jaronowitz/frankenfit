@@ -923,3 +923,6 @@ def test_FitTransform_in_Pipeline(diamonds_df: pd.DataFrame):
         .apply(diamonds_df)
         .equals((diamonds_df[["price"]] - train_df["price"].mean()).clip(-100, 100))
     )
+
+    gbpip = ff.DataFramePipeline().group_by_cols("cut", group_keys=True).then(fit_pip)
+    assert isinstance(gbpip.apply(diamonds_df), pd.DataFrame)
