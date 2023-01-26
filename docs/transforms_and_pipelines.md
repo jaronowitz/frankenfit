@@ -61,14 +61,6 @@ diamonds_df = data("diamonds")[["carat", "depth", "table", "price"]]
 diamonds_df.head()
 ```
 
-:::{note}
-Throughout the documentation we make use of the
-[pydataset](https://pypi.org/project/pydataset/) package for loading example data like
-`diamonds`.
-:::
-
-+++
-
 The `DeMean` Transform instance `dmn` may then be **fit** on the data. By default it
 learns to de-mean all columns in the DataFrame.
 
