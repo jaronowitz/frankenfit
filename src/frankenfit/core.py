@@ -1445,7 +1445,7 @@ class Grouper(Generic[P_co]):
                 f"{type(self._pipeline_upstream)}"
             )
 
-        if not isinstance(other, (Transform, FitTransform)):
+        if not isinstance(other, Transform):
             other = type(self._pipeline_upstream)(transforms=other)
 
         wrapping_kwargs = dict(
