@@ -18,6 +18,9 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ vars.PY_VER_BUILD_TEST }}
+          cache: "pip"
+          cache-dependency-path: |
+            pyproject.toml
       - name: Upgrade pip build twine
         run: |
           python -m pip install --upgrade pip
