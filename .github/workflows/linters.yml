@@ -15,8 +15,13 @@ jobs:
       - uses: actions/checkout@v3
       - name: Setup Python
         uses: actions/setup-python@v4
+        id: setup
         with:
           python-version: ${{ vars.PY_VER_BUILD_TEST }}
+          cache: "pip"
+          cache-dependency-path: |
+            pyproject.toml
+      - run: echo "Cache hit ${{ steps.setup.outputs.cache-hit }}"
       - name: Upgrade pip and install tox
         run: |
           python -m pip install --upgrade pip
