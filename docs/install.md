@@ -49,12 +49,12 @@ proceed from there.
 ## Notebooks
 
 To use Frankenfit interactively, it is recommended to do so in a [Jupyter
-notebook](https://jupyter.org). The author of Frankenfit highly recommends using [Visual
-Studio Code](https://code.visualstudio.com/) to [author your
-notebooks](https://code.visualstudio.com/docs/datascience/jupyter-notebooks), as it
-offers much more advanced Python analysis and autocompletion capabilities than stock
-JupyterLab, which Frankenfit is designed to take advantage of through its extensive type
-annotations. See the screenshots below for examples.
+notebook](https://jupyter.org). The author of Frankenfit highly recommends using a
+typing-aware IDE for authoring your notebooks, rather than stock JupyterLab, because
+Frankenfit's type annotations enable more advanced code analysis and autocompletion
+abilities than JupyterLab is (currently) capable of. The screenshot below, for example,
+shows a notebook in [Visual Studio
+Code](https://code.visualstudio.com/docs/datascience/jupyter-notebooks).
 
 :::{figure} _static/sshot-vscode-intellisense-frankenfit-apply.png
 VS Code showing the type signature and pydoc of a pipeline's
