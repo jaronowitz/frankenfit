@@ -21,10 +21,28 @@ jobs:
           cache: "pip"
           cache-dependency-path: |
             pyproject.toml
-      - run: echo "Cache hit ${{ steps.setup.outputs.cache-hit }}"
+      - run: echo "pip cache hit ${{ steps.setup.outputs.cache-hit }}"
+
+      - name: cache tox
+        id: cache-tox
+        uses: actions/cache@v3
+        with:
+          path: .tox
+          key: tox.ini
+      - run: echo "tox cache hit ${{ steps.cache-tox.outputs.cache-hit }}"
+
+      - name: cache pre-commit
+        id: cache-pre-commit
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pre-commit
+          key: .pre-commit-config.yaml
+      - run: echo "pre-commit cache hit ${{ steps.cache-pre-commit.outputs.cache-hit }}"
+
       - name: Upgrade pip and install tox
         run: |
           python -m pip install --upgrade pip
           python -m pip install "tox < 4"
+
       - name: linters
         run: tox -e pre-commit
