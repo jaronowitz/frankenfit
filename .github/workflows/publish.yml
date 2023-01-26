@@ -1,13 +1,17 @@
-name: testpypi
+name: publish
 
 on:
   workflow_dispatch:
-  workflow_call:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: environment
+        required: true
 
 jobs:
   twine:
     runs-on: ubuntu-22.04
-    environment: testpypi
+    environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v3
       - name: Setup Python
@@ -29,6 +33,7 @@ jobs:
           name: dist-files
           path: dist
       - name: twine upload
+        if: ${{ !env.ACT }}
         env:
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
           TWINE_REPOSITORY: ${{ vars.TWINE_REPOSITORY }}
