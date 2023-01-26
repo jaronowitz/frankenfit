@@ -59,8 +59,10 @@ dynamic = ["version"]
 authors = [
     {name = "Max Bane", email = "max@thebanes.org"}
 ]
-description = ""
-readme = "README.md"
+description = """
+A Python library for creating, fitting, and applying predictive data modeling \
+pipelines."""
+readme = "README-pypi.md"
 
 requires-python = ">=3.8"
 dependencies = [
@@ -91,7 +93,7 @@ classifiers = [
 
 [project.urls]
 "Homepage" = "https://github.com/maxbane/frankenfit"
-"Documentation" = "https://thebanes.org/frankenfit-docs"
+"Documentation" = "https://maxbane.github.io/frankenfit/current"
 
 [project.optional-dependencies]
 dask = [

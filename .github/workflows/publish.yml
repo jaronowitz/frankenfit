@@ -1,0 +1,43 @@
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: environment
+        required: true
+
+jobs:
+  twine:
+    runs-on: ubuntu-22.04
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ vars.PY_VER_BUILD_TEST }}
+      - name: Upgrade pip build twine
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --upgrade build twine
+      - name: build
+        run: |
+          python -m build
+          ls -l dist/*
+      - name: upload-artifact
+        uses: actions/upload-artifact@v3
+        if: ${{ !env.ACT }}
+        with:
+          name: dist-files
+          path: dist
+      - name: twine upload
+        if: ${{ !env.ACT }}
+        env:
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+          TWINE_REPOSITORY: ${{ vars.TWINE_REPOSITORY }}
+          TWINE_NON_INTERACTIVE: "y"
+        run: |
+          echo "TWINE_REPOSITORY: $TWINE_REPOSITORY"
+          python -m twine upload -u __token__ dist/*

@@ -1,5 +1,6 @@
 # 🧟 Frankenfit: it's alive! it's fit! 📈📊
 
+![PyPI](https://img.shields.io/pypi/v/frankenfit)
 ![pyversions](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.10-blue)
 [![pytest](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml)
 [![docs](https://github.com/maxbane/frankenfit/actions/workflows/docs.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/docs.yml)
@@ -16,7 +17,7 @@ Its key features are:
   modeling **pipelines** from chains of composable building blocks called
   **transforms**. Pipelines themselves are composable, re-usable, and extensible, with
   a thorough [library of
-  transforms](https://devbox.homenet.thebanes.org/~max/frankenfit/docs/_build/html/api.html#transform-library)
+  transforms](https://maxbane.github.io/frankenfit/current/api.html#transform-library)
   available for building, grouping, and combining pipelines in useful ways.
 * Rigorous separation between, on the one hand, **fitting** the state of your pipeline
   on some training data, and, on the other, **applying** it
