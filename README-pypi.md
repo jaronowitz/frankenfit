@@ -28,7 +28,7 @@ Its key features are:
 * The ability to specify your pipeline's parameters as **hyperparameters**, whose values
   are bound later. This can make your pipelines more re-usable, and enables powerful
   workflows like hyperparameter search, cross-validation, and other resampling schemes,
-  all described in the same DSL used for creating pipelines.
+  all described in the same DSL used to create pipelines.
 * **Parallel computation** on distributed backends (currently
   [Dask](https://www.dask.org)). Frankenfit automatically figures out what parts of your
   pipeline are independent of each other and runs them in parallel on a distributed

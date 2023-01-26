@@ -29,7 +29,7 @@ Its key features are:
 * The ability to specify your pipeline's parameters as **hyperparameters**, whose values
   are bound later. This can make your pipelines more re-usable, and enables powerful
   workflows like hyperparameter search, cross-validation, and other resampling schemes,
-  all described in the same DSL used for creating pipelines.
+  all described in the same DSL used to create pipelines.
 * **Parallel computation** on distributed backends (currently
   [Dask](https://www.dask.org)). Frankenfit automatically figures out what parts of your
   pipeline are independent of each other and runs them in parallel on a distributed
@@ -134,8 +134,8 @@ plugins = "frankenfit.mypy"
 
 If you're *not* hacking on the Frankenfit codebase itself, and just want to build or
 install it from source, `$ pip build .`, `$ pip sdist .`, `$ pip install .` should all
-work out of the box without creating any special needs, as long as you're using Python
-3.8+ and a recent version of `pip`.
+work out of the box without any special needs, as long as you're using Python 3.8+ and a
+recent version of `pip`.
 
 To get started with hacking on Frankenfit itself, make sure that the `python3.10`
 binary is on your path, clone this repo, and run:
