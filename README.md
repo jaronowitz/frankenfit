@@ -52,7 +52,7 @@ or your own in-house library of statistical models and data transformations.
 
 Suppose we want to model the prices of round-cut diamonds using the venerable
 [diamonds](https://ggplot2.tidyverse.org/reference/diamonds.html) dataset, which is
-often used to teach regression, and looks like this:
+often used to teach regression. It looks like this:
 
 |       |   carat | cut       | color   | clarity   |   depth |   table |   price |    x |    y |    z |
 |------:|--------:|:--------  |:--------|:----------|--------:|--------:|--------:|-----:|-----:|-----:|
@@ -63,13 +63,75 @@ often used to teach regression, and looks like this:
 | 53939 |    0.86 | Premium   | H       | SI2       |    61   |      58 |    2757 | 6.15 | 6.12 | 3.74 |
 | 53940 |    0.75 | Ideal     | D       | SI2       |    62.2 |      55 |    2757 | 5.83 | 5.87 | 3.64 |
 
+We can use Frankenfit to define a pipeline for predicting `price` with a linear
+regression (from scikit-learn) on `carat`, `depth`, and `table`:
+
 ```python
-# To be.
+import numpy as np
+import sklearn.linear_model
+import frankenfit as ff
+
+# use "do" as shorthand for a new pipeline
+do = ff.DataFramePipeline()
+diamond_model = (
+    do
+    .if_fitting(
+        # create training response when fitting
+        do.assign(
+            # We'll train a model on the log-transformed and winsorized price of a
+            # diamond.
+            price_train=do["price"].pipe(np.log1p).winsorize(0.05),
+        )
+    )
+    # Transform carat variable to log-carats
+    .pipe(np.log1p, "carat")
+    # Prepare features: trim outliers and standardize
+    .assign(
+        do[["carat", "depth", "table"]]
+        .suffix("_fea")  # name the prepared features with _fea suffix
+        .winsorize(0.05)  # trim top and bottom 5% of each
+        .z_score()
+        .impute_constant(0.0)  # fill missing values with zero (since they are z-scores,
+                               # zero is the expected mean)
+        .clip(lower=-2, upper=2)  # clip z-scores
+    )
+    # Fit a linear regression model to predict training response from the prepared
+    # features
+    .sk_learn(
+        sklearn.linear_model.LinearRegression,
+        x_cols=["carat_fea", "depth_fea", "table_fea"],
+        response_col="price_train",
+        hat_col="price_hat",
+        class_params=dict(fit_intercept=True),
+    )
+    # Exponentiate the regression model's predictions back from log-dollars to dollars
+    .pipe(np.expm1, "price_hat")
+)
 ```
+
+We can fit this model on some training data:
+
+```python
+fit_diamond_model = diamond_model.fit(train_df)
+```
+
+And apply it out-of-sample to some test data:
+
+```python
+predictions_df = fit_diamond_model.apply(test_df)
+```
+
+❗ When do so, our entire end-to-end model of diamond prices, including feature
+preparation and regression, is fit **strictly** on one set of data (`train_df`) and
+applied strictly **out-of-sample** to new data (`test_df`). The columns in `test_df` are
+winsorized using the quantiles that were observed in `train_df`, z-scored using the
+means and standard deviations that were observed in `train_df`, and predicted prices are
+generated using the regression betas that were learned on `train_df`.
 
 See the [Synopsis and
 overview](https://maxbane.github.io/frankenfit/current/synopsis.html) section of the
-documentation for a more extended example, and then dive into [Transforms and
+documentation for a more extended walkthrough of this example, and then dive into
+[Transforms and
 pipelines](https://maxbane.github.io/frankenfit/current/transforms_and_pipelines.html)
 to learn how it works from the ground up.
 
