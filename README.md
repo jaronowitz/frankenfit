@@ -8,6 +8,8 @@
 [![license](https://img.shields.io/badge/license-BSD-red)](https://github.com/maxbane/frankenfit/blob/main/LICENSE.txt)
 [![code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+* [Current documentation](https://maxbane.github.io/frankenfit/current/)
+
 Frankenfit is a Python library for data scientists that provides a domain-specific
 language (DSL) for creating, fitting, and applying predictive data modeling pipelines.
 Its key features are:
@@ -121,7 +123,7 @@ And apply it out-of-sample to some test data:
 predictions_df = fit_diamond_model.apply(test_df)
 ```
 
-❗ When do so, our entire end-to-end model of diamond prices, including feature
+⭐ When do so, our entire end-to-end model of diamond prices, including feature
 preparation and regression, is fit **strictly** on one set of data (`train_df`) and
 applied strictly **out-of-sample** to new data (`test_df`). The columns in `test_df` are
 winsorized using the quantiles that were observed in `train_df`, z-scored using the
