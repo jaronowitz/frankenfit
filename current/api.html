@@ -389,16 +389,19 @@ you can enable this plugin by including the following in your <code class="docut
 <dl class="py class">
 <dt class="sig sig-object py" id="frankenfit.Transform">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">frankenfit.</span></span><span class="sig-name descname"><span class="pre">Transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tag</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">NOTHING</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/frankenfit/core.html#Transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#frankenfit.Transform" title="Permalink to this definition">#</a></dt>
-<dd><p>The abstract base class of all (unfit) Transforms. Subclasses must implement the
-<a class="reference internal" href="#frankenfit.Transform._fit" title="frankenfit.Transform._fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_fit()</span></code></a> and <a class="reference internal" href="#frankenfit.Transform._apply" title="frankenfit.Transform._apply"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_apply()</span></code></a> methods (but see <a class="reference internal" href="#frankenfit.StatelessTransform" title="frankenfit.StatelessTransform"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatelessTransform</span></code></a>,
-which removes the requirement to implement <a class="reference internal" href="#frankenfit.Transform._fit" title="frankenfit.Transform._fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_fit()</span></code></a>).</p>
-<p>Subclasses should use <a class="reference external" href="https://www.attrs.org">attrs</a> field variables to hold
+<dd><p>The abstract base class of all Transforms. The simplest way to implement a subclass
+is to implement the <a class="reference internal" href="#frankenfit.Transform._fit" title="frankenfit.Transform._fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_fit()</span></code></a> and <a class="reference internal" href="#frankenfit.Transform._apply" title="frankenfit.Transform._apply"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_apply()</span></code></a> methods (but see
+<a class="reference internal" href="#frankenfit.StatelessTransform" title="frankenfit.StatelessTransform"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatelessTransform</span></code></a>, which removes the requirement to implement
+<a class="reference internal" href="#frankenfit.Transform._fit" title="frankenfit.Transform._fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_fit()</span></code></a>).</p>
+<p>Subclasses use <a class="reference external" href="https://www.attrs.org">attrs</a> field variables to hold
 parameters (but not fit state) of the transformation being implemented, with the
 expectation that these parameters will be provided by the user of the subclass as
 constructor arguments.  Thanks to <code class="docutils literal notranslate"><span class="pre">attrs</span></code>, in most cases no constructor needs to
 be written explicitly by the subclass author, and in any case only <code class="docutils literal notranslate"><span class="pre">attrs</span></code>-managed
 field variables will be treated as potential hyperparameters at fit-time (i.e., to
 potentially get their values from the <code class="docutils literal notranslate"><span class="pre">bindings=</span></code> kwarg to <a class="reference internal" href="#frankenfit.Transform.fit" title="frankenfit.Transform.fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">fit()</span></code></a>).</p>
+<p>If declaring any parameters, subclasses must apply the <a class="reference internal" href="#frankenfit.params" title="frankenfit.params"><code class="xref py py-func docutils literal notranslate"><span class="pre">params()</span></code></a> decorator,
+which is a Frankenfit-specific wrapper around <code class="docutils literal notranslate"><span class="pre">attrs.define</span></code>.</p>
 <p>The implementations of <a class="reference internal" href="#frankenfit.Transform._fit" title="frankenfit.Transform._fit"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_fit()</span></code></a> and <a class="reference internal" href="#frankenfit.Transform._apply" title="frankenfit.Transform._apply"><code class="xref py py-meth docutils literal notranslate"><span class="pre">_apply()</span></code></a> may refer freely to any
 <code class="docutils literal notranslate"><span class="pre">attrs</span></code> fields (generally understood as parameters of the transformation) as
 instance variables on <code class="docutils literal notranslate"><span class="pre">self</span></code>. If any fields were given as hyperparameters at
@@ -406,18 +409,18 @@ construction time, they are resolved to concrete bindings before <code class="do
 <code class="docutils literal notranslate"><span class="pre">_apply()</span></code> are invoked.</p>
 <p><code class="docutils literal notranslate"><span class="pre">_fit()</span></code> should accept some training data and return an arbitrary object
 representing fit state, which will be passed to <code class="docutils literal notranslate"><span class="pre">_apply()</span></code> at apply-time.
-Generally speaking, <code class="docutils literal notranslate"><span class="pre">_fit()</span></code> should <em>not</em> mutate anything about <code class="docutils literal notranslate"><span class="pre">self</span></code>.</p>
+Generally speaking, <code class="docutils literal notranslate"><span class="pre">_fit()</span></code> should <em>not</em> mutate anything about <code class="docutils literal notranslate"><span class="pre">self</span></code> or the
+training data.</p>
 <p><code class="docutils literal notranslate"><span class="pre">_apply()</span></code> should then accept a state object as returned by <code class="docutils literal notranslate"><span class="pre">_fit()</span></code> and return
 the result of applying the transformation to some given apply-time data, also
-without mutating <code class="docutils literal notranslate"><span class="pre">self</span></code>.</p>
+without mutating <code class="docutils literal notranslate"><span class="pre">self</span></code> or the data.</p>
 <p>Once implemented, the subclass is used like any <code class="docutils literal notranslate"><span class="pre">Transform</span></code>, which is to say by
 constructing an instance with some parameters (which may be hypeparameters), and
 then calling its <code class="docutils literal notranslate"><span class="pre">fit()</span></code> and <code class="docutils literal notranslate"><span class="pre">apply()</span></code> methods (note no leading underscores).</p>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Subclasses must not keep parameters in fields named <code class="docutils literal notranslate"><span class="pre">fit</span></code>, <code class="docutils literal notranslate"><span class="pre">apply</span></code>,
-<code class="docutils literal notranslate"><span class="pre">state</span></code>, <code class="docutils literal notranslate"><span class="pre">params</span></code>, or <code class="docutils literal notranslate"><span class="pre">bindings</span></code> as these would break functionality by
-overriding expected method names.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>See the section <a class="reference internal" href="implementing_transforms.html"><span class="doc">Implementing your own transforms</span></a> of the <a class="reference internal" href="cover.html"><span class="doc">Frankenfit
+documentation</span></a> for more information.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -426,23 +429,22 @@ and selecting Transforms that belong to Pipelines. If not supplied, a default
 value is creating based on the Transform’s class name and a nonce value.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_by_tag()</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">FitTransform.find_by_tag()</span></code>.</p>
+<p><code class="xref py py-meth docutils literal notranslate"><span class="pre">find_by_name()</span></code>, <code class="xref py py-meth docutils literal notranslate"><span class="pre">FitTransform.find_by_name()</span></code>.</p>
 </div>
 </p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
 <p>An example of writing a <code class="docutils literal notranslate"><span class="pre">Transform</span></code> subclass:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">attrs</span> <span class="kn">import</span> <span class="n">define</span>
-<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 <span class="kn">import</span> <span class="nn">frankenfit</span> <span class="k">as</span> <span class="nn">ff</span>
 
-<span class="c1"># A simple stateful transform from scratch, subclassing Transform directly.</span>
-<span class="nd">@transform</span>
+<span class="c1"># A simple stateful transform from scratch</span>
+<span class="nd">@ff</span><span class="o">.</span><span class="n">params</span>
 <span class="k">class</span> <span class="nc">DeMean</span><span class="p">(</span><span class="n">ff</span><span class="o">.</span><span class="n">Transform</span><span class="p">):</span>
     <span class="s2">&quot;De-mean some columns.&quot;</span>
 
-    <span class="n">cols</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="c1"># Or, get this for free by subclassing ColumnsTransform</span>
+    <span class="n">cols</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="nf">_fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df_fit</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">df_fit</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cols</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
@@ -455,14 +457,13 @@ value is creating based on the Transform’s class name and a nonce value.</p>
         <span class="p">})</span>
 </pre></div>
 </div>
-<p>An example of a stateless Transform whose only parameter is a list of columns; the
-implementation is simplified by subclassing two “convenience base classes”:
-<a class="reference internal" href="#frankenfit.StatelessTransform" title="frankenfit.StatelessTransform"><code class="xref py py-class docutils literal notranslate"><span class="pre">StatelessTransform</span></code></a> for the common case of a transform with no state to fit,
-and <code class="xref py py-class docutils literal notranslate"><span class="pre">ColumnsTransform</span></code>, for the common case of operating on a parameterized
-list of columns, which is made available as an attrs-managed field <code class="docutils literal notranslate"><span class="pre">self.cols</span></code>:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">KeepColumns</span><span class="p">(</span><span class="n">ff</span><span class="o">.</span><span class="n">StatelessTransform</span><span class="p">,</span> <span class="n">ff</span><span class="o">.</span><span class="n">ColumnsTransform</span><span class="p">):</span>
+<p>An example of a stateless Transform whose only parameter is a list of columns:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@ff</span><span class="o">.</span><span class="n">params</span>
+<span class="k">class</span> <span class="nc">Select</span><span class="p">(</span><span class="n">ff</span><span class="o">.</span><span class="n">StatelessTransform</span><span class="p">):</span>
+    <span class="n">cols</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+
     <span class="k">def</span> <span class="nf">_apply</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">df_apply</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="nb">object</span><span class="o">=</span><span class="kc">None</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">df_apply</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="o">=</span><span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">df_apply</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">cols</span><span class="p">]</span>
 </pre></div>

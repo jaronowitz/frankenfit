@@ -1033,17 +1033,21 @@
 <div class="viewcode-block" id="Transform"><a class="viewcode-back" href="../../api.html#frankenfit.Transform">[docs]</a><span class="nd">@params</span>
 <span class="k">class</span> <span class="nc">Transform</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">DataType</span><span class="p">],</span> <span class="n">PipelineMember</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    The abstract base class of all (unfit) Transforms. Subclasses must implement the</span>
-<span class="sd">    :meth:`_fit()` and :meth:`_apply()` methods (but see :class:`StatelessTransform`,</span>
-<span class="sd">    which removes the requirement to implement :meth:`_fit()`).</span>
+<span class="sd">    The abstract base class of all Transforms. The simplest way to implement a subclass</span>
+<span class="sd">    is to implement the :meth:`_fit()` and :meth:`_apply()` methods (but see</span>
+<span class="sd">    :class:`StatelessTransform`, which removes the requirement to implement</span>
+<span class="sd">    :meth:`_fit()`).</span>
 
-<span class="sd">    Subclasses should use `attrs &lt;https://www.attrs.org&gt;`_ field variables to hold</span>
+<span class="sd">    Subclasses use `attrs &lt;https://www.attrs.org&gt;`_ field variables to hold</span>
 <span class="sd">    parameters (but not fit state) of the transformation being implemented, with the</span>
 <span class="sd">    expectation that these parameters will be provided by the user of the subclass as</span>
 <span class="sd">    constructor arguments.  Thanks to ``attrs``, in most cases no constructor needs to</span>
 <span class="sd">    be written explicitly by the subclass author, and in any case only ``attrs``-managed</span>
 <span class="sd">    field variables will be treated as potential hyperparameters at fit-time (i.e., to</span>
 <span class="sd">    potentially get their values from the ``bindings=`` kwarg to :meth:`fit()`).</span>
+
+<span class="sd">    If declaring any parameters, subclasses must apply the :func:`params()` decorator,</span>
+<span class="sd">    which is a Frankenfit-specific wrapper around ``attrs.define``.</span>
 
 <span class="sd">    The implementations of :meth:`_fit()` and :meth:`_apply()` may refer freely to any</span>
 <span class="sd">    ``attrs`` fields (generally understood as parameters of the transformation) as</span>
@@ -1053,20 +1057,20 @@
 
 <span class="sd">    ``_fit()`` should accept some training data and return an arbitrary object</span>
 <span class="sd">    representing fit state, which will be passed to ``_apply()`` at apply-time.</span>
-<span class="sd">    Generally speaking, ``_fit()`` should *not* mutate anything about ``self``.</span>
+<span class="sd">    Generally speaking, ``_fit()`` should *not* mutate anything about ``self`` or the</span>
+<span class="sd">    training data.</span>
 
 <span class="sd">    ``_apply()`` should then accept a state object as returned by ``_fit()`` and return</span>
 <span class="sd">    the result of applying the transformation to some given apply-time data, also</span>
-<span class="sd">    without mutating ``self``.</span>
+<span class="sd">    without mutating ``self`` or the data.</span>
 
 <span class="sd">    Once implemented, the subclass is used like any ``Transform``, which is to say by</span>
 <span class="sd">    constructing an instance with some parameters (which may be hypeparameters), and</span>
 <span class="sd">    then calling its ``fit()`` and ``apply()`` methods (note no leading underscores).</span>
 
-<span class="sd">    .. WARNING::</span>
-<span class="sd">        Subclasses must not keep parameters in fields named ``fit``, ``apply``,</span>
-<span class="sd">        ``state``, ``params``, or ``bindings`` as these would break functionality by</span>
-<span class="sd">        overriding expected method names.</span>
+<span class="sd">    .. SEEALSO::</span>
+<span class="sd">        See the section :doc:`implementing_transforms` of the :doc:`Frankenfit</span>
+<span class="sd">        documentation &lt;cover&gt;` for more information.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -1076,22 +1080,21 @@
 <span class="sd">        value is creating based on the Transform&#39;s class name and a nonce value.</span>
 
 <span class="sd">        .. SEEALSO::</span>
-<span class="sd">            :meth:`find_by_tag`, :meth:`FitTransform.find_by_tag`.</span>
+<span class="sd">            :meth:`find_by_name`, :meth:`FitTransform.find_by_name`.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    An example of writing a ``Transform`` subclass::</span>
 
-<span class="sd">        from attrs import define</span>
 <span class="sd">        import pandas as pd</span>
 <span class="sd">        import frankenfit as ff</span>
 
-<span class="sd">        # A simple stateful transform from scratch, subclassing Transform directly.</span>
-<span class="sd">        @transform</span>
+<span class="sd">        # A simple stateful transform from scratch</span>
+<span class="sd">        @ff.params</span>
 <span class="sd">        class DeMean(ff.Transform):</span>
 <span class="sd">            &quot;De-mean some columns.&quot;</span>
 
-<span class="sd">            cols: list[str] # Or, get this for free by subclassing ColumnsTransform</span>
+<span class="sd">            cols: list[str]</span>
 
 <span class="sd">            def _fit(self, df_fit: pd.DataFrame) -&gt; object:</span>
 <span class="sd">                return df_fit[self.cols].mean()</span>
@@ -1103,15 +1106,14 @@
 <span class="sd">                    for c in self.cols</span>
 <span class="sd">                })</span>
 
-<span class="sd">    An example of a stateless Transform whose only parameter is a list of columns; the</span>
-<span class="sd">    implementation is simplified by subclassing two &quot;convenience base classes&quot;:</span>
-<span class="sd">    :class:`StatelessTransform` for the common case of a transform with no state to fit,</span>
-<span class="sd">    and :class:`ColumnsTransform`, for the common case of operating on a parameterized</span>
-<span class="sd">    list of columns, which is made available as an attrs-managed field ``self.cols``::</span>
+<span class="sd">    An example of a stateless Transform whose only parameter is a list of columns::</span>
 
-<span class="sd">        class KeepColumns(ff.StatelessTransform, ff.ColumnsTransform):</span>
+<span class="sd">        @ff.params</span>
+<span class="sd">        class Select(ff.StatelessTransform):</span>
+<span class="sd">            cols: list[str]</span>
+
 <span class="sd">            def _apply(</span>
-<span class="sd">                self, df_apply: pd.DataFrame, state: object=None</span>
+<span class="sd">                self, df_apply: pd.DataFrame, state: Any=None</span>
 <span class="sd">            ) -&gt; pd.DataFrame:</span>
 <span class="sd">                return df_apply[self.cols]</span>
 <span class="sd">    &quot;&quot;&quot;</span>
