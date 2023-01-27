@@ -35,6 +35,10 @@ sphinx:
     html_css_files: ["pygments_overrides.css"]
     html_theme_options:
       footer_icons:
+        - name: PyPI
+          url: "https://pypi.org/project/frankenfit"
+          class: ""
+          html: '<span id="snake">🐍</span>'
         - name: GitHub
           url: "https://github.com/maxbane/frankenfit"
           class: ""

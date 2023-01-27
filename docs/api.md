@@ -271,6 +271,8 @@ Pandas DataFrames.
 
 .. autoclass:: frankenfit.dataframe.GroupByCols
 
+.. autoclass:: frankenfit.dataframe.GroupByBindings
+
 .. autoclass:: frankenfit.dataframe.ImputeConstant
 
 .. autoclass:: frankenfit.dataframe.ImputeMean

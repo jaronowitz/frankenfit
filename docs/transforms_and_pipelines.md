@@ -981,6 +981,7 @@ defined in [`frankenfit.dataframe`](dataframe-api) returns a
 
 +++
 
+(including-FitTransforms)=
 ### Including `FitTransforms` in a pipeline
 
 Pipelines may only contain [`Transforms`](frankenfit.Transform), but often we might wish

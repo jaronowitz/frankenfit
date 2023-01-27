@@ -465,6 +465,7 @@ class GroupByCols(DataFrameTransform):
     group_keys: bool = False
     sort: bool = False
 
+    # TODO: parallelize
     def _fit(
         self, data_fit: pd.DataFrame, bindings: Optional[Bindings] = None
     ) -> pd.DataFrame:

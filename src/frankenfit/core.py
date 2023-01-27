@@ -1605,15 +1605,14 @@ class Pipeline(Generic[DataType], Transform[DataType]):
         **kwargs,
     ) -> DataType:
         """
-        An efficient alternative to ``Pipeline.fit(...).apply(...)``.  When the
-        fit-time data and apply-time data are identical, it is more efficient to
-        use a single call to ``apply()`` than it is to call
-        :meth:`~Transform.fit()` followed by a separate call to
-        :meth:`~FitTransform.apply()`, both on the same data argument. This is
-        because ``fit()`` itself must already apply every transform in the
-        pipeline, in orer to produce the fitting data for the following
-        transform. ``apply()`` captures the result of these fit-time
-        applications, avoiding their unnecessary recomputation.
+        An efficient alternative to ``Pipeline.fit(...).apply(...)``. When the fit-time
+        data and apply-time data are identical, it is more efficient to use a single
+        call to ``apply()`` than it is to call :meth:`~Transform.fit()` followed by a
+        separate call to :meth:`~FitTransform.apply()`, both on the same data argument.
+        This is because ``fit()`` itself must already apply every transform in the
+        pipeline, in orer to produce the fitting data for the following transform.
+        ``apply()`` captures the result of these fit-time applications, avoiding their
+        unnecessary recomputation.
 
         :return: The result of fitting this :class:`Pipeline` and applying it to its own
             fitting data.
