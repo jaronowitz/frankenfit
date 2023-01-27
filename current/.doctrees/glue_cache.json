@@ -9,7 +9,7 @@
         }
       },
       "data": {
-        "text/plain": "'2023-01-27 22:37 UTC'"
+        "text/plain": "'2023-01-27 22:49 UTC'"
       }
     },
     "frankenfit_version": {
@@ -21,7 +21,7 @@
         }
       },
       "data": {
-        "text/plain": "'0.1.dev1+g051b290'"
+        "text/plain": "'0.1.dev1+ga6ed198'"
       }
     }
   },
