@@ -516,8 +516,6 @@ memory usage: 4.5+ MB
 <p>Throughout the documentation we make use of the
 <a class="reference external" href="https://pypi.org/project/pydataset/">pydataset</a> package for loading example data like
 <code class="docutils literal notranslate"><span class="pre">diamonds</span></code>.</p>
-<p>Also, as a fellow <em>bourgeois</em> of the Western world, the author of Frankenfit assumes
-that you know what these variables mean in the context of diamonds.</p>
 </div>
 <p>Let’s divide the data into random training and test sets, and examine the distributions
 of the <code class="docutils literal notranslate"><span class="pre">carat</span></code>, <code class="docutils literal notranslate"><span class="pre">depth</span></code>, <code class="docutils literal notranslate"><span class="pre">table</span></code>, and <code class="docutils literal notranslate"><span class="pre">price</span></code> variables on the training set:</p>
@@ -769,14 +767,13 @@ that our transforms have affected the distributions in the expected way, and che
 <img alt="_images/synopsis_15_1.png" src="_images/synopsis_15_1.png" />
 </div>
 </div>
-<p>This is so important:</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>Our entire end-to-end model of diamond prices, including feature preparation and
 regression, was fit <em>strictly</em> on one set of data (<code class="docutils literal notranslate"><span class="pre">train_df</span></code>) and applied strictly
 <strong>out-of-sample</strong> to new data (<code class="docutils literal notranslate"><span class="pre">test_df</span></code>). The columns in <code class="docutils literal notranslate"><span class="pre">test_df</span></code> are being winsorized
 using the quantiles that were observed in <code class="docutils literal notranslate"><span class="pre">train_df</span></code>, z-scored using the means and
-standard deviations that were observed in <code class="docutils literal notranslate"><span class="pre">train_df</span></code>, and <code class="docutils literal notranslate"><span class="pre">price_hat</span></code> was generated
+standard deviations that were observed in <code class="docutils literal notranslate"><span class="pre">train_df</span></code>, and <code class="docutils literal notranslate"><span class="pre">price_hat</span></code> is generated
 using the regression betas that were learned on <code class="docutils literal notranslate"><span class="pre">train_df</span></code>.</p>
 </div>
 <p>The ability to fit a complex pipeline on one set of data and use the fit state to
@@ -908,7 +905,7 @@ cross validation on the model of diamond prices:</p>
   <tbody>
     <tr>
       <th>price_hat</th>
-      <td>0.925855</td>
+      <td>0.925893</td>
     </tr>
   </tbody>
 </table>
@@ -1105,115 +1102,97 @@ and data batching.</p></li>
       <th>price</th>
     </tr>
     <tr>
-      <th>features</th>
       <th>alpha</th>
+      <th>features</th>
       <th></th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <th rowspan="7" valign="top">0.01</th>
       <th>['depth']</th>
-      <th>0.01</th>
       <td>NaN</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <th>0.01</th>
       <td>0.128944</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <th>0.01</th>
       <td>0.923514</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <th>0.01</th>
       <td>0.133433</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <th>0.01</th>
       <td>0.923938</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <th>0.01</th>
       <td>0.923961</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <th>0.01</th>
       <td>0.924758</td>
     </tr>
     <tr>
+      <th rowspan="7" valign="top">0.05</th>
       <th>['depth']</th>
-      <th>0.05</th>
       <td>NaN</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <th>0.05</th>
       <td>0.130043</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <th>0.05</th>
       <td>0.924911</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <th>0.05</th>
       <td>0.130043</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <th>0.05</th>
       <td>0.924911</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <th>0.05</th>
       <td>0.924911</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <th>0.05</th>
       <td>0.924911</td>
     </tr>
     <tr>
+      <th rowspan="7" valign="top">0.10</th>
       <th>['depth']</th>
-      <th>0.10</th>
       <td>NaN</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <th>0.10</th>
       <td>0.131313</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <th>0.10</th>
       <td>0.926361</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <th>0.10</th>
       <td>0.131313</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <th>0.10</th>
       <td>0.926361</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <th>0.10</th>
       <td>0.926361</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <th>0.10</th>
       <td>0.926361</td>
     </tr>
   </tbody>
@@ -1287,116 +1266,98 @@ and data batching.</p></li>
       <th>price</th>
     </tr>
     <tr>
-      <th>features</th>
       <th>alpha</th>
+      <th>features</th>
       <th></th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <th rowspan="7" valign="top">0.01</th>
       <th>['depth']</th>
-      <th>0.01</th>
-      <td>-0.003287</td>
+      <td>0.004175</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <th>0.01</th>
-      <td>0.134916</td>
+      <td>0.134869</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <th>0.01</th>
-      <td>0.924598</td>
+      <td>0.924584</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <th>0.01</th>
-      <td>0.137954</td>
+      <td>0.137920</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <th>0.01</th>
-      <td>0.925048</td>
+      <td>0.925053</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <th>0.01</th>
-      <td>0.925002</td>
+      <td>0.924990</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <th>0.01</th>
-      <td>0.925815</td>
+      <td>0.925818</td>
     </tr>
     <tr>
+      <th rowspan="7" valign="top">0.05</th>
       <th>['depth']</th>
-      <th>0.05</th>
-      <td>0.005841</td>
+      <td>-0.000188</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <th>0.05</th>
-      <td>0.135870</td>
+      <td>0.135863</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <th>0.05</th>
-      <td>0.925936</td>
+      <td>0.925916</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <th>0.05</th>
-      <td>0.136029</td>
+      <td>0.135810</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <th>0.05</th>
-      <td>0.925908</td>
-    </tr>
-    <tr>
-      <th>['carat', 'table']</th>
-      <th>0.05</th>
-      <td>0.925931</td>
-    </tr>
-    <tr>
-      <th>['depth', 'table', 'carat']</th>
-      <th>0.05</th>
       <td>0.925938</td>
     </tr>
     <tr>
-      <th>['depth']</th>
-      <th>0.10</th>
-      <td>0.000957</td>
-    </tr>
-    <tr>
-      <th>['table']</th>
-      <th>0.10</th>
-      <td>0.137113</td>
-    </tr>
-    <tr>
-      <th>['carat']</th>
-      <th>0.10</th>
-      <td>0.927271</td>
-    </tr>
-    <tr>
-      <th>['depth', 'table']</th>
-      <th>0.10</th>
-      <td>0.136821</td>
-    </tr>
-    <tr>
-      <th>['depth', 'carat']</th>
-      <th>0.10</th>
-      <td>0.927314</td>
-    </tr>
-    <tr>
       <th>['carat', 'table']</th>
-      <th>0.10</th>
-      <td>0.927259</td>
+      <td>0.925962</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <th>0.10</th>
-      <td>0.927314</td>
+      <td>0.925893</td>
+    </tr>
+    <tr>
+      <th rowspan="7" valign="top">0.10</th>
+      <th>['depth']</th>
+      <td>-0.002573</td>
+    </tr>
+    <tr>
+      <th>['table']</th>
+      <td>0.137392</td>
+    </tr>
+    <tr>
+      <th>['carat']</th>
+      <td>0.927293</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table']</th>
+      <td>0.137154</td>
+    </tr>
+    <tr>
+      <th>['depth', 'carat']</th>
+      <td>0.927273</td>
+    </tr>
+    <tr>
+      <th>['carat', 'table']</th>
+      <td>0.927260</td>
+    </tr>
+    <tr>
+      <th>['depth', 'table', 'carat']</th>
+      <td>0.927282</td>
     </tr>
   </tbody>
 </table>
@@ -1459,116 +1420,98 @@ operations in the pipeline.</p></li>
       <th>price</th>
     </tr>
     <tr>
-      <th>features</th>
       <th>alpha</th>
+      <th>features</th>
       <th></th>
     </tr>
   </thead>
   <tbody>
     <tr>
+      <th rowspan="7" valign="top">0.01</th>
       <th>['depth']</th>
-      <th>0.01</th>
-      <td>-0.007899</td>
+      <td>-0.002332</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <th>0.01</th>
-      <td>0.134627</td>
+      <td>0.134681</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <th>0.01</th>
-      <td>0.924591</td>
+      <td>0.924578</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <th>0.01</th>
-      <td>0.137360</td>
+      <td>0.137431</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <th>0.01</th>
-      <td>0.925066</td>
+      <td>0.925035</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <th>0.01</th>
-      <td>0.925004</td>
+      <td>0.924993</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <th>0.01</th>
-      <td>0.925805</td>
+      <td>0.925784</td>
     </tr>
     <tr>
+      <th rowspan="7" valign="top">0.05</th>
       <th>['depth']</th>
-      <th>0.05</th>
-      <td>-0.009893</td>
+      <td>-0.003989</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <th>0.05</th>
-      <td>0.135827</td>
+      <td>0.135769</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <th>0.05</th>
-      <td>0.925939</td>
+      <td>0.925940</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <th>0.05</th>
-      <td>0.135710</td>
+      <td>0.135678</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <th>0.05</th>
-      <td>0.925899</td>
+      <td>0.925928</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <th>0.05</th>
-      <td>0.925920</td>
+      <td>0.925898</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <th>0.05</th>
-      <td>0.925926</td>
+      <td>0.925917</td>
     </tr>
     <tr>
+      <th rowspan="7" valign="top">0.10</th>
       <th>['depth']</th>
-      <th>0.10</th>
-      <td>-0.007318</td>
+      <td>-0.011722</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <th>0.10</th>
-      <td>0.136825</td>
+      <td>0.136951</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <th>0.10</th>
-      <td>0.927263</td>
+      <td>0.927264</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <th>0.10</th>
-      <td>0.136844</td>
+      <td>0.136150</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <th>0.10</th>
-      <td>0.927284</td>
+      <td>0.927283</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <th>0.10</th>
-      <td>0.927243</td>
+      <td>0.927256</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <th>0.10</th>
-      <td>0.927278</td>
+      <td>0.927294</td>
     </tr>
   </tbody>
 </table>
