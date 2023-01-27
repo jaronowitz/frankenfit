@@ -378,7 +378,7 @@ ground up.</p>
 <span id="synopsis-create"></span><h2>Create pipelines<a class="headerlink" href="#create-pipelines" title="Permalink to this headline">#</a></h2>
 <p>Let’s suppose we want to model the prices of round-cut diamonds using the venerable
 <a class="reference external" href="https://ggplot2.tidyverse.org/reference/diamonds.html">diamonds</a> dataset, which is
-often used to teach regression, and looks like this:</p>
+often used to teach regression. It looks like this:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">pydataset</span> <span class="kn">import</span> <span class="n">data</span>
@@ -544,12 +544,6 @@ creates a training response <code class="docutils literal notranslate"><span cla
 <code class="docutils literal notranslate"><span class="pre">price</span></code>, and creates features by winsorizing, z-scoring, and clipping the raw predictor
 variables (and in the case of <code class="docutils literal notranslate"><span class="pre">carat</span></code>, log-transforming it). Finally we exponeniate the
 predictions of the regression to put them in the original units of <code class="docutils literal notranslate"><span class="pre">price</span></code> (dollars).</p>
-<p>The pipeline is created by a chained sequence of method calls on a
-<a class="reference internal" href="api.html#frankenfit.DataFramePipeline" title="frankenfit.DataFramePipeline"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">DataFramePipeline</span></code></span></a> object, some of which accept
-arguments that are themselves <code class="docutils literal notranslate"><span class="pre">DataFramePipelines</span></code> built up by their own call-chains. We
-call this the <a class="reference internal" href="transforms_and_pipelines.html#call-chain-api"><span class="std std-ref"><strong>call-chain API</strong></span></a>. Each method call adds a
-<strong>transform</strong> to the pipeline, and you can peruse the library of built-in transforms <a class="reference internal" href="api.html#transform-library"><span class="std std-ref">in
-the API documentation</span></a>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -596,12 +590,18 @@ the API documentation</span></a>.</p>
 </div>
 </div>
 </div>
-<p>The pipeline object <code class="docutils literal notranslate"><span class="pre">diamond_model</span></code> is best thought of as a light-weight, abstract, immutable
-description of what to do to some as-yet unspecified data; it stores no data or state
-in and of itself.</p>
+<p>The pipeline is created by a chained sequence of method calls on a
+<a class="reference internal" href="api.html#frankenfit.DataFramePipeline" title="frankenfit.DataFramePipeline"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">DataFramePipeline</span></code></span></a> object, some of which accept
+arguments that are themselves <code class="docutils literal notranslate"><span class="pre">DataFramePipelines</span></code> built up by their own call-chains. We
+call this the <a class="reference internal" href="transforms_and_pipelines.html#call-chain-api"><span class="std std-ref"><strong>call-chain API</strong></span></a>. Each method call adds a
+<strong>transform</strong> to the pipeline, and you can peruse the library of built-in transforms <a class="reference internal" href="api.html#transform-library"><span class="std std-ref">in
+the API documentation</span></a>.</p>
 </section>
 <section id="fit-pipelines-and-apply-them-to-data">
 <span id="synopsis-fit-apply"></span><h2>Fit pipelines and apply them to data<a class="headerlink" href="#fit-pipelines-and-apply-them-to-data" title="Permalink to this headline">#</a></h2>
+<p>The pipeline object <code class="docutils literal notranslate"><span class="pre">diamond_model</span></code> is best thought of as a light-weight, abstract, immutable
+description of what to do to some as-yet unspecified data; it stores no data or state
+in and of itself.</p>
 <p>With our pipeline defined, we <strong>fit</strong> it on the training data, obtaining a
 <a class="reference internal" href="api.html#frankenfit.FitTransform" title="frankenfit.FitTransform"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">FitTransform</span></code></span></a> object <code class="docutils literal notranslate"><span class="pre">fit_diamond_model</span></code>, which encapsulates
 the learned <strong>states</strong> of all of the transforms in the pipeline:</p>
@@ -746,10 +746,10 @@ the learned <strong>states</strong> of all of the transforms in the pipeline:</p
 </div></div></div>
 </div>
 <p>We can see that the resulting <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="docutils literal notranslate"><span class="pre">predictions_df</span></code>, has a number of new
-columns added by our pipline: the standardized features (<code class="docutils literal notranslate"><span class="pre">carat_fea</span></code>, <code class="docutils literal notranslate"><span class="pre">depth_fea</span></code>,
+columns added by our pipeline: the standardized features (<code class="docutils literal notranslate"><span class="pre">carat_fea</span></code>, <code class="docutils literal notranslate"><span class="pre">depth_fea</span></code>,
 <code class="docutils literal notranslate"><span class="pre">table_fea</span></code>), and most importantly, our predicted price, <code class="docutils literal notranslate"><span class="pre">price_hat</span></code>. We can confirm
-that our transforms have affected the distributions in the expected way, and check how
-<code class="docutils literal notranslate"><span class="pre">price_hat</span></code> relates to actual <code class="docutils literal notranslate"><span class="pre">price</span></code>:</p>
+that our transforms have affected the distributions of the features in the expected way,
+and check how <code class="docutils literal notranslate"><span class="pre">price_hat</span></code> relates to actual <code class="docutils literal notranslate"><span class="pre">price</span></code>:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
@@ -770,30 +770,32 @@ that our transforms have affected the distributions in the expected way, and che
 <div class="admonition important">
 <p class="admonition-title">Important</p>
 <p>Our entire end-to-end model of diamond prices, including feature preparation and
-regression, was fit <em>strictly</em> on one set of data (<code class="docutils literal notranslate"><span class="pre">train_df</span></code>) and applied strictly
+regression, was fit <strong>strictly</strong> on one set of data (<code class="docutils literal notranslate"><span class="pre">train_df</span></code>) and applied strictly
 <strong>out-of-sample</strong> to new data (<code class="docutils literal notranslate"><span class="pre">test_df</span></code>). The columns in <code class="docutils literal notranslate"><span class="pre">test_df</span></code> are being winsorized
 using the quantiles that were observed in <code class="docutils literal notranslate"><span class="pre">train_df</span></code>, z-scored using the means and
-standard deviations that were observed in <code class="docutils literal notranslate"><span class="pre">train_df</span></code>, and <code class="docutils literal notranslate"><span class="pre">price_hat</span></code> is generated
-using the regression betas that were learned on <code class="docutils literal notranslate"><span class="pre">train_df</span></code>.</p>
+standard deviations that were observed in <code class="docutils literal notranslate"><span class="pre">train_df</span></code>, and <code class="docutils literal notranslate"><span class="pre">price_hat</span></code> is generated using
+the regression betas that were learned on <code class="docutils literal notranslate"><span class="pre">train_df</span></code>.</p>
 </div>
 <p>The ability to fit a complex pipeline on one set of data and use the fit state to
 generate predictions on different data is fundamental to statistical resampling
 techniques like cross-validation, as well as many common operations on time series.</p>
-<p>Frankenfit provides various transforms that fit and apply <em>child transforms</em>, which can
-be combined to achieve many use cases. For example, we can use
+<section id="group-and-cross-validate-pipelines">
+<h3>Group and cross-validate pipelines<a class="headerlink" href="#group-and-cross-validate-pipelines" title="Permalink to this headline">#</a></h3>
+<p>Frankenfit provides various transforms that fit and apply <strong>child transforms</strong>, which
+can be combined to achieve many use cases. For example, we can use
 <a class="reference internal" href="api.html#frankenfit.dataframe.GroupByCols" title="frankenfit.dataframe.GroupByCols"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code></span></a> (together with
 <a class="reference internal" href="api.html#frankenfit.dataframe.Correlation" title="frankenfit.dataframe.Correlation"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">correlation()</span></code></span></a>) to check how well our model, which
-was fit on the training set, predicts price <em>on the test set</em> for each <code class="docutils literal notranslate"><span class="pre">cut</span></code> of diamond:</p>
+was fit on the training set, predicts price <strong>on the test set</strong> for each <code class="docutils literal notranslate"><span class="pre">cut</span></code> of
+diamond:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
     <span class="n">do</span>
+    <span class="c1"># group the next transform by the &quot;cut&quot; column</span>
     <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span><span class="s2">&quot;cut&quot;</span><span class="p">,</span> <span class="n">group_keys</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">then</span><span class="p">(</span>
-            <span class="n">fit_diamond_model</span>
-            <span class="o">.</span><span class="n">then</span><span class="p">()</span>
-            <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
-        <span class="p">)</span>
+    <span class="o">.</span><span class="n">then</span><span class="p">(</span>
+        <span class="n">fit_diamond_model</span><span class="o">.</span><span class="n">then</span><span class="p">()</span><span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
 <span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span><span class="o">.</span><span class="n">head</span><span class="p">()</span>
 </pre></div>
 </div>
@@ -856,22 +858,51 @@ was fit on the training set, predicts price <em>on the test set</em> for each <c
 </table>
 </div></div></div>
 </div>
-<p>suppose we want to perform 5-fold
-cross validation on the model of diamond prices:</p>
+<p><code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code> works similarly to
+<a class="reference external" href="https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.groupby.html"><code class="docutils literal notranslate"><span class="pre">pandas.DataFrame.groupby()</span></code></a>:
+it “consumes” the next method call in the chain and whatever transform that call is
+introducing to the pipeline will be fit/applied separately for each distinct value of
+the <code class="docutils literal notranslate"><span class="pre">cut</span></code> column. In this case the next call is <code class="docutils literal notranslate"><span class="pre">then(fit_diamond_model...)</span></code>, which is
+introducing a pipeline that “scores” the predictions of our already-fit model. The
+result of all of this is a <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code> that shows us, for each subset of the test data
+corresponding to a different value of <code class="docutils literal notranslate"><span class="pre">cut</span></code>, the correlation  between <code class="docutils literal notranslate"><span class="pre">price</span></code> and
+<code class="docutils literal notranslate"><span class="pre">price_hat</span></code> as generated on that subset by our model, which was fit on the entire
+training set.</p>
+<p>But it’s important to note that <code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code> is very different than pandas’
+<code class="docutils literal notranslate"><span class="pre">groupby()</span></code>. It takes a child transform (which as we’ve seen may be a complex pipeline),
+and before it can apply that transform to a group of data <span class="math notranslate nohighlight">\(g_i\)</span> we must answer: how
+should the transform for <span class="math notranslate nohighlight">\(g_i\)</span> be fit? This doesn’t matter in the example above because
+<a class="reference internal" href="transforms_and_pipelines.html#including-fittransforms"><span class="std std-ref">fitting is a null-op on a <code class="docutils literal notranslate"><span class="pre">FitTransform</span></code></span></a> like
+<code class="docutils literal notranslate"><span class="pre">fit_diamond_model</span></code>, but where it gets interesting is when we apply <code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code> to
+an <em>unfit</em> pipeline like our original <code class="docutils literal notranslate"><span class="pre">diamond_model</span></code>. The default “fitting schedule,”
+as we call it, is to generate predictions on <span class="math notranslate nohighlight">\(g_i\)</span> by fitting on <span class="math notranslate nohighlight">\(g_i\)</span>, but we can
+imagine other fitting schedules, like:</p>
+<ul class="simple">
+<li><p>generate predictions on <span class="math notranslate nohighlight">\(g_i\)</span> by fitting on all <span class="math notranslate nohighlight">\(g_j\)</span> where <span class="math notranslate nohighlight">\(j&lt;i\)</span>, for some ordering
+of groups (time series data, for example);</p></li>
+<li><p>generate predictions on <span class="math notranslate nohighlight">\(g_i\)</span> by fitting on all other groups <span class="math notranslate nohighlight">\(g_j\)</span>, <span class="math notranslate nohighlight">\(i \neq j\)</span>; this
+is exactly the definition of
+<a class="reference external" href="https://en.wikipedia.org/wiki/Cross-validation_(statistics)">cross-validation</a>!</p></li>
+</ul>
+<p>So suppose we want to perform 5-fold cross-validation on the model of diamond prices. We
+can create a cross-validation pipeline around <code class="docutils literal notranslate"><span class="pre">diamond_model</span></code> like so:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">crossval_pipeline</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="c1"># read the full-sample data from a file</span>
     <span class="n">do</span><span class="o">.</span><span class="n">read_pandas_csv</span><span class="p">(</span><span class="s2">&quot;./diamonds.csv&quot;</span><span class="p">)</span>
-    <span class="c1"># randomly assign rows to groups</span>
+    <span class="c1"># randomly partition rows into 5 groups</span>
     <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
-        <span class="n">group</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">,</span> <span class="n">ngroups</span><span class="o">=</span><span class="mi">5</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span>
-            <span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">ngroups</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="n">group</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span>
+            <span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
         <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span>
     <span class="p">)</span>
+    <span class="c1"># group the next transform by the &quot;group&quot; column</span>
     <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span>
         <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">fitting_schedule</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">fit_group_on_all_other_groups</span><span class="p">,</span>
     <span class="p">)</span>
-        <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">diamond_model</span><span class="p">)</span>  <span class="c1"># &lt;-- our diamond_model pipeline is what&#39;s being grouped!</span>
+    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">diamond_model</span><span class="p">)</span>  <span class="c1"># &lt;-- our diamond_model pipeline is applied to each group</span>
+                          <span class="c1"># by fitting it on all the other groups</span>
     <span class="c1"># score the out-of-sample predictions across all groups</span>
     <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
 <span class="p">)</span>
@@ -905,26 +936,39 @@ cross validation on the model of diamond prices:</p>
   <tbody>
     <tr>
       <th>price_hat</th>
-      <td>0.925893</td>
+      <td>0.92587</td>
     </tr>
   </tbody>
 </table>
 </div></div></div>
 </div>
-<p>We use <code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code> to divide the dataset into groups (based on a column that we
-create with <code class="docutils literal notranslate"><span class="pre">assign()</span></code>), and for each group, generate predictions from the
-<code class="docutils literal notranslate"><span class="pre">diamond_model</span></code> pipeline by fitting it on the data from all <em>other</em> groups, but applying
-it to the data from the group in question.</p>
-<p>This gives us a dataset of entirely out-of-sample predictions, whose performance we
-score by feeding it to a transform that outputs the correlation between observed and
-predicted price.</p>
+<p>We randomly divide the dataset into groups (based on a column that we create with
+<code class="docutils literal notranslate"><span class="pre">assign()</span></code>), and  use <code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code> together with a specified <code class="docutils literal notranslate"><span class="pre">fitting_schedule</span></code> to,
+for each group, generate predictions from the <code class="docutils literal notranslate"><span class="pre">diamond_model</span></code> pipeline by fitting it on
+the data from all <em>other</em> groups, but applying it to the data from the group in
+question.</p>
+<p>This gives us a dataset of entirely out-of-sample predictions, whose performance we then
+score with the <code class="docutils literal notranslate"><span class="pre">correlation()</span></code> transform.</p>
+</section>
 </section>
 <section id="use-hyperparameters">
 <span id="synopsis-hyperparams"></span><h2>Use hyperparameters<a class="headerlink" href="#use-hyperparameters" title="Permalink to this headline">#</a></h2>
-<ol class="simple">
-<li><p>Hyperparameters and bindings. Concisely describe and execute hyperparameter searches
-and data batching.</p></li>
-</ol>
+<p>All of the transforms in the <code class="docutils literal notranslate"><span class="pre">diamond_model</span></code> pipeline have <strong>parameters</strong>. For example,
+the <code class="docutils literal notranslate"><span class="pre">0.05</span></code> in <code class="docutils literal notranslate"><span class="pre">winsorize(0.05)</span></code>, the <code class="docutils literal notranslate"><span class="pre">x_cols=</span></code>, <code class="docutils literal notranslate"><span class="pre">response_col=</span></code>, <code class="docutils literal notranslate"><span class="pre">hat_col=</span></code> and other
+keyword-arguments to <code class="docutils literal notranslate"><span class="pre">sk_learn</span></code>, are all parameters. We can replace some of these
+parameters with <strong>hyperparameters</strong>, to indicate that their values are deferred, and
+will not be known until <code class="docutils literal notranslate"><span class="pre">fit()</span></code> is called, at which point the caller of <code class="docutils literal notranslate"><span class="pre">fit()</span></code> must
+provide them.</p>
+<p>The simplest way to introduce a hyperparameter to a pipeline is to replace the desired
+parameter with an instance of <a class="reference internal" href="api.html#frankenfit.HP" title="frankenfit.HP"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">ff.HP</span></code></span></a>, indicating the <strong>name</strong> of the
+hyperparameter that will supply the value of that parameter at fit-time. For example,
+let’s create a new hyperparameterized diamond pipeline, with the following changes:</p>
+<ul class="simple">
+<li><p>Instead of sklearn’s <code class="docutils literal notranslate"><span class="pre">LinearRegression</span></code>, we use <code class="docutils literal notranslate"><span class="pre">Lasso</span></code>, which implements a <a class="reference external" href="https://en.wikipedia.org/wiki/Lasso_(statistics)">lasso
+regression</a> with shrinkage parameter <code class="docutils literal notranslate"><span class="pre">alpha</span></code>, which we provide as a hyperparameter named <code class="docutils literal notranslate"><span class="pre">&quot;alpha&quot;</span></code>.</p></li>
+<li><p>We replace the hard-coded list <code class="docutils literal notranslate"><span class="pre">[&quot;carat&quot;,</span> <span class="pre">&quot;depth&quot;,</span> <span class="pre">&quot;table&quot;]</span></code> with a hyperparameter
+named <code class="docutils literal notranslate"><span class="pre">&quot;features&quot;</span></code> which is expected to be a list of strings.</p></li>
+</ul>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">diamond_model_hyperparams</span> <span class="o">=</span> <span class="p">(</span>
@@ -956,13 +1000,34 @@ and data batching.</p></li>
     <span class="p">)</span>
     <span class="o">.</span><span class="n">pipe</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">expm1</span><span class="p">,</span> <span class="s2">&quot;price_hat&quot;</span><span class="p">)</span>
 <span class="p">)</span>
-
-<span class="n">diamond_model_hyperparams</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+</div>
+<p>We can inspect the set of hyperparameters referenced by this new pipeline with <code class="docutils literal notranslate"><span class="pre">hyperparams()</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">diamond_model_hyperparams</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
 <div class="cell_output docutils container">
 <div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;alpha&#39;, &#39;features&#39;}
+</pre></div>
+</div>
+</div>
+</div>
+<p>If we attempt to fit <code class="docutils literal notranslate"><span class="pre">diamond_model_hyperparams</span></code> as we did previously, i.e. with:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">diamond_model_hyperparams</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>…then <code class="docutils literal notranslate"><span class="pre">fit()</span></code> will raise
+<a class="reference internal" href="api.html#frankenfit.UnresolvedHyperparameterError" title="frankenfit.UnresolvedHyperparameterError"><span class="xref myst py py-exc"><code class="docutils literal notranslate"><span class="pre">UnresolvedHyperparameterError</span></code></span></a>.</p>
+<p>Instead we must supply values for the hyperparameters, which we call <strong>bindings</strong>; they
+can be supplied as keyword arguments to <code class="docutils literal notranslate"><span class="pre">fit()</span></code>:</p>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">diamond_model_hyperparams</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">features</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">]);</span>
 </pre></div>
 </div>
 </div>
@@ -1010,6 +1075,21 @@ and data batching.</p></li>
 </table>
 </div></div></div>
 </div>
+<p>By using hyperparameters, we can make our pipelines much more re-usable. We can write a
+pipeline once, then use it to fit potentially very different models by supplying
+different bindings. Frankenfit provides utility transforms like
+<a class="reference internal" href="api.html#frankenfit.universal.IfHyperparamIsTrue" title="frankenfit.universal.IfHyperparamIsTrue"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">if_hyperparam_is_true()</span></code></span></a> and
+<a class="reference internal" href="api.html#frankenfit.universal.IfHyperparamLambda" title="frankenfit.universal.IfHyperparamLambda"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">if_hyperparam_lambda()</span></code></span></a> that allow for creative uses
+of hyperparameters to control the behavior of your pipelines.</p>
+<section id="hyperparameter-searches">
+<h3>Hyperparameter searches<a class="headerlink" href="#hyperparameter-searches" title="Permalink to this headline">#</a></h3>
+<p>One transform in particular,
+<a class="reference internal" href="api.html#frankenfit.dataframe.GroupByBindings" title="frankenfit.dataframe.GroupByBindings"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">group_by_bindings()</span></code></span></a>, is like
+<code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code>, but instead of fitting and applying a child transform on different
+groups of data, it does so on different hyperparameter bindings, which can be used to
+implement hyperparameter searches, among other things.</p>
+<p>For example, let’s define a search space on our two hyperparameters, <code class="docutils literal notranslate"><span class="pre">&quot;alpha&quot;</span></code> and
+<code class="docutils literal notranslate"><span class="pre">&quot;features&quot;</span></code>:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">itertools</span>
@@ -1031,11 +1111,6 @@ and data batching.</p></li>
 <span class="p">]</span>
 
 <span class="n">search_space</span>
-
-<span class="c1">#(</span>
-<span class="c1">#    do</span>
-<span class="c1">#    .group_by_bindings()</span>
-<span class="c1">#)</span>
 </pre></div>
 </div>
 </div>
@@ -1065,16 +1140,19 @@ and data batching.</p></li>
 </div>
 </div>
 </div>
+<p>Suppose we want to know how our model performs on each point in this search space when
+trained on <code class="docutils literal notranslate"><span class="pre">train_df</span></code> and evaluated on <code class="docutils literal notranslate"><span class="pre">test_df</span></code>. We can use <code class="docutils literal notranslate"><span class="pre">group_by_bindings()</span></code> on
+the search space that we’ve defined:<a class="footnote-reference brackets" href="#footnote-nan-corr" id="id1">1</a></p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
     <span class="n">do</span>
     <span class="o">.</span><span class="n">group_by_bindings</span><span class="p">(</span><span class="n">search_space</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="o">.</span><span class="n">then</span><span class="p">(</span>
-            <span class="n">diamond_model_hyperparams</span>
-            <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
-            <span class="c1">#.stateless_lambda(lambda df: df.head(3))</span>
-        <span class="p">)</span>
+    <span class="o">.</span><span class="n">then</span><span class="p">(</span>
+        <span class="n">diamond_model_hyperparams</span>
+        <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="s2">&quot;correlation&quot;</span><span class="p">})</span>
+    <span class="p">)</span>
 <span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span>
 </pre></div>
 </div>
@@ -1099,7 +1177,7 @@ and data batching.</p></li>
     <tr style="text-align: right;">
       <th></th>
       <th></th>
-      <th>price</th>
+      <th>correlation</th>
     </tr>
     <tr>
       <th>alpha</th>
@@ -1199,47 +1277,46 @@ and data batching.</p></li>
 </table>
 </div></div></div>
 </div>
+<p>We can even go a step further: suppose that for each point in the search space, rather
+than fitting the model on <code class="docutils literal notranslate"><span class="pre">train_df</span></code> and evaluating it on <code class="docutils literal notranslate"><span class="pre">test_df</span></code>, we want to perform
+5-fold cross validation of the model as we did before. That is, divide the data into 5
+groups, then for each binding of hyperparameters, apply the model that results from that
+binding to each group by fitting it on every other group, and evaluate all of the
+resulting out-of-sample predictions. This will give us a cross-validated evaluation of
+each binding in the search space.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">make_crossval_pipeline</span><span class="p">(</span><span class="n">model_pipeline</span><span class="p">,</span> <span class="n">hat_col</span><span class="p">,</span> <span class="n">response_col</span><span class="p">):</span>
-    <span class="k">return</span> <span class="p">(</span>
-        <span class="n">do</span><span class="o">.</span><span class="n">read_pandas_csv</span><span class="p">(</span><span class="s2">&quot;./diamonds.csv&quot;</span><span class="p">)</span>
-        <span class="c1"># randomly assign rows to groups</span>
-        <span class="c1"># ngroups is a hyperparam with default value of 5</span>
-        <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
-            <span class="n">group</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">,</span> <span class="n">ngroups</span><span class="o">=</span><span class="mi">5</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span>
-                <span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="n">ngroups</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
-            <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span>
-        <span class="p">)</span>
-        <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span>
-            <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">fitting_schedule</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">fit_group_on_all_other_groups</span><span class="p">,</span>
-        <span class="p">)</span>
-            <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">model_pipeline</span><span class="p">)</span>
-        <span class="c1"># score the out-of-sample predictions across all groups</span>
-        <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="n">hat_col</span><span class="p">,</span> <span class="n">response_col</span><span class="p">)</span>
-    <span class="p">)</span>
-
-<span class="n">cv_diamonds_hyperparams</span> <span class="o">=</span> <span class="n">make_crossval_pipeline</span><span class="p">(</span>
-    <span class="n">diamond_model_hyperparams</span><span class="p">,</span> <span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span>
-<span class="p">)</span>
-<span class="n">cv_diamonds_hyperparams</span><span class="o">.</span><span class="n">hyperparams</span><span class="p">()</span>
-</pre></div>
-</div>
-</div>
-<div class="cell_output docutils container">
-<div class="output text_plain highlight-myst-ansi notranslate"><div class="highlight"><pre><span></span>{&#39;alpha&#39;, &#39;features&#39;, &#39;ngroups&#39;}
-</pre></div>
-</div>
-</div>
-</div>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">search_cv</span> <span class="o">=</span> <span class="p">(</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">cv_diamonds_hyperparams</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">do</span>
+    <span class="o">.</span><span class="n">group_by_cols</span><span class="p">(</span>
+        <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="n">fitting_schedule</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">fit_group_on_all_other_groups</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">diamond_model_hyperparams</span><span class="p">)</span>
+    <span class="c1"># score the out-of-sample predictions across all groups</span>
+    <span class="o">.</span><span class="n">correlation</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">rename</span><span class="p">({</span><span class="s2">&quot;price&quot;</span><span class="p">:</span> <span class="s2">&quot;correlation&quot;</span><span class="p">})</span>
+<span class="p">)</span>
+
+<span class="n">search_cv</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">do</span><span class="o">.</span><span class="n">read_pandas_csv</span><span class="p">(</span><span class="s2">&quot;./diamonds.csv&quot;</span><span class="p">)</span>
+    <span class="c1"># randomly assign rows to groups. note we&#39;ve put this before group_by_bindings() so</span>
+    <span class="c1"># that we don&#39;t get a different randomization for each binding</span>
+    <span class="o">.</span><span class="n">assign</span><span class="p">(</span>
+        <span class="n">group</span><span class="o">=</span><span class="k">lambda</span> <span class="n">df</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span>
+            <span class="n">low</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="s2">&quot;int32&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="c1"># run cv_diamonds_hyerparams on each binding in search_space</span>
     <span class="o">.</span><span class="n">group_by_bindings</span><span class="p">(</span><span class="n">search_space</span><span class="p">,</span> <span class="n">as_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="o">.</span><span class="n">then</span><span class="p">(</span><span class="n">cv_diamonds_hyperparams</span><span class="p">)</span>
 <span class="p">)</span>
-<span class="n">search_cv</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ngroups</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="cell docutils container">
+<div class="cell_input docutils container">
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">search_cv</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
 </pre></div>
 </div>
 </div>
@@ -1263,7 +1340,7 @@ and data batching.</p></li>
     <tr style="text-align: right;">
       <th></th>
       <th></th>
-      <th>price</th>
+      <th>correlation</th>
     </tr>
     <tr>
       <th>alpha</th>
@@ -1275,101 +1352,124 @@ and data batching.</p></li>
     <tr>
       <th rowspan="7" valign="top">0.01</th>
       <th>['depth']</th>
-      <td>0.004175</td>
+      <td>-0.007414</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <td>0.134869</td>
+      <td>0.134612</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <td>0.924584</td>
+      <td>0.924589</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <td>0.137920</td>
+      <td>0.137656</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <td>0.925053</td>
+      <td>0.925042</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <td>0.924990</td>
+      <td>0.924978</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <td>0.925818</td>
+      <td>0.925805</td>
     </tr>
     <tr>
       <th rowspan="7" valign="top">0.05</th>
       <th>['depth']</th>
-      <td>-0.000188</td>
+      <td>-0.007414</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <td>0.135863</td>
+      <td>0.135642</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <td>0.925916</td>
+      <td>0.925905</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <td>0.135810</td>
+      <td>0.135642</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <td>0.925938</td>
+      <td>0.925905</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <td>0.925962</td>
+      <td>0.925905</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <td>0.925893</td>
+      <td>0.925905</td>
     </tr>
     <tr>
       <th rowspan="7" valign="top">0.10</th>
       <th>['depth']</th>
-      <td>-0.002573</td>
+      <td>-0.007414</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <td>0.137392</td>
+      <td>0.136639</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <td>0.927293</td>
+      <td>0.927254</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <td>0.137154</td>
+      <td>0.136639</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <td>0.927273</td>
+      <td>0.927254</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <td>0.927260</td>
+      <td>0.927254</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <td>0.927282</td>
+      <td>0.927254</td>
     </tr>
   </tbody>
 </table>
 </div></div></div>
 </div>
+<p>This just scratches the surface of what’s possible with hyperparameters and grouping
+transforms. For example, if we have a dataset that is too large to fit in memory, we
+could operate on it in “chunks” by defining a pipeline that begins with a data-reading
+transform that has (say) <code class="docutils literal notranslate"><span class="pre">begin</span></code> and <code class="docutils literal notranslate"><span class="pre">end</span></code> parameters that determine what range of data
+it will read. If these parameters are written as hyperparameters, then
+<code class="docutils literal notranslate"><span class="pre">group_by_bindings()</span></code> on a sequence of (<code class="docutils literal notranslate"><span class="pre">begin</span></code>, <code class="docutils literal notranslate"><span class="pre">end</span></code>)-pairs can be used to apply the
+pipeline one chunk at a time, possibly in parallel on a distributed backend.  (TODO:
+link to an example of this.)</p>
+</section>
 </section>
 <section id="run-on-distributed-backends">
 <span id="synopsis-backends"></span><h2>Run on distributed backends<a class="headerlink" href="#run-on-distributed-backends" title="Permalink to this headline">#</a></h2>
-<ol class="simple">
-<li><p>Run on distributed backends, exploiting the parallelism inherent to any branching
-operations in the pipeline.</p></li>
-</ol>
+<p>The <code class="docutils literal notranslate"><span class="pre">search_cv</span></code> pipeline that we’ve defined above has a deeply parallel structure.
+<code class="docutils literal notranslate"><span class="pre">group_by_bindings()</span></code> fits and applies the <code class="docutils literal notranslate"><span class="pre">cv_diamonds_hyperparams</span></code> on each binding in
+<code class="docutils literal notranslate"><span class="pre">search_space</span></code>, and these are all independent of each other. Furthermore, within each
+<code class="docutils literal notranslate"><span class="pre">cv_diamonds_hyperparams</span></code>, <code class="docutils literal notranslate"><span class="pre">group_by_cols</span></code> fits and applies <code class="docutils literal notranslate"><span class="pre">diamond_model_hyperparams</span></code>
+on each fold, which are also independent of each other.  Therefore we have something
+like <code class="docutils literal notranslate"><span class="pre">len(search_space)</span> <span class="pre">*</span> <span class="pre">5</span></code> = <span class="pasted-text">105</span> totally independent fits and
+applications of <code class="docutils literal notranslate"><span class="pre">cv_diamonds_hyperparams</span></code> being computed.</p>
+<p>Frankenfit makes it easy to exploit the parallelism inherent to a pipeline by running it
+on a <strong><a class="reference internal" href="backends.html"><span class="doc std std-doc"><code class="docutils literal notranslate"><span class="pre">Backend</span></code></span></a></strong>. Currently two <code class="docutils literal notranslate"><span class="pre">Backends</span></code> are available:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="api.html#frankenfit.LocalBackend" title="frankenfit.LocalBackend"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">LocalBackend</span></code></span></a>, which we’ve already been using implicitly.
+On this backend, pipelines are computed single-threaded in the local Python
+interpreter process.</p></li>
+<li><p><a class="reference internal" href="api.html#frankenfit.DaskBackend" title="frankenfit.backend.DaskBackend"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">DaskBackend</span></code></span></a>, which computes pipelines on a Dask
+cluster.</p></li>
+</ul>
+<p>To demonstrate, let’s start a Dask cluster on the local machine with four worker
+processes and two threads per worker:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">dask</span> <span class="kn">import</span> <span class="n">distributed</span>
@@ -1384,6 +1484,7 @@ operations in the pipeline.</p></li>
 </div>
 </div>
 </div>
+<p>We then wrap the Dask <code class="docutils literal notranslate"><span class="pre">client</span></code> object with an instance of Frankenfit’s <code class="docutils literal notranslate"><span class="pre">DaskBackend</span></code>:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">dask</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">DaskBackend</span><span class="p">(</span><span class="n">client</span><span class="p">)</span>
@@ -1391,9 +1492,10 @@ operations in the pipeline.</p></li>
 </div>
 </div>
 </div>
+<p>And now it’s as simple as setting this backend on the <code class="docutils literal notranslate"><span class="pre">search_cv</span></code> pipeline before we apply it:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">search_cv</span><span class="o">.</span><span class="n">on_backend</span><span class="p">(</span><span class="n">dask</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>
+<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">search_cv</span><span class="o">.</span><span class="n">on_backend</span><span class="p">(</span><span class="n">dask</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">()</span>  <span class="c1"># runs on dask!</span>
 </pre></div>
 </div>
 </div>
@@ -1417,7 +1519,7 @@ operations in the pipeline.</p></li>
     <tr style="text-align: right;">
       <th></th>
       <th></th>
-      <th>price</th>
+      <th>correlation</th>
     </tr>
     <tr>
       <th>alpha</th>
@@ -1429,111 +1531,118 @@ operations in the pipeline.</p></li>
     <tr>
       <th rowspan="7" valign="top">0.01</th>
       <th>['depth']</th>
-      <td>-0.002332</td>
+      <td>-0.004780</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <td>0.134681</td>
+      <td>0.134754</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <td>0.924578</td>
+      <td>0.924577</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <td>0.137431</td>
+      <td>0.137773</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <td>0.925035</td>
+      <td>0.925022</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <td>0.924993</td>
+      <td>0.924969</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <td>0.925784</td>
+      <td>0.925788</td>
     </tr>
     <tr>
       <th rowspan="7" valign="top">0.05</th>
       <th>['depth']</th>
-      <td>-0.003989</td>
+      <td>-0.004780</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <td>0.135769</td>
+      <td>0.135829</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <td>0.925940</td>
+      <td>0.925908</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <td>0.135678</td>
+      <td>0.135829</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <td>0.925928</td>
+      <td>0.925908</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <td>0.925898</td>
+      <td>0.925908</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <td>0.925917</td>
+      <td>0.925908</td>
     </tr>
     <tr>
       <th rowspan="7" valign="top">0.10</th>
       <th>['depth']</th>
-      <td>-0.011722</td>
+      <td>-0.004780</td>
     </tr>
     <tr>
       <th>['table']</th>
-      <td>0.136951</td>
+      <td>0.136980</td>
     </tr>
     <tr>
       <th>['carat']</th>
-      <td>0.927264</td>
+      <td>0.927275</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
-      <td>0.136150</td>
+      <td>0.136980</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
-      <td>0.927283</td>
+      <td>0.927275</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
-      <td>0.927256</td>
+      <td>0.927275</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
-      <td>0.927294</td>
+      <td>0.927275</td>
     </tr>
   </tbody>
 </table>
 </div></div></div>
 </div>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># if we were doing this for real we&#39;d want to make sure that our group randomization is fixed</span>
-</pre></div>
-</div>
-</div>
-</div>
-<p>Screenshot of the Dask task-stream:</p>
-<p><img alt="task-stream" src="_images/sshot-dask-taskstream-search_cv.png" /></p>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">client</span><span class="o">.</span><span class="n">shutdown</span><span class="p">()</span>
-<span class="n">client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</pre></div>
-</div>
-</div>
-</div>
+<p>The above blocks the local Python interpreter process while waiting for the result. Alternatively, we could call <code class="docutils literal notranslate"><span class="pre">dask.apply(search_cv)</span></code> to immediately obtain a <a class="reference internal" href="api.html#frankenfit.Future" title="frankenfit.Future"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">Future</span></code></span></a> object from which we can later retrieve the result when it is ready. In either case, our Dask cluster’s task-stream dashboard shows all of the tasks that have been scheduled in parallel:</p>
+<figure class="align-default" id="id2">
+<img alt="_images/sshot-dask-taskstream-search_cv.png" src="_images/sshot-dask-taskstream-search_cv.png" />
+<figcaption>
+<p><span class="caption-number">Fig. 2 </span><span class="caption-text">Screenshot of the Dask task-stream when applying <code class="docutils literal notranslate"><span class="pre">search_cv</span></code> on a <code class="docutils literal notranslate"><span class="pre">DaskBackend</span></code>.</span><a class="headerlink" href="#id2" title="Permalink to this image">#</a></p>
+</figcaption>
+</figure>
+</section>
+<section id="next-steps">
+<h2>Next steps<a class="headerlink" href="#next-steps" title="Permalink to this headline">#</a></h2>
+<p>This page has been meant to give a broad tour of what you can do with Frankenfit, and
+has necessarily omitted or glossed over some details. The rest of the documentation
+explains how everything works in detail, and provides a handy <a class="reference internal" href="api.html"><span class="doc std std-doc">reference for the
+complete API</span></a>.</p>
+<hr class="footnotes docutils" />
+<dl class="footnote brackets">
+<dt class="label" id="footnote-nan-corr"><span class="brackets"><a class="fn-backref" href="#id1">1</a></span></dt>
+<dd><p>Some of the hyperparameter bindings result in a correlation of
+<code class="docutils literal notranslate"><span class="pre">NaN</span></code> because <code class="docutils literal notranslate"><span class="pre">depth</span></code> is such a weak predictor that, even with relatively small values
+of <code class="docutils literal notranslate"><span class="pre">alpha</span></code>, the lasso basically zeroes out its regression beta. The regression therefore
+just predicts its intercept on every observation; thus the predictions have no variance
+and the correlation is undefined.</p>
+</dd>
+</dl>
 </section>
 </section>
 
@@ -1594,6 +1703,7 @@ operations in the pipeline.</p></li>
           </div>
           <div class="right-details">
             <div class="icons">
+              <a class="muted-link " href="https://pypi.org/project/frankenfit" aria-label="PyPI"><span id="snake">🐍</span></a>
               <a class="muted-link " href="https://github.com/maxbane/frankenfit" aria-label="GitHub"><svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 16 16"> <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path> </svg></a>
               
             </div>
@@ -1616,9 +1726,16 @@ operations in the pipeline.</p></li>
             <ul>
 <li><a class="reference internal" href="#">Synopsis and overview</a><ul>
 <li><a class="reference internal" href="#create-pipelines">Create pipelines</a></li>
-<li><a class="reference internal" href="#fit-pipelines-and-apply-them-to-data">Fit pipelines and apply them to data</a></li>
-<li><a class="reference internal" href="#use-hyperparameters">Use hyperparameters</a></li>
+<li><a class="reference internal" href="#fit-pipelines-and-apply-them-to-data">Fit pipelines and apply them to data</a><ul>
+<li><a class="reference internal" href="#group-and-cross-validate-pipelines">Group and cross-validate pipelines</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#use-hyperparameters">Use hyperparameters</a><ul>
+<li><a class="reference internal" href="#hyperparameter-searches">Hyperparameter searches</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#run-on-distributed-backends">Run on distributed backends</a></li>
+<li><a class="reference internal" href="#next-steps">Next steps</a></li>
 </ul>
 </li>
 </ul>
@@ -1650,5 +1767,7 @@ const thebe_selector_input = "pre"
 const thebe_selector_output = ".output, .cell_output"
 </script>
     <script async="async" src="_static/sphinx-thebe.js"></script>
+    <script>window.MathJax = {"options": {"processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     </body>
 </html>

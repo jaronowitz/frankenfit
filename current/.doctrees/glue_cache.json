@@ -1,1 +1,42 @@
-{}
+{
+  "cover": {
+    "build_time": {
+      "output_type": "display_data",
+      "metadata": {
+        "scrapbook": {
+          "name": "build_time",
+          "mime_prefix": ""
+        }
+      },
+      "data": {
+        "text/plain": "'2023-01-27 22:37 UTC'"
+      }
+    },
+    "frankenfit_version": {
+      "output_type": "display_data",
+      "metadata": {
+        "scrapbook": {
+          "name": "frankenfit_version",
+          "mime_prefix": ""
+        }
+      },
+      "data": {
+        "text/plain": "'0.1.dev1+g051b290'"
+      }
+    }
+  },
+  "synopsis": {
+    "how_parallel": {
+      "output_type": "display_data",
+      "metadata": {
+        "scrapbook": {
+          "name": "how_parallel",
+          "mime_prefix": ""
+        }
+      },
+      "data": {
+        "text/plain": "105"
+      }
+    }
+  }
+}

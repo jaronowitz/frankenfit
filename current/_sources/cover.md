@@ -1,3 +1,26 @@
+---
+jupytext:
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.14.4
+kernelspec:
+  display_name: Python 3
+  language: python
+  name: python3
+---
+
+```{code-cell} ipython3
+:tags: [remove-cell]
+
+from datetime import datetime
+from myst_nb import glue
+import frankenfit
+glue("frankenfit_version", frankenfit.__version__)
+glue("build_time", datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"))
+```
+
 # Frankenfit Documentation
 
 Copyright © 2023 Max Bane (max@thebanes.org)
@@ -12,6 +35,11 @@ eating.”
 ```
 
 🏠 **Project homepage:** https://github.com/maxbane/frankenfit
+
+🐍 **Python package:** https://pypi.org/project/frankenfit
+
+📅 This documentation was built on {glue:text}`build_time` for Frankenfit version
+{glue:text}`frankenfit_version`.
 
 ## Table of contents
 
