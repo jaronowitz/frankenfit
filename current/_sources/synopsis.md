@@ -36,7 +36,7 @@ Its key features are:
   workflows like hyperparameter search, cross-validation, and other resampling schemes,
   all described in the same DSL used to create pipelines.
 * **Parallel computation** on distributed backends (currently
-  [Dask](https://www.dask.org)). Frankenfit automatically figures out what parts of your
+  [Dask](https://www.dask.org)). Frankenfit automatically figures out which parts of your
   pipeline are independent of each other and runs them in parallel on a distributed
   compute cluster.
 * A focus on **user ergonomics** and **interactive usage.** Extensive type annotations
@@ -105,13 +105,23 @@ diamonds_df.head()
 diamonds_df.rename_axis(index="index").to_csv("./diamonds.csv")
 ```
 
+:::{note}
+Throughout the documentation we make use of the
+[pydataset](https://pypi.org/project/pydataset/) package for loading example data like
+`diamonds`.
+
+Also, as a fellow *bourgeois* of the Western world, the author of Frankenfit assumes
+that you know what these variables mean in the context of diamonds.
+:::
+
+Let's divide the data into random training and test sets, and examine the distributions
+of the `carat`, `depth`, `table`, and `price` variables on the training set:
+
 ```{code-cell} ipython3
 # randomly split train and test data
 train_df = diamonds_df.sample(frac=0.5, random_state=1337_420_69)
 test_df = diamonds_df.loc[list(set(diamonds_df.index) - set(train_df.index))]
-```
 
-```{code-cell} ipython3
 (
     train_df
     [["carat", "depth", "table", "price"]]
@@ -119,25 +129,27 @@ test_df = diamonds_df.loc[list(set(diamonds_df.index) - set(train_df.index))]
 );
 ```
 
-:::{note}
-Throughout the documentation we make use of the
-[pydataset](https://pypi.org/project/pydataset/) package for loading example data like
-`diamonds`.
-:::
+Below is our predictive pipeline for modeling `price`. The core of it is a linear
+regression of `price` on `carat`, `table`, and `depth` (using the scikit-learn
+`LinearRegression` estimator), but first, inspired by the histograms above, our pipeline
+creates a training response `price_train` by log-transforming and winsorizing the raw
+`price`, and creates features by winsorizing, z-scoring, and clipping the raw predictor
+variables (and in the case of `carat`, log-transforming it). Finally we exponeniate the
+predictions of the regression to put them in the original units of `price` (dollars).
 
-+++
-
-Create concise and readable descriptions of data learning and transformation pipelines
-using a callchain-style API. A pipeline is a sequence of transforms, each applying to
-the output of the transform that precedes it. For example, here's a pipeline for
-predicting diamond prices, including feature preparation and response transformations:
+The pipeline is created by a chained sequence of method calls on a
+[`DataFramePipeline`](frankenfit.DataFramePipeline) object, some of which accept
+arguments that are themselves `DataFramePipelines` built up by their own call-chains. We
+call this the [**call-chain API**](call-chain-api). Each method call adds a
+**transform** to the pipeline, and you can peruse the library of built-in transforms [in
+the API documentation](transform-library).
 
 ```{code-cell} ipython3
 import numpy as np
 import sklearn.linear_model
 import frankenfit as ff
 
-# "do" as shorthand for a new pipeline
+# use "do" as shorthand for a new pipeline
 do = ff.DataFramePipeline()
 diamond_model = (
     do
@@ -157,7 +169,8 @@ diamond_model = (
         .suffix("_fea")  # name the prepared features with _fea suffix
         .winsorize(0.05)  # trim top and bottom 5% of each
         .z_score()
-        .impute_constant(0.0)  # fill missing values with zero (i.e. mean)
+        .impute_constant(0.0)  # fill missing values with zero (since they are z-scores,
+                               # zero is the expected mean)
         .clip(lower=-2, upper=2)  # clip z-scores
     )
     # Fit a linear regression model to predict training response from the prepared
@@ -174,26 +187,35 @@ diamond_model = (
 )
 ```
 
-(synopsis-fit-apply)=
-## Fit pipelines and apply them to data
-
-The pipeline itself is only a lightweight description of what to do to some input data.
+The pipeline object `diamond_model` is best thought of as a light-weight, abstract, immutable
+description of what to do to some as-yet unspecified data; it stores no data or state
+in and of itself.
 
 +++
 
-*Fit* the pipeline on data, obtaining a `FitTransform` object, which
-encapsulates the learned *states* of all of the transforms in the pipeline:
+(synopsis-fit-apply)=
+## Fit pipelines and apply them to data
+
+With our pipeline defined, we **fit** it on the training data, obtaining a
+[`FitTransform`](frankenfit.FitTransform) object `fit_diamond_model`, which encapsulates
+the learned **states** of all of the transforms in the pipeline:
 
 ```{code-cell} ipython3
 fit_diamond_model = diamond_model.fit(train_df)
 ```
 
-The fit may then be applied to another input DataFrame:
+The fit may then be **applied** to another input `DataFrame`, in this case the test set:
 
 ```{code-cell} ipython3
 predictions_df = fit_diamond_model.apply(test_df)
 predictions_df.head()
 ```
+
+We can see that the resulting `DataFrame`, `predictions_df`, has a number of new
+columns added by our pipline: the standardized features (`carat_fea`, `depth_fea`,
+`table_fea`), and most importantly, our predicted price, `price_hat`. We can confirm
+that our transforms have affected the distributions in the expected way, and check how
+`price_hat` relates to actual `price`:
 
 ```{code-cell} ipython3
 (
@@ -202,16 +224,29 @@ predictions_df.head()
     .hist()
 );
 
-predictions_df.plot.scatter("price_hat", "price");
+predictions_df.plot.scatter("price_hat", "price", alpha=0.3);
 ```
+
+This is so important:
+
+:::{important}
+Our entire end-to-end model of diamond prices, including feature preparation and
+regression, was fit *strictly* on one set of data (`train_df`) and applied strictly
+**out-of-sample** to new data (`test_df`). The columns in `test_df` are being winsorized
+using the quantiles that were observed in `train_df`, z-scored using the means and
+standard deviations that were observed in `train_df`, and `price_hat` was generated
+using the regression betas that were learned on `train_df`.
+:::
 
 The ability to fit a complex pipeline on one set of data and use the fit state to
 generate predictions on different data is fundamental to statistical resampling
 techniques like cross-validation, as well as many common operations on time series.
 
 Frankenfit provides various transforms that fit and apply *child transforms*, which can
-be combined to achieve many use cases. For example, suppose we want to perform 5-fold
-cross validation on the model of diamond prices:
+be combined to achieve many use cases. For example, we can use
+[`group_by_cols()`](frankenfit.dataframe.GroupByCols) (together with
+[`correlation()`](frankenfit.dataframe.Correlation)) to check how well our model, which
+was fit on the training set, predicts price *on the test set* for each `cut` of diamond:
 
 ```{code-cell} ipython3
 (
@@ -224,6 +259,9 @@ cross validation on the model of diamond prices:
         )
 ).apply(test_df).head()
 ```
+
+suppose we want to perform 5-fold
+cross validation on the model of diamond prices:
 
 ```{code-cell} ipython3
 crossval_pipeline = (

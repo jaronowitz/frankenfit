@@ -338,7 +338,7 @@ are bound later. This can make your pipelines more re-usable, and enables powerf
 workflows like hyperparameter search, cross-validation, and other resampling schemes,
 all described in the same DSL used to create pipelines.</p></li>
 <li><p><strong>Parallel computation</strong> on distributed backends (currently
-<a class="reference external" href="https://www.dask.org">Dask</a>). Frankenfit automatically figures out what parts of your
+<a class="reference external" href="https://www.dask.org">Dask</a>). Frankenfit automatically figures out which parts of your
 pipeline are independent of each other and runs them in parallel on a distributed
 compute cluster.</p></li>
 <li><p>A focus on <strong>user ergonomics</strong> and <strong>interactive usage.</strong> Extensive type annotations
@@ -511,18 +511,23 @@ memory usage: 4.5+ MB
 </table>
 </div></div></div>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Throughout the documentation we make use of the
+<a class="reference external" href="https://pypi.org/project/pydataset/">pydataset</a> package for loading example data like
+<code class="docutils literal notranslate"><span class="pre">diamonds</span></code>.</p>
+<p>Also, as a fellow <em>bourgeois</em> of the Western world, the author of Frankenfit assumes
+that you know what these variables mean in the context of diamonds.</p>
+</div>
+<p>Let’s divide the data into random training and test sets, and examine the distributions
+of the <code class="docutils literal notranslate"><span class="pre">carat</span></code>, <code class="docutils literal notranslate"><span class="pre">depth</span></code>, <code class="docutils literal notranslate"><span class="pre">table</span></code>, and <code class="docutils literal notranslate"><span class="pre">price</span></code> variables on the training set:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># randomly split train and test data</span>
 <span class="n">train_df</span> <span class="o">=</span> <span class="n">diamonds_df</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">frac</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">1337_420_69</span><span class="p">)</span>
 <span class="n">test_df</span> <span class="o">=</span> <span class="n">diamonds_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">diamonds_df</span><span class="o">.</span><span class="n">index</span><span class="p">)</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">train_df</span><span class="o">.</span><span class="n">index</span><span class="p">))]</span>
-</pre></div>
-</div>
-</div>
-</div>
-<div class="cell docutils container">
-<div class="cell_input docutils container">
-<div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
+
+<span class="p">(</span>
     <span class="n">train_df</span>
     <span class="p">[[</span><span class="s2">&quot;carat&quot;</span><span class="p">,</span> <span class="s2">&quot;depth&quot;</span><span class="p">,</span> <span class="s2">&quot;table&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">]]</span>
     <span class="o">.</span><span class="n">hist</span><span class="p">()</span>
@@ -534,23 +539,26 @@ memory usage: 4.5+ MB
 <img alt="_images/synopsis_6_0.png" src="_images/synopsis_6_0.png" />
 </div>
 </div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Throughout the documentation we make use of the
-<a class="reference external" href="https://pypi.org/project/pydataset/">pydataset</a> package for loading example data like
-<code class="docutils literal notranslate"><span class="pre">diamonds</span></code>.</p>
-</div>
-<p>Create concise and readable descriptions of data learning and transformation pipelines
-using a callchain-style API. A pipeline is a sequence of transforms, each applying to
-the output of the transform that precedes it. For example, here’s a pipeline for
-predicting diamond prices, including feature preparation and response transformations:</p>
+<p>Below is our predictive pipeline for modeling <code class="docutils literal notranslate"><span class="pre">price</span></code>. The core of it is a linear
+regression of <code class="docutils literal notranslate"><span class="pre">price</span></code> on <code class="docutils literal notranslate"><span class="pre">carat</span></code>, <code class="docutils literal notranslate"><span class="pre">table</span></code>, and <code class="docutils literal notranslate"><span class="pre">depth</span></code> (using the scikit-learn
+<code class="docutils literal notranslate"><span class="pre">LinearRegression</span></code> estimator), but first, inspired by the histograms above, our pipeline
+creates a training response <code class="docutils literal notranslate"><span class="pre">price_train</span></code> by log-transforming and winsorizing the raw
+<code class="docutils literal notranslate"><span class="pre">price</span></code>, and creates features by winsorizing, z-scoring, and clipping the raw predictor
+variables (and in the case of <code class="docutils literal notranslate"><span class="pre">carat</span></code>, log-transforming it). Finally we exponeniate the
+predictions of the regression to put them in the original units of <code class="docutils literal notranslate"><span class="pre">price</span></code> (dollars).</p>
+<p>The pipeline is created by a chained sequence of method calls on a
+<a class="reference internal" href="api.html#frankenfit.DataFramePipeline" title="frankenfit.DataFramePipeline"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">DataFramePipeline</span></code></span></a> object, some of which accept
+arguments that are themselves <code class="docutils literal notranslate"><span class="pre">DataFramePipelines</span></code> built up by their own call-chains. We
+call this the <a class="reference internal" href="transforms_and_pipelines.html#call-chain-api"><span class="std std-ref"><strong>call-chain API</strong></span></a>. Each method call adds a
+<strong>transform</strong> to the pipeline, and you can peruse the library of built-in transforms <a class="reference internal" href="api.html#transform-library"><span class="std std-ref">in
+the API documentation</span></a>.</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">sklearn.linear_model</span>
 <span class="kn">import</span> <span class="nn">frankenfit</span> <span class="k">as</span> <span class="nn">ff</span>
 
-<span class="c1"># &quot;do&quot; as shorthand for a new pipeline</span>
+<span class="c1"># use &quot;do&quot; as shorthand for a new pipeline</span>
 <span class="n">do</span> <span class="o">=</span> <span class="n">ff</span><span class="o">.</span><span class="n">DataFramePipeline</span><span class="p">()</span>
 <span class="n">diamond_model</span> <span class="o">=</span> <span class="p">(</span>
     <span class="n">do</span>
@@ -570,7 +578,8 @@ predicting diamond prices, including feature preparation and response transforma
         <span class="o">.</span><span class="n">suffix</span><span class="p">(</span><span class="s2">&quot;_fea&quot;</span><span class="p">)</span>  <span class="c1"># name the prepared features with _fea suffix</span>
         <span class="o">.</span><span class="n">winsorize</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span>  <span class="c1"># trim top and bottom 5% of each</span>
         <span class="o">.</span><span class="n">z_score</span><span class="p">()</span>
-        <span class="o">.</span><span class="n">impute_constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>  <span class="c1"># fill missing values with zero (i.e. mean)</span>
+        <span class="o">.</span><span class="n">impute_constant</span><span class="p">(</span><span class="mf">0.0</span><span class="p">)</span>  <span class="c1"># fill missing values with zero (since they are z-scores,</span>
+                               <span class="c1"># zero is the expected mean)</span>
         <span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=-</span><span class="mi">2</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>  <span class="c1"># clip z-scores</span>
     <span class="p">)</span>
     <span class="c1"># Fit a linear regression model to predict training response from the prepared</span>
@@ -589,12 +598,15 @@ predicting diamond prices, including feature preparation and response transforma
 </div>
 </div>
 </div>
+<p>The pipeline object <code class="docutils literal notranslate"><span class="pre">diamond_model</span></code> is best thought of as a light-weight, abstract, immutable
+description of what to do to some as-yet unspecified data; it stores no data or state
+in and of itself.</p>
 </section>
 <section id="fit-pipelines-and-apply-them-to-data">
 <span id="synopsis-fit-apply"></span><h2>Fit pipelines and apply them to data<a class="headerlink" href="#fit-pipelines-and-apply-them-to-data" title="Permalink to this headline">#</a></h2>
-<p>The pipeline itself is only a lightweight description of what to do to some input data.</p>
-<p><em>Fit</em> the pipeline on data, obtaining a <code class="docutils literal notranslate"><span class="pre">FitTransform</span></code> object, which
-encapsulates the learned <em>states</em> of all of the transforms in the pipeline:</p>
+<p>With our pipeline defined, we <strong>fit</strong> it on the training data, obtaining a
+<a class="reference internal" href="api.html#frankenfit.FitTransform" title="frankenfit.FitTransform"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">FitTransform</span></code></span></a> object <code class="docutils literal notranslate"><span class="pre">fit_diamond_model</span></code>, which encapsulates
+the learned <strong>states</strong> of all of the transforms in the pipeline:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">fit_diamond_model</span> <span class="o">=</span> <span class="n">diamond_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">train_df</span><span class="p">)</span>
@@ -602,7 +614,7 @@ encapsulates the learned <em>states</em> of all of the transforms in the pipelin
 </div>
 </div>
 </div>
-<p>The fit may then be applied to another input DataFrame:</p>
+<p>The fit may then be <strong>applied</strong> to another input <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code>, in this case the test set:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">predictions_df</span> <span class="o">=</span> <span class="n">fit_diamond_model</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">test_df</span><span class="p">)</span>
@@ -735,6 +747,11 @@ encapsulates the learned <em>states</em> of all of the transforms in the pipelin
 </table>
 </div></div></div>
 </div>
+<p>We can see that the resulting <code class="docutils literal notranslate"><span class="pre">DataFrame</span></code>, <code class="docutils literal notranslate"><span class="pre">predictions_df</span></code>, has a number of new
+columns added by our pipline: the standardized features (<code class="docutils literal notranslate"><span class="pre">carat_fea</span></code>, <code class="docutils literal notranslate"><span class="pre">depth_fea</span></code>,
+<code class="docutils literal notranslate"><span class="pre">table_fea</span></code>), and most importantly, our predicted price, <code class="docutils literal notranslate"><span class="pre">price_hat</span></code>. We can confirm
+that our transforms have affected the distributions in the expected way, and check how
+<code class="docutils literal notranslate"><span class="pre">price_hat</span></code> relates to actual <code class="docutils literal notranslate"><span class="pre">price</span></code>:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
@@ -743,7 +760,7 @@ encapsulates the learned <em>states</em> of all of the transforms in the pipelin
     <span class="o">.</span><span class="n">hist</span><span class="p">()</span>
 <span class="p">);</span>
 
-<span class="n">predictions_df</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">);</span>
+<span class="n">predictions_df</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span> <span class="s2">&quot;price&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">);</span>
 </pre></div>
 </div>
 </div>
@@ -752,12 +769,24 @@ encapsulates the learned <em>states</em> of all of the transforms in the pipelin
 <img alt="_images/synopsis_15_1.png" src="_images/synopsis_15_1.png" />
 </div>
 </div>
+<p>This is so important:</p>
+<div class="admonition important">
+<p class="admonition-title">Important</p>
+<p>Our entire end-to-end model of diamond prices, including feature preparation and
+regression, was fit <em>strictly</em> on one set of data (<code class="docutils literal notranslate"><span class="pre">train_df</span></code>) and applied strictly
+<strong>out-of-sample</strong> to new data (<code class="docutils literal notranslate"><span class="pre">test_df</span></code>). The columns in <code class="docutils literal notranslate"><span class="pre">test_df</span></code> are being winsorized
+using the quantiles that were observed in <code class="docutils literal notranslate"><span class="pre">train_df</span></code>, z-scored using the means and
+standard deviations that were observed in <code class="docutils literal notranslate"><span class="pre">train_df</span></code>, and <code class="docutils literal notranslate"><span class="pre">price_hat</span></code> was generated
+using the regression betas that were learned on <code class="docutils literal notranslate"><span class="pre">train_df</span></code>.</p>
+</div>
 <p>The ability to fit a complex pipeline on one set of data and use the fit state to
 generate predictions on different data is fundamental to statistical resampling
 techniques like cross-validation, as well as many common operations on time series.</p>
 <p>Frankenfit provides various transforms that fit and apply <em>child transforms</em>, which can
-be combined to achieve many use cases. For example, suppose we want to perform 5-fold
-cross validation on the model of diamond prices:</p>
+be combined to achieve many use cases. For example, we can use
+<a class="reference internal" href="api.html#frankenfit.dataframe.GroupByCols" title="frankenfit.dataframe.GroupByCols"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">group_by_cols()</span></code></span></a> (together with
+<a class="reference internal" href="api.html#frankenfit.dataframe.Correlation" title="frankenfit.dataframe.Correlation"><span class="xref myst py py-class"><code class="docutils literal notranslate"><span class="pre">correlation()</span></code></span></a>) to check how well our model, which
+was fit on the training set, predicts price <em>on the test set</em> for each <code class="docutils literal notranslate"><span class="pre">cut</span></code> of diamond:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="p">(</span>
@@ -830,6 +859,8 @@ cross validation on the model of diamond prices:</p>
 </table>
 </div></div></div>
 </div>
+<p>suppose we want to perform 5-fold
+cross validation on the model of diamond prices:</p>
 <div class="cell docutils container">
 <div class="cell_input docutils container">
 <div class="highlight-ipython3 notranslate"><div class="highlight"><pre><span></span><span class="n">crossval_pipeline</span> <span class="o">=</span> <span class="p">(</span>
@@ -877,7 +908,7 @@ cross validation on the model of diamond prices:</p>
   <tbody>
     <tr>
       <th>price_hat</th>
-      <td>0.925865</td>
+      <td>0.925855</td>
     </tr>
   </tbody>
 </table>
@@ -1265,107 +1296,107 @@ and data batching.</p></li>
     <tr>
       <th>['depth']</th>
       <th>0.01</th>
-      <td>-0.002827</td>
+      <td>-0.003287</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.01</th>
-      <td>0.134853</td>
+      <td>0.134916</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.01</th>
-      <td>0.924595</td>
+      <td>0.924598</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.01</th>
-      <td>0.137903</td>
+      <td>0.137954</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.01</th>
-      <td>0.925058</td>
+      <td>0.925048</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.01</th>
-      <td>0.925017</td>
+      <td>0.925002</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.01</th>
-      <td>0.925823</td>
+      <td>0.925815</td>
     </tr>
     <tr>
       <th>['depth']</th>
       <th>0.05</th>
-      <td>-0.003548</td>
+      <td>0.005841</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.05</th>
-      <td>0.135893</td>
+      <td>0.135870</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.05</th>
-      <td>0.925921</td>
+      <td>0.925936</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.05</th>
-      <td>0.135913</td>
+      <td>0.136029</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.05</th>
-      <td>0.925926</td>
+      <td>0.925908</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.05</th>
-      <td>0.925909</td>
+      <td>0.925931</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.05</th>
-      <td>0.925958</td>
+      <td>0.925938</td>
     </tr>
     <tr>
       <th>['depth']</th>
       <th>0.10</th>
-      <td>-0.005478</td>
+      <td>0.000957</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.10</th>
-      <td>0.137159</td>
+      <td>0.137113</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.10</th>
-      <td>0.927234</td>
+      <td>0.927271</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.10</th>
-      <td>0.136906</td>
+      <td>0.136821</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.10</th>
-      <td>0.927248</td>
+      <td>0.927314</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.10</th>
-      <td>0.927276</td>
+      <td>0.927259</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.10</th>
-      <td>0.927277</td>
+      <td>0.927314</td>
     </tr>
   </tbody>
 </table>
@@ -1437,107 +1468,107 @@ operations in the pipeline.</p></li>
     <tr>
       <th>['depth']</th>
       <th>0.01</th>
-      <td>-0.012864</td>
+      <td>-0.007899</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.01</th>
-      <td>0.134734</td>
+      <td>0.134627</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.01</th>
-      <td>0.924574</td>
+      <td>0.924591</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.01</th>
-      <td>0.137760</td>
+      <td>0.137360</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.01</th>
-      <td>0.925044</td>
+      <td>0.925066</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.01</th>
-      <td>0.924998</td>
+      <td>0.925004</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.01</th>
-      <td>0.925821</td>
+      <td>0.925805</td>
     </tr>
     <tr>
       <th>['depth']</th>
       <th>0.05</th>
-      <td>-0.005382</td>
+      <td>-0.009893</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.05</th>
-      <td>0.135681</td>
+      <td>0.135827</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.05</th>
-      <td>0.925923</td>
+      <td>0.925939</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.05</th>
-      <td>0.135621</td>
+      <td>0.135710</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.05</th>
-      <td>0.925915</td>
+      <td>0.925899</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.05</th>
-      <td>0.925932</td>
+      <td>0.925920</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.05</th>
-      <td>0.925927</td>
+      <td>0.925926</td>
     </tr>
     <tr>
       <th>['depth']</th>
       <th>0.10</th>
-      <td>-0.011047</td>
+      <td>-0.007318</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.10</th>
-      <td>0.137020</td>
+      <td>0.136825</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.10</th>
-      <td>0.927270</td>
+      <td>0.927263</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.10</th>
-      <td>0.136845</td>
+      <td>0.136844</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.10</th>
-      <td>0.927267</td>
+      <td>0.927284</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.10</th>
-      <td>0.927247</td>
+      <td>0.927243</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.10</th>
-      <td>0.927268</td>
+      <td>0.927278</td>
     </tr>
   </tbody>
 </table>
