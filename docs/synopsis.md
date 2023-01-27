@@ -109,9 +109,6 @@ diamonds_df.rename_axis(index="index").to_csv("./diamonds.csv")
 Throughout the documentation we make use of the
 [pydataset](https://pypi.org/project/pydataset/) package for loading example data like
 `diamonds`.
-
-Also, as a fellow *bourgeois* of the Western world, the author of Frankenfit assumes
-that you know what these variables mean in the context of diamonds.
 :::
 
 Let's divide the data into random training and test sets, and examine the distributions
@@ -227,14 +224,12 @@ that our transforms have affected the distributions in the expected way, and che
 predictions_df.plot.scatter("price_hat", "price", alpha=0.3);
 ```
 
-This is so important:
-
 :::{important}
 Our entire end-to-end model of diamond prices, including feature preparation and
 regression, was fit *strictly* on one set of data (`train_df`) and applied strictly
 **out-of-sample** to new data (`test_df`). The columns in `test_df` are being winsorized
 using the quantiles that were observed in `train_df`, z-scored using the means and
-standard deviations that were observed in `train_df`, and `price_hat` was generated
+standard deviations that were observed in `train_df`, and `price_hat` is generated
 using the regression betas that were learned on `train_df`.
 :::
 
