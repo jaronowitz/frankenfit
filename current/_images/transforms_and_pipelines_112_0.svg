@@ -28,7 +28,7 @@
 <title>Filter#2</title>
 <polygon fill="white" stroke="white" points="333.5,-216 16.5,-216 16.5,-180 333.5,-180 333.5,-216"/>
 <text text-anchor="middle" x="175" y="-201" font-family="Monospace" font-size="10.00">Filter#2</text>
-<text text-anchor="middle" x="175" y="-190" font-family="Monospace" font-size="10.00">filter_fun = &lt;function &lt;lambda&gt; at 0x7f7fcc1dbd90&gt;</text>
+<text text-anchor="middle" x="175" y="-190" font-family="Monospace" font-size="10.00">filter_fun = &lt;function &lt;lambda&gt; at 0x7f9338b73d00&gt;</text>
 </g>
 <!-- DataFramePipeline#39&#45;&gt;Filter#2 -->
 <g id="edge1" class="edge">
