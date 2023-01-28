@@ -1016,7 +1016,7 @@ in question, and send them to our `fit_model` with `apply_fit_transform()`:
     ff.DataFramePipeline()
     .filter(lambda df: df["carat"] >= 1)
     .apply_fit_transform(fit_model)
-).apply(test_df).plot.scatter("price_hat", "price");
+).apply(test_df).plot.scatter("price_hat", "price", alpha=0.3);
 ```
 
 As a convenience, both [`then()`](frankenfit.core.PipelineMember.then) and the addition
