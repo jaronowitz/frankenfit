@@ -71,7 +71,7 @@ fit_dmn = dmn.fit(diamonds_df)
 The [`fit()`](frankenfit.Transform.fit) method returns an instance of
 [`FitTransform`](frankenfit.FitTransform), which encapsulates the **state** that was
 learned on the fitting data, and which may be **applied** to a dataset by calling its
-`apply()` method.
+[`apply()`](frankenfit.FitTransform.apply) method.
 
 ```{code-cell} ipython3
 fit_dmn.apply(diamonds_df).head()
@@ -601,7 +601,7 @@ Wrapping up a composition of Transforms as a single Transform like this is quite
 powerful because it allows one easily to re-use the whole end-to-end model on multiple
 datasets, to embed it within other Pipelines, and so on. For example, since
 `price_model` is just a `Transform`, we could compose it with a
-[`Copy`](frankenfit.dataframe.Copy) Transform that preservse the original `price` column
+[`Copy`](frankenfit.dataframe.Copy) Transform that preserves the original `price` column
 before all of the winsorizing and standardizing, and a
 [`Correlation`](frankenfit.dataframe.Correlation) Transform that computes the
 correlation between (standardized) `price_orig` and `price_hat`:
@@ -833,8 +833,11 @@ Because `price_model` is just a Transform, we can query its `params()` like any 
 Transform, and access their values as attributes:
 
 ```{code-cell} ipython3
-display(price_model.params())
-display(price_model.transforms)
+price_model.params()
+```
+
+```{code-cell} ipython3
+price_model.transforms
 ```
 
 However, for a complicated `Pipeline`, it can be difficult to figure out what it is
