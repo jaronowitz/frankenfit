@@ -8,40 +8,31 @@
 [![license](https://img.shields.io/badge/license-BSD-red)](https://github.com/maxbane/frankenfit/blob/main/LICENSE.txt)
 [![code style](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-* [Current documentation](https://maxbane.github.io/frankenfit/current/)
+📖 [Current documentation](https://maxbane.github.io/frankenfit/current/)
 
 Frankenfit is a Python library for data scientists that provides a domain-specific
 language (DSL) for creating, fitting, and applying predictive data modeling pipelines.
-Its key features are:
+With Frankenfit, you can:
 
-* A concise and readable **DSL** (inspired by the pandas [method-chaining
-  style](https://tomaugspurger.github.io/posts/method-chaining/)) to create data
-  modeling **pipelines** from chains of composable building blocks called
-  **transforms**. Pipelines themselves are composable, re-usable, and extensible, with
-  a thorough [library of
-  transforms](https://maxbane.github.io/frankenfit/current/api.html#transform-library)
-  available for building, grouping, and combining pipelines in useful ways.
-* Rigorous separation between, on the one hand, **fitting** the state of your pipeline
-  on some training data, and, on the other, **applying** it
-  [out-of-sample](https://stats.stackexchange.com/questions/260899/what-is-difference-between-in-sample-and-out-of-sample-forecasts)
-  to make predictions on test data. Once fit, a pipeline can be re-used to make
-  predictions on many different test datasets, and these predictions are truly
-  **out-of-sample**, right down to the quantiles used to winsorize your features
-  (for example).
-* The ability to specify your pipeline's parameters as **hyperparameters**, whose values
-  are bound later. This can make your pipelines more re-usable, and enables powerful
-  workflows like hyperparameter search, cross-validation, and other resampling schemes,
-  all described in the same DSL used to create pipelines.
-* **Parallel computation** on distributed backends (currently
-  [Dask](https://www.dask.org)). Frankenfit automatically figures out what parts of your
-  pipeline are independent of each other and runs them in parallel on a distributed
-  compute cluster.
-* A focus on **user ergonomics** and **interactive usage.** Extensive type annotations
-  enable smart auto-completions by IDEs.
-  [Visualizations](https://maxbane.github.io/frankenfit/current/transforms_and_pipelines.html#visualizing-pipelines)
-  help you see what your pipelines are doing. You can [implement your own
-  transforms](https://maxbane.github.io/frankenfit/current/implementing_transforms.html)
-  with almost zero boilerplate.
+* [Create
+  pipelines](https://maxbane.github.io/frankenfit/current/synopsis.html#create-pipelines)
+  using a DSL of call-chain methods.
+* [Fit pipelines and apply them to
+  data](https://maxbane.github.io/frankenfit/current/synopsis.html#fit-pipelines-and-apply-them-to-data)
+  to generate predictions.
+* [Use
+  hyperparameters](https://maxbane.github.io/frankenfit/current/synopsis.html#use-hyperparameters)
+  to generalize your pipelines and concisely execute hyperparameter searches and data
+  batching.
+* [Run your pipelines on distributed
+  backends](https://maxbane.github.io/frankenfit/current/synopsis.html#run-on-distributed-backends)
+  (currently [Dask](https://www.dask.org)), exploiting the parallelism inherent to any
+  branching operations in a pipeline.
+
+See the [Synopsis and
+overview](https://maxbane.github.io/frankenfit/current/synopsis.html#synopsis-create)
+for summaries of each of these workflows with a running example. Subsequent sections of
+the documentation detail how everything works from the ground up.
 
 Frankenfit takes some inspiration from scikit-learn's [`pipeline`
 module](https://scikit-learn.org/stable/modules/classes.html#module-sklearn.pipeline),
@@ -129,6 +120,39 @@ applied strictly **out-of-sample** to new data (`test_df`). The columns in `test
 winsorized using the quantiles that were observed in `train_df`, z-scored using the
 means and standard deviations that were observed in `train_df`, and predicted prices are
 generated using the regression betas that were learned on `train_df`.
+
+The ability to fit a complex pipeline on one set of data and use the fit state to
+generate predictions on different data is fundamental to statistical resampling
+techniques like cross-validation, and Frankenfit allows you to express many such
+use-cases elegantly. For example, we can easily perform 5-fold
+[cross-validation](https://en.wikipedia.org/wiki/Cross-validation_(statistics)) of
+`diamond_model` by embedding it in an outer pipeline that partitions the data into
+groups and uses `group_by_cols()` to apply `diamond_model` to each group using the state
+that results from fitting it on every other group:
+
+```python
+crossval_pipeline = (
+    do
+    # randomly partition rows into 5 groups
+    .assign(
+        group=lambda df: np.random.uniform(
+            low=0, high=5, size=len(df)
+        ).astype("int32")
+    )
+    # group the next transform by the "group" column
+    .group_by_cols(
+        "group", fitting_schedule=ff.fit_group_on_all_other_groups,
+    )
+    .then(diamond_model)  # <-- our diamond_model pipeline is applied to each group
+                          # by fitting it on all the other groups
+    # this gives us a dataset of entirely out-of-sample predictions, which we
+    # score with correlation()
+    .correlation("price_hat", "price")
+)
+
+# Run with:
+crossval_pipeline.apply(full_df)
+```
 
 See the [Synopsis and
 overview](https://maxbane.github.io/frankenfit/current/synopsis.html) section of the
