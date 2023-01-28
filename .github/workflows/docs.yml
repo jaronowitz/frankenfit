@@ -25,6 +25,8 @@ jobs:
         with:
           packages: graphviz
           version: 1.0
+      - name: Ensure dot config
+        run: sudo dot -c
       - uses: actions/checkout@v3
       - name: Setup Python
         uses: actions/setup-python@v4
