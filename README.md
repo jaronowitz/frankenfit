@@ -30,9 +30,9 @@ With Frankenfit, you can:
   branching operations in a pipeline.
 
 See the [Synopsis and
-overview](https://maxbane.github.io/frankenfit/current/synopsis.html#synopsis-create)
-for summaries of each of these workflows with a running example. Subsequent sections of
-the documentation detail how everything works from the ground up.
+overview](https://maxbane.github.io/frankenfit/current/synopsis.html) for summaries of
+each of these workflows with a running example. Subsequent sections of the documentation
+detail how everything works from the ground up.
 
 Frankenfit takes some inspiration from scikit-learn's [`pipeline`
 module](https://scikit-learn.org/stable/modules/classes.html#module-sklearn.pipeline),
