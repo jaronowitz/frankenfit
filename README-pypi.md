@@ -1,4 +1,4 @@
-# 🧟 Frankenfit: it's alive! it's fit! 📈📊
+# 🧟 Frankenfit 📈📊
 
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/maxbane/frankenfit?sort=semver)](https://github.com/maxbane/frankenfit/releases)
 [![pytest](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml/badge.svg)](https://github.com/maxbane/frankenfit/actions/workflows/pytest.yml)

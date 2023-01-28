@@ -1,4 +1,4 @@
-# 🧟 Frankenfit: it's alive! it's fit! 📈📊
+# 🧟 Frankenfit 📈📊
 
 [![PyPI](https://img.shields.io/pypi/v/frankenfit)](https://pypi.org/project/frankenfit/)
 ![pyversions](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.10-blue)
