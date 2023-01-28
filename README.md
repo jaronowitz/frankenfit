@@ -127,8 +127,8 @@ techniques like cross-validation, and Frankenfit allows you to express many such
 use-cases elegantly. For example, we can easily perform 5-fold
 [cross-validation](https://en.wikipedia.org/wiki/Cross-validation_(statistics)) of
 `diamond_model` by embedding it in an outer pipeline that partitions the data into
-groups and uses `group_by_cols()` to apply `diamond_model` to each group using the state
-that results from fitting it on every other group:
+groups and calls `group_by_cols()` to apply `diamond_model` to each group using the
+state that results from fitting it on every other group:
 
 ```python
 crossval_pipeline = (
@@ -204,7 +204,7 @@ The entire Frankenfit library is meticulously type-annotated and checked with
 sensible to do so. Aside from catching logical errors, the main benefit of this to users
 is that modern IDEs like [Visual Studio Code](https://code.visualstudio.com/) can
 interpret the annotations statically to report the types of expressions and provide
-intelligent auto-completions.
+intelligent auto-completions, something traditionally difficult for call-chain APIs.
 
 ![screenshot-vscode](docs/_static/sshot-vscode-intellisense-frankenfit-pipeline.png)
 
@@ -222,8 +222,8 @@ plugins = "frankenfit.mypy"
 
 If you're *not* hacking on the Frankenfit codebase itself, and just want to build or
 install it from source, `$ pip build .`, `$ pip sdist .`, `$ pip install .` should all
-work out of the box without any special needs, as long as you're using Python 3.8+ and a
-recent version of `pip`.
+work out of the box without any special needs (the codebase is pure Python), as long as
+you're using Python 3.8+ and a recent version of `pip`.
 
 To get started with hacking on Frankenfit itself, make sure that the `python3.10`
 binary is on your path, clone this repo, and run:
