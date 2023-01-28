@@ -1,17 +1,5 @@
 {
   "cover": {
-    "build_time": {
-      "output_type": "display_data",
-      "metadata": {
-        "scrapbook": {
-          "name": "build_time",
-          "mime_prefix": ""
-        }
-      },
-      "data": {
-        "text/plain": "'2023-01-28 01:52 UTC'"
-      }
-    },
     "frankenfit_version": {
       "output_type": "display_data",
       "metadata": {
@@ -21,7 +9,19 @@
         }
       },
       "data": {
-        "text/plain": "'0.1.dev1+gd1dc6b9'"
+        "text/plain": "'0.0.6.dev7+gb7f8918'"
+      }
+    },
+    "build_time": {
+      "output_type": "display_data",
+      "metadata": {
+        "scrapbook": {
+          "name": "build_time",
+          "mime_prefix": ""
+        }
+      },
+      "data": {
+        "text/plain": "'2023-01-28 01:58 UTC'"
       }
     }
   },
