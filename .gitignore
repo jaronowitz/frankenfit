@@ -20,3 +20,4 @@ diamonds.csv
 scratch*
 .coverage/
 notebooks/*.ipynb
+notebooks/_static
