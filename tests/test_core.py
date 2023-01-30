@@ -389,7 +389,7 @@ def test_hyperparams(diamonds_df: pd.DataFrame) -> None:
 
     t = TestTransform(
         some_param=ff.HPLambda(
-            lambda b: {b["response_col"]: b["response_col"] + "_orig"}
+            lambda response_col: {response_col: response_col + "_orig"}
         )
     )
     tfit = t.fit(diamonds_df, bindings)

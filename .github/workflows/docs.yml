@@ -55,6 +55,9 @@ jobs:
           python -m pip install "tox < 4"
       - name: jupyter-book
         run: tox -e docs
+      - name: cat-logs-on-failure
+        if: failure()
+        run: cat docs/_build/html/reports/*.log
       - name: upload-logs-on-failure
         uses: actions/upload-artifact@v3
         if: failure()

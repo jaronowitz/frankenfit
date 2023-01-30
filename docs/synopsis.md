@@ -363,7 +363,7 @@ diamond_model_hyperparams = (
     .sk_learn(
         sklearn.linear_model.Lasso,
         # x_cols is a hyperparameterized list of columns derived from "features"
-        x_cols=ff.HPLambda(lambda bindings: [f+"_fea" for f in bindings["features"]]),
+        x_cols=ff.HPLambda(lambda features: [f+"_fea" for f in features]),
         response_col="price_train",
         hat_col="price_hat",
         class_params=dict(

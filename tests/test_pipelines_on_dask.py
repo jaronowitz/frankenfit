@@ -194,8 +194,7 @@ def test_parallelized_pipeline_1(
             LinearRegression,
             # x_cols=["carat", "depth", "table"],
             x_cols=ff.HPLambda(
-                lambda bindings: bindings["predictors"]
-                + [f"cut_mean_{c}" for c in bindings["predictors"]]
+                lambda predictors: predictors + [f"cut_mean_{c}" for c in predictors]
             ),
             response_col="{response_col}_train",
             hat_col="{response_col}_hat",

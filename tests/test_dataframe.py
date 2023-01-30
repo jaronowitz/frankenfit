@@ -255,7 +255,7 @@ def test_RenameColumns(diamonds_df: pd.DataFrame):
 
     result = (
         ff.DataFramePipeline()
-        .rename(ff.HPLambda(lambda b: {b["response"]: b["response"] + "_orig"}))
+        .rename(ff.HPLambda(lambda response: {response: response + "_orig"}))
         .apply(diamonds_df, response="price")
     )
     assert result.equals(diamonds_df.rename(columns={"price": "price_orig"}))

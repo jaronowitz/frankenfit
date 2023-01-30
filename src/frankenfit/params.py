@@ -292,13 +292,24 @@ class UserLambdaHyperparams:
 
 @define
 class HPLambda(HP):
-    # TODO: UserLambdaHyperparams!
+    resolve_fun: Callable = field()
+    resolve_fun_hyperparams: UserLambdaHyperparams = field(init=False)
+    name: str = field(default="<lambda>", init=False)
 
-    resolve_fun: Callable
-    name: str = "<lambda>"
+    def __attrs_post_init__(self):
+        if isinstance(self.resolve_fun, HP):
+            raise TypeError(
+                f"HPLambda.resolve_fun must not be a hyperparameter; got:"
+                f"{self.resolve_fun!r}. Instead consider supplying a function that "
+                f"requests hyperparameter bindings in its parameter signature."
+            )
+        self.resolve_fun_hyperparams = UserLambdaHyperparams.from_function_sig(
+            self.resolve_fun, 0
+        )
 
     def resolve(self, bindings: Mapping[str, Any]) -> Any:
-        return self.resolve_fun(bindings)
+        resolve_fun_bindings = self.resolve_fun_hyperparams.collect_bindings(bindings)
+        return self.resolve_fun(**resolve_fun_bindings)
 
 
 @define
