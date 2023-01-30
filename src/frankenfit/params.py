@@ -209,6 +209,12 @@ PROHIBITED_USER_LAMBDA_PARAMETER_KINDS = (
 
 @define
 class UserLambdaHyperparams:
+    """
+    Utility class used by :class:`frankenfit.Transform` subclasses (for example
+    :class:`frankenfit.universal.StatelessLambda`) to accept callable parameters that
+    request hyperparameter bindings in their signatures.
+    """
+
     required: set[str]
     optional: set[str]
 
@@ -216,6 +222,15 @@ class UserLambdaHyperparams:
 
     @classmethod
     def from_function_sig(cls: type[_Self], fun: Callable, n_data_args: int) -> _Self:
+        """
+        Inspect the given callable ``fun`` (presumably a user-supplied callable param of
+        some Transform) and return a corresponding instance of
+        ``UserLambdaHyperparams``.
+
+        The first ``n_data_args`` of ``fun``'s signature are skipped; any remaining
+        positional arguments are taken to name required hyperparameters, and any
+        remaining keyword arguments name optional hyperparameters (with default values).
+        """
         required: set[str] = set()
         optional: set[str] = set()
         fun_params = inspect.signature(fun).parameters
@@ -237,10 +252,22 @@ class UserLambdaHyperparams:
 
         return cls(required=required, optional=optional)
 
-    def required_or_optional(self):
+    def required_or_optional(self) -> set[str]:
+        """
+        Get the names of all requested hyperparameters, whether required or optional.
+        """
         return self.required.union(self.optional)
 
     def collect_bindings(self, bindings: Bindings) -> Bindings:
+        """
+        Given a user-supplied bindings dict, return a sub-dict of bindings for the
+        subset of hyperparameters requested by the callable.
+
+        Raises
+        ------
+        :class:`UnresolvedHyperparameterError`
+            If a required hypeparameter is not found in ``bindings``.
+        """
         result: dict[str, Any] = {}
         missing: set[str] = set()
         for hp in self.required:
