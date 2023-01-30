@@ -1641,6 +1641,9 @@
         <span class="p">),</span>
     <span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
 
+    <span class="n">_visualize_skip_params</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;multi_column_assignments&quot;</span><span class="p">,</span> <span class="s2">&quot;named_column_assignments&quot;</span><span class="p">]</span>
+    <span class="n">_visualize_nonparam_attribs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;assignments&quot;</span><span class="p">]</span>
+
     <span class="c1"># Assign([assignment_dict][, tag=][, kwarg1=][, kwarg2][...])</span>
     <span class="c1"># ... with only one of assigment_dict or kwargs</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="n">tag</span><span class="o">=</span><span class="n">NOTHING</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
