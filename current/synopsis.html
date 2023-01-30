@@ -936,7 +936,7 @@ can create a cross-validation pipeline around <code class="docutils literal notr
   <tbody>
     <tr>
       <th>price_hat</th>
-      <td>0.925835</td>
+      <td>0.925864</td>
     </tr>
   </tbody>
 </table>
@@ -990,7 +990,7 @@ named <code class="docutils literal notranslate"><span class="pre">&quot;feature
     <span class="o">.</span><span class="n">sk_learn</span><span class="p">(</span>
         <span class="n">sklearn</span><span class="o">.</span><span class="n">linear_model</span><span class="o">.</span><span class="n">Lasso</span><span class="p">,</span>
         <span class="c1"># x_cols is a hyperparameterized list of columns derived from &quot;features&quot;</span>
-        <span class="n">x_cols</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">HPLambda</span><span class="p">(</span><span class="k">lambda</span> <span class="n">bindings</span><span class="p">:</span> <span class="p">[</span><span class="n">f</span><span class="o">+</span><span class="s2">&quot;_fea&quot;</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">bindings</span><span class="p">[</span><span class="s2">&quot;features&quot;</span><span class="p">]]),</span>
+        <span class="n">x_cols</span><span class="o">=</span><span class="n">ff</span><span class="o">.</span><span class="n">HPLambda</span><span class="p">(</span><span class="k">lambda</span> <span class="n">features</span><span class="p">:</span> <span class="p">[</span><span class="n">f</span><span class="o">+</span><span class="s2">&quot;_fea&quot;</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">features</span><span class="p">]),</span>
         <span class="n">response_col</span><span class="o">=</span><span class="s2">&quot;price_train&quot;</span><span class="p">,</span>
         <span class="n">hat_col</span><span class="o">=</span><span class="s2">&quot;price_hat&quot;</span><span class="p">,</span>
         <span class="n">class_params</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span>
@@ -1370,107 +1370,107 @@ each binding in the search space.</p>
     <tr>
       <th>['depth']</th>
       <th>0.01</th>
-      <td>-0.009995</td>
+      <td>-0.013429</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.01</th>
-      <td>0.134548</td>
+      <td>0.134460</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.01</th>
-      <td>0.924604</td>
+      <td>0.924560</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.01</th>
-      <td>0.137502</td>
+      <td>0.137397</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.01</th>
-      <td>0.925051</td>
+      <td>0.924998</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.01</th>
-      <td>0.924999</td>
+      <td>0.924951</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.01</th>
-      <td>0.925821</td>
+      <td>0.925763</td>
     </tr>
     <tr>
       <th>['depth']</th>
       <th>0.05</th>
-      <td>-0.009995</td>
+      <td>-0.013429</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.05</th>
-      <td>0.135540</td>
+      <td>0.135412</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.05</th>
-      <td>0.925932</td>
+      <td>0.925889</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.05</th>
-      <td>0.135540</td>
+      <td>0.135412</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.05</th>
-      <td>0.925932</td>
+      <td>0.925889</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.05</th>
-      <td>0.925932</td>
+      <td>0.925889</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.05</th>
-      <td>0.925932</td>
+      <td>0.925889</td>
     </tr>
     <tr>
       <th>['depth']</th>
       <th>0.10</th>
-      <td>-0.009995</td>
+      <td>-0.013429</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.10</th>
-      <td>0.136412</td>
+      <td>0.136157</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.10</th>
-      <td>0.927295</td>
+      <td>0.927254</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.10</th>
-      <td>0.136412</td>
+      <td>0.136157</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.10</th>
-      <td>0.927295</td>
+      <td>0.927254</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.10</th>
-      <td>0.927295</td>
+      <td>0.927254</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.10</th>
-      <td>0.927295</td>
+      <td>0.927254</td>
     </tr>
   </tbody>
 </table>
@@ -1567,107 +1567,107 @@ processes and two threads per worker:</p>
     <tr>
       <th>['depth']</th>
       <th>0.01</th>
-      <td>-0.002472</td>
+      <td>-0.012235</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.01</th>
-      <td>0.134810</td>
+      <td>0.134407</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.01</th>
-      <td>0.924596</td>
+      <td>0.924590</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.01</th>
-      <td>0.137864</td>
+      <td>0.137508</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.01</th>
-      <td>0.925048</td>
+      <td>0.925043</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.01</th>
-      <td>0.924990</td>
+      <td>0.924986</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.01</th>
-      <td>0.925815</td>
+      <td>0.925812</td>
     </tr>
     <tr>
       <th>['depth']</th>
       <th>0.05</th>
-      <td>-0.002472</td>
+      <td>-0.012235</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.05</th>
-      <td>0.135911</td>
+      <td>0.135351</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.05</th>
-      <td>0.925912</td>
+      <td>0.925893</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.05</th>
-      <td>0.135911</td>
+      <td>0.135351</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.05</th>
-      <td>0.925912</td>
+      <td>0.925893</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.05</th>
-      <td>0.925912</td>
+      <td>0.925893</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.05</th>
-      <td>0.925912</td>
+      <td>0.925893</td>
     </tr>
     <tr>
       <th>['depth']</th>
       <th>0.10</th>
-      <td>-0.002472</td>
+      <td>-0.012235</td>
     </tr>
     <tr>
       <th>['table']</th>
       <th>0.10</th>
-      <td>0.137153</td>
+      <td>0.136064</td>
     </tr>
     <tr>
       <th>['carat']</th>
       <th>0.10</th>
-      <td>0.927262</td>
+      <td>0.927227</td>
     </tr>
     <tr>
       <th>['depth', 'table']</th>
       <th>0.10</th>
-      <td>0.137153</td>
+      <td>0.136064</td>
     </tr>
     <tr>
       <th>['depth', 'carat']</th>
       <th>0.10</th>
-      <td>0.927262</td>
+      <td>0.927227</td>
     </tr>
     <tr>
       <th>['carat', 'table']</th>
       <th>0.10</th>
-      <td>0.927262</td>
+      <td>0.927227</td>
     </tr>
     <tr>
       <th>['depth', 'table', 'carat']</th>
       <th>0.10</th>
-      <td>0.927262</td>
+      <td>0.927227</td>
     </tr>
   </tbody>
 </table>

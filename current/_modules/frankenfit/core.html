@@ -381,7 +381,6 @@
     <span class="n">Any</span><span class="p">,</span>
     <span class="n">Callable</span><span class="p">,</span>
     <span class="n">ClassVar</span><span class="p">,</span>
-    <span class="n">Dict</span><span class="p">,</span>
     <span class="n">Generic</span><span class="p">,</span>
     <span class="n">Iterable</span><span class="p">,</span>
     <span class="n">Iterator</span><span class="p">,</span>
@@ -399,7 +398,7 @@
 <span class="kn">import</span> <span class="nn">graphviz</span>  <span class="c1"># type: ignore</span>
 <span class="kn">from</span> <span class="nn">attrs</span> <span class="kn">import</span> <span class="n">NOTHING</span><span class="p">,</span> <span class="n">Factory</span><span class="p">,</span> <span class="n">define</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">fields_dict</span>
 
-<span class="kn">from</span> <span class="nn">.params</span> <span class="kn">import</span> <span class="n">HP</span><span class="p">,</span> <span class="n">UnresolvedHyperparameterError</span><span class="p">,</span> <span class="n">params</span>
+<span class="kn">from</span> <span class="nn">.params</span> <span class="kn">import</span> <span class="n">HP</span><span class="p">,</span> <span class="n">Bindings</span><span class="p">,</span> <span class="n">UnresolvedHyperparameterError</span><span class="p">,</span> <span class="n">params</span>
 
 <span class="n">_LOG</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
@@ -412,8 +411,6 @@
 <span class="n">State</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;State&quot;</span><span class="p">)</span>
 <span class="n">State_co</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;State_co&quot;</span><span class="p">,</span> <span class="n">covariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="n">DataType</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;DataType&quot;</span><span class="p">)</span>
-
-<span class="n">Bindings</span> <span class="o">=</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
 
 
 <span class="k">def</span> <span class="nf">is_iterable</span><span class="p">(</span><span class="n">obj</span><span class="p">):</span>

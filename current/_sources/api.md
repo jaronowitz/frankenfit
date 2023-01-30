@@ -204,6 +204,9 @@ Foobar.
 
 .. autofunction:: dict_field
 
+.. autoclass:: frankenfit.params.UserLambdaHyperparams
+    :members:
+
 ```
 
 (transform-library)=
