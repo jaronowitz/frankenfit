@@ -85,7 +85,7 @@ from .core import (
     Transform,
     callchain,
 )
-from .params import HP, UnresolvedHyperparameterError, params
+from .params import HP, UnresolvedHyperparameterError, UserLambdaHyperparams, params
 
 _LOG = logging.getLogger(__name__)
 
@@ -389,69 +389,6 @@ class ForBindings(Generic[DataType], UniversalTransform[DataType]):
                 bindings,
                 *results,
             )
-
-
-PROHIBITED_USER_LAMBDA_PARAMETER_KINDS = (
-    inspect.Parameter.POSITIONAL_ONLY,
-    inspect.Parameter.VAR_POSITIONAL,
-    inspect.Parameter.VAR_KEYWORD,
-)
-
-
-@define
-class UserLambdaHyperparams:
-    required: set[str]
-    optional: set[str]
-
-    _Self = TypeVar("_Self", bound="UserLambdaHyperparams")
-
-    @classmethod
-    def from_function_sig(cls: type[_Self], fun: Callable, n_data_args: int) -> _Self:
-        required: set[str] = set()
-        optional: set[str] = set()
-        fun_params = inspect.signature(fun).parameters
-        if len(fun_params) <= n_data_args:
-            return cls(required=required, optional=optional)
-
-        for name, info in list(fun_params.items())[n_data_args:]:
-            if info.kind in PROHIBITED_USER_LAMBDA_PARAMETER_KINDS:
-                raise TypeError(
-                    f"Filter: user lambda function's signature must allow requested "
-                    f"hyperparameters to be supplied non-variadically by name at "
-                    f"call-time but parameter {name!r} has kind {info.kind}. Full "
-                    f"signature: {inspect.signature(fun)}"
-                )
-            if info.default is inspect._empty:
-                required.add(name)
-            else:
-                optional.add(name)
-
-        return cls(required=required, optional=optional)
-
-    def required_or_optional(self):
-        return self.required.union(self.optional)
-
-    def collect_bindings(self, bindings: Bindings) -> Bindings:
-        result: Bindings = {}
-        missing: set[str] = set()
-        for hp in self.required:
-            try:
-                result[hp] = bindings[hp]
-            except KeyError:
-                missing.add(hp)
-                continue
-        if missing:
-            raise UnresolvedHyperparameterError(
-                f"Requested the values of hyperparameters {self.required}, but the "
-                f"following hyperparameters were not resolved at fit-time: {missing}. "
-                f"Bindings were: {bindings}"
-            )
-        for hp in self.optional:
-            try:
-                result[hp] = bindings[hp]
-            except KeyError:
-                continue
-        return result
 
 
 @params(auto_attribs=False)

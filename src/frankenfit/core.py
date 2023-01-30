@@ -66,7 +66,6 @@ from typing import (
     Any,
     Callable,
     ClassVar,
-    Dict,
     Generic,
     Iterable,
     Iterator,
@@ -84,7 +83,7 @@ from typing import (
 import graphviz  # type: ignore
 from attrs import NOTHING, Factory, define, field, fields_dict
 
-from .params import HP, UnresolvedHyperparameterError, params
+from .params import HP, Bindings, UnresolvedHyperparameterError, params
 
 _LOG = logging.getLogger(__name__)
 
@@ -97,8 +96,6 @@ R_co = TypeVar("R_co", covariant=True, bound="Transform")
 State = TypeVar("State")
 State_co = TypeVar("State_co", covariant=True)
 DataType = TypeVar("DataType")
-
-Bindings = Dict[str, Any]
 
 
 def is_iterable(obj):
