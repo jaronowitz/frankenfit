@@ -1326,6 +1326,9 @@ class Assign(DataFrameTransform):
         ),
     ] = field(factory=dict)
 
+    _visualize_skip_params = ["multi_column_assignments", "named_column_assignments"]
+    _visualize_nonparam_attribs = ["assignments"]
+
     # Assign([assignment_dict][, tag=][, kwarg1=][, kwarg2][...])
     # ... with only one of assigment_dict or kwargs
     def __init__(self, *args, tag=NOTHING, **kwargs):

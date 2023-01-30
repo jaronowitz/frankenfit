@@ -813,6 +813,9 @@ class Transform(ABC, Generic[DataType], PipelineMember):
 
     backend = LOCAL_BACKEND  # type: Backend
 
+    _visualize_skip_params: ClassVar[Sequence[str] | None] = None
+    _visualize_nonparam_attribs: ClassVar[Sequence[str] | None] = None
+
     pure = True
     """
     Attribute indicating wether this Transform represents a "pure" computation, i.e. one
@@ -1107,7 +1110,11 @@ class Transform(ABC, Generic[DataType], PipelineMember):
         children_as_elements_of_params: dict[str, list[PipelineMember]] = {}
         param_reprs: dict[str, str] = {}
 
-        for name in self.params():
+        skip_params = set(self._visualize_skip_params or [])
+        nonparam_attribs = set(self._visualize_nonparam_attribs or [])
+        params = (set(self.params()) - skip_params) | nonparam_attribs
+
+        for name in params:
             if name == "tag":
                 continue
             val = getattr(self, name)
@@ -1123,6 +1130,12 @@ class Transform(ABC, Generic[DataType], PipelineMember):
                     if isinstance(x, PipelineMember):
                         tvals.append(x)
                         has_children = True
+            # for Transform-type values in a dict param
+            elif isinstance(val, dict) and len(val) > 0:
+                for key, x in val.items():
+                    if isinstance(x, PipelineMember):
+                        has_children = True
+                        children_as_params[f"{name}[{key!r}]"] = x
             if tvals:
                 children_as_elements_of_params[name] = tvals
             # for non-Transform params, collect their values to be displayed in the

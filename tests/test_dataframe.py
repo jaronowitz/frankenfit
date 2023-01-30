@@ -796,6 +796,9 @@ def test_Assign(diamonds_df: pd.DataFrame):
         # too many columns for a named assignment
         do.assign(foo=do[["price", "carat"]]).apply(diamonds_df)
 
+    # don't crash
+    pipeline.pipe(np.log1p).visualize()
+
 
 def test_Assign_child_state(diamonds_df: pd.DataFrame):
     do = ff.DataFramePipeline()
