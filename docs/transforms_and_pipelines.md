@@ -31,7 +31,7 @@ manipulation that must first be **[`fit`](frankenfit.Transform.fit)** on some
 **[`apply`](frankenfit.FitTransform.apply)** to transform some **apply data**.
 
 Frankenfit includes an extensive library of built-in Transforms, and ordinarily one will
-create instances of these Transforms by using the so-called ["chall-chain
+create instances of these Transforms by using the so-called ["call-chain
 API"](call-chain-api) provided by [`Pipeline`](frankenfit.Pipeline) objects. For
 example, a Pipeline (specifically a [`DataFramePipeline`](frankenfit.DataFramePipeline))
 comprising a [`Winsorize`](frankenfit.dataframe.Winsorize) Transform followed by a
